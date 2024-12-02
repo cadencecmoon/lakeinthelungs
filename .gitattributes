@@ -1,0 +1,5 @@
+build/* linguist-vendored
+docs/* linguist-vendored
+tools/scripts/* linguist-vendored
+tools/toolchains/* linguist-vendored
+thirdparty/* linguist-vendored
