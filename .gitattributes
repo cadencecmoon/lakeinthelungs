@@ -1,0 +1,3 @@
+build/* linguist-vendored
+docs/* linguist-vendored
+thirdparty/* linguist-vendored

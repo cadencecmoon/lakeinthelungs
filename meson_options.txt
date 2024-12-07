@@ -1,0 +1,28 @@
+# Lake in the Lungs
+# Copyright (c) 2024 Cadence C. Moon
+# The source code is licensed under a standard MIT license.
+
+option('x86_avx',  type : 'boolean', value : true, description : 'Enable AVX intrinsics in SIMD math')
+
+option('docs',     type : 'boolean', value : true, description : 'Generate Doxygen documentation')
+
+# linux display backends
+option('win32',    type : 'feature', value : 'auto', description : 'Native Windows display backend')
+option('cocoa',    type : 'feature', value : 'auto', description : 'Native MacOS/iOS display backend')
+option('wayland',  type : 'feature', value : 'auto', description : 'Wayland Linux display backend')
+option('xcb',      type : 'feature', value : 'auto', description : 'X11 (XCB) Linux display backend') 
+option('kms',      type : 'feature', value : 'auto', description : 'DRM/KMS Linux/Android display backend')
+
+# audio backends
+option('core',     type : 'feature', value : 'auto', description : 'CoreAudio apple audio backend')
+option('wasapi',   type : 'feature', value : 'auto', description : 'WASAPI windows audio backend')
+option('xaudio2',  type : 'feature', value : 'auto', description : 'XAudio2 windows audio backend')
+option('aaudio',   type : 'feature', value : 'auto', description : 'AAudio android audio backend')
+option('alsa',     type : 'feature', value : 'auto', description : 'ALSA linux audio backend')
+option('jack',     type : 'feature', value : 'auto', description : 'JACK unix audio backend')
+option('pipewire', type : 'feature', value : 'auto', description : 'PipeWire linux audio backend')
+option('pulse',    type : 'feature', value : 'auto', description : 'PulseAudio linux audio backend')
+option('oss',      type : 'feature', value : 'auto', description : 'OSS linux/bsd audio backend')
+
+# rendering backends
+option('vulkan',   type : 'feature', value : 'enabled', description : 'Vulkan rendering backend')
