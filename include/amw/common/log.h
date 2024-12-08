@@ -9,6 +9,9 @@
 
 AMW_C_DECL_BEGIN
 
+#define log_debug(...)
+#define log_info(...)
+#define log_warn(...)
 #define log_error(...)
 #define log_fatal(...)
 

@@ -55,8 +55,8 @@ typedef AMW_ATOMIC(i64)                 at_i64_t;
 
 #define at_store_relaxed(var, value) \
     at_store_explicit(var, value, memory_model_relaxed)
-#define at_read_relaxed(var, dst) \
-    at_read_explicit(var, dst, memory_model_relaxed)
+#define at_read_relaxed(var) \
+    at_read_explicit(var, memory_model_relaxed)
 
 #define at_compare_exchange_strong_relaxed(dst, exp, src)    \
     at_compare_exchange_strong_relaxed(dst, exp, src,        \

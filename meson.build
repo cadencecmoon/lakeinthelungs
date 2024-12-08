@@ -71,7 +71,7 @@ dep_amw = declare_dependency(
 
 lakeinthelungs = executable(
     'lakeinthelungs',
-    sources,
+    lake_sources,
     c_args : defs,
     dependencies : dep_amw,
     install : false)

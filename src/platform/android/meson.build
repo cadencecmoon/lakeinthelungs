@@ -23,6 +23,6 @@ if sys == 'android'
         include_directories : [include_directories(android_ndk + '/sources/android/native_app_glue')],
         link_with : lib_android_native_glue)
 
-    deps += [ dep_android, dep_log, dep_android_native_glue, dep_threads, dep_rt, dep_dl ]
+    deps += [ dep_android, dep_log, dep_android_native_glue ]
     summary_sys_apis += [ 'Android' ]
 endif

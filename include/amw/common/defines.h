@@ -299,12 +299,22 @@ extern "C" {
 
 /* unreachable */
 #if !defined(AMW_UNREACHABLE)
-    #if defined(AMW_CC_MSVC_VERSION)
-        #define AMW_UNREACHABLE __assume(false)
-    #elif defined(AMW_CC_CLANG_VERSION) || defined(AMW_CC_GNUC_VERSION)
+    #if defined(AMW_CC_CLANG_VERSION) || defined(AMW_CC_GNUC_VERSION)
         #define AMW_UNREACHABLE __builtin_unreachable()
+    #elif defined(AMW_CC_MSVC_VERSION)
+        #define AMW_UNREACHABLE __assume(false)
     #else
         #define AMW_UNREACHABLE assertion(!"Unreachable code branch!");
+    #endif
+#endif
+
+/* unused */
+#if !defined(AMW_UNUSED)
+    #if defined(AMW_CC_CLANG_VERSION) || defined(AMW_CC_GNUC_VERSION)
+        #define AMW_UNUSED __attribute__((unused))
+    #else
+        /* As far as I know, MSVC doesn't have an 'unused' attribute equivalent. */
+        #define AMW_UNUSED 
     #endif
 #endif
 
@@ -380,6 +390,7 @@ typedef double      f64;
 #undef clamp
 #undef clamp_zo
 #undef bitmask
+#undef arraysize
 
 #define min(x, y)       (((x) < (y)) ? (x) : (y))
 #define max(x, y)       (((x) > (y)) ? (x) : (y))
@@ -387,14 +398,56 @@ typedef double      f64;
 #define clamp(x, a, b)  (((x) < (a)) ? (a) : (((x) > (b)) ? (b) : (x)))
 #define clamp_zo(x)     (clamp(x, 0, 1))
 #define bitmask(n)      ((1u << (n)) - 1u)
+#define arraysize(a)    (sizeof(a) / sizeof(a[0]))
 
 AMW_INLINE bool is_pow2(size_t x) {
     return (x != 0) && ((x & (x - 1)) == 0);
 }
 
+AMW_INLINE i32 most_significant_bit_idx(u32 x) {
+#if AMW_CC_GNUC_VERSION_CHECK(3,4,0)
+    if (x == 0)
+        return -1;
+    return 31 - __builtin_clz(x);
+#elif defined(AMW_CC_MSVC_VERSION)
+    u32 idx;
+    if (_BitScanReverse(&idx, x)) {
+        return (i32)idx;
+    }
+    return -1;
+#else
+    /* Based off of Bit Twiddling Hacks by Sean Eron Anderson
+     * <seander@cs.stanford.edu>, released in the public domain.
+     * http://graphics.stanford.edu/~seander/bithacks.html#IntegerLog */
+    const u32 b[] = { 0x2, 0xC, 0xF0, 0xFF00, 0xFFFF0000 };
+    const i32 S[] = { 1, 2, 4, 8, 16 };
+
+    i32 msb_idx = 0;
+    i32 i;
+
+    if (x == 0)
+        return -1;
+    for (i = 4; i >= 0; i--)  {
+        if (x & b[i]) {
+            x >>= S[i];
+            msb_idx |= S[i];
+        }
+    }
+    return msb_idx;
+#endif
+}
+
+AMW_INLINE bool has_exactly_one_bit_set(u32 x) {
+    if (x && !(x & (x - 1)))
+        return true;
+    return false;
+}
+
 enum result {
     result_success = 0,
-    result_unknown = -1,
+    result_error_unknown,
+    result_error_invalid_context,
+    result_error_no_fallback,
 };
 
 AMW_C_DECL_END

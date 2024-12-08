@@ -12,7 +12,11 @@ if sys == 'linux' or sys == 'bsd'
     build_wayland = (dep_wayland_client.found() and dep_wayland_protocols.found() and
                         wayland_scanner.found() and dep_xkbcommon.found())
     if build_wayland
-        #engine += files()
+        engine += files(
+            'wl_display.c',
+            'wl_monitor.c',
+            'wl_window.c',
+        )
 
         defs += [ 
             '-DAMW_NATIVE_WAYLAND=1', 
@@ -42,7 +46,7 @@ if sys == 'linux' or sys == 'bsd'
                 input : protocol_xml_path,
                 output : name + '-protocol-code.c',
                 install : false)
-            sources += [ client_header, private_code ]
+            engine += [ client_header, private_code ]
         endforeach
 
         summary_sys_apis += [ 'Wayland' ]

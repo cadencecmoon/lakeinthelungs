@@ -8,7 +8,6 @@ if sys == 'darwin'
     defs += [
         '-DAMW_PLATFORM_APPLE=1',
         '-DVK_USE_PLATFORM_METAL_EXT' ]
-    deps += [ dep_threads, dep_rt, dep_dl ]
     deps += declare_dependency(link_args: [
         '-framework', 'Cocoa',
         '-framework', 'IOKit',
