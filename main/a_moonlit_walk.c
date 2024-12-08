@@ -4,15 +4,16 @@
 
 #include <amw/a_moonlit_walk.h>
 
+/** Collects handles for individual systems that build up the game engine context. */
+struct a_moonlit_walk {
+    at_u32_t flags;
+};
+
 static void a_moonlit_walk_cleanup__(struct a_moonlit_walk *AMW)
 {
-    hadal_fini(AMW->hadal);
+    hadal_fini();
+    iazerop(AMW);
 }
-
-#define NEXT_FRAME(idx)     (((idx) + 1) % AMW_MAX_FRAMES)
-#define CURRENT_FRAME(idx)  ((idx) % AMW_MAX_FRAMES)
-#define PREV_FRAME(idx)     (((idx) - 1 + AMW_MAX_FRAMES) % AMW_MAX_FRAMES)
-#define LAST_FRAME(idx)     (((idx) - 2 + AMW_MAX_FRAMES) % AMW_MAX_FRAMES)
 
 static void a_moonlit_walk_main__(
         struct riven *riven,
@@ -20,6 +21,11 @@ static void a_moonlit_walk_main__(
         size_t thread_count,
         riven_argument_t argument)
 {
+    i32 i, frame_idx = 0;
+    u32 time_last = 0, time_now = ticks_counter();
+    f64 dt_frequency = 1000.0/(f64)ticks_frequency(); /* in ms */
+    f64 dt = 0;
+
     struct a_moonlit_walk AMW;
     iazero(AMW);
 
@@ -27,39 +33,33 @@ static void a_moonlit_walk_main__(
     (void)threads;
     (void)thread_count;
 
-    AMW.riven = riven;
-
     { /* engine initialization */
         struct application_config *config = (struct application_config *)argument;
 
-        AMW.hadal = hadal_init(
+        i = hadal_init(
             config->hadal.api,
             config->hadal.width, 
             config->hadal.height,
             config->hadal.title,
             config->hadal.allow_headless
         );
-        if (!AMW.hadal) {
+        if (i != result_success) {
             log_fatal("Can't initialize the display backend.");
             a_moonlit_walk_cleanup__(&AMW);
             return; 
         }
+        hadal_visible(true);
     }
 
-    i32 i, frame_idx = 0;
-    u32 time_last = 0, time_now = ticks_counter();
-    f64 dt_frequency = 1000.0/(f64)ticks_frequency(); /* in ms */
-    f64 dt = 0;
-
-    /* TODO run 120 frames and exit */
-    i32 close_counter = 120;
+    /* TODO run 2048 frames and exit */
+    i32 close_counter = 2048;
 
     struct framedata frames[AMW_MAX_FRAMES];
     for (i = 0; i < AMW_MAX_FRAMES; i++) {
         frames[i].frame_idx = i;
         frames[i].delta_time = 0.0;
         frames[i].AMW = &AMW;
-        frames[i].previous_frame = &frames[PREV_FRAME(i)];
+        frames[i].previous_frame = &frames[(i - 1 + AMW_MAX_FRAMES) % AMW_MAX_FRAMES];
     }
 
     struct riven_tear tears[3];
@@ -77,7 +77,7 @@ static void a_moonlit_walk_main__(
         tears[i].argument = NULL;
     }
 
-    struct framedata *simulation_frame = &frames[CURRENT_FRAME(frame_idx)];
+    struct framedata *simulation_frame = &frames[frame_idx % AMW_MAX_FRAMES];
     struct framedata *rendering_frame = NULL;
     struct framedata *gpuexec_frame = NULL;
 
@@ -87,17 +87,22 @@ static void a_moonlit_walk_main__(
         time_now = ticks_counter();
         dt = (f64)((time_now - time_last) * dt_frequency); /* deltatime in ms */
 
-        { /* GAME WORLD SIMULATION */
+        /* GAME WORLD SIMULATION */
+        tears[AMW_SIMULATION_TEAR_IDX].argument = simulation_frame;
+        if (simulation_frame) {
             simulation_frame->delta_time = dt;
-            tears[AMW_SIMULATION_TEAR_IDX].argument = simulation_frame;
-        }
-        
-        { /* VISUAL & AUDITORY RENDERING */
-            tears[AMW_RENDERING_TEAR_IDX].argument = rendering_frame;
         }
 
-        { /* GPU EXECUTION OF COMMAND BUFFERS */
-            tears[AMW_GPUEXEC_TEAR_IDX].argument = gpuexec_frame;
+        /* VISUAL & AUDITORY RENDERING */
+        tears[AMW_RENDERING_TEAR_IDX].argument = rendering_frame;
+        if (rendering_frame) {
+            /* TODO */
+        }
+
+        /* GPU EXECUTION OF COMMAND BUFFERS */
+        tears[AMW_GPUEXEC_TEAR_IDX].argument = gpuexec_frame;
+        if (gpuexec_frame) {
+            /* TODO */
         }
 
         /* execute the mainloop tears */
@@ -105,13 +110,15 @@ static void a_moonlit_walk_main__(
 
         gpuexec_frame = rendering_frame;
         rendering_frame = simulation_frame;
-        simulation_frame = (at_read_explicit(&AMW.flags, memory_model_acq_rel) & amw_flag_dont_continue_work) ? NULL : &frames[NEXT_FRAME(frame_idx++)];
+        simulation_frame = (at_read_relaxed(&AMW.flags) & amw_flag_dont_continue_work) 
+            == amw_flag_dont_continue_work ? NULL : &frames[(++frame_idx) % AMW_MAX_FRAMES];
 
-        /* TODO run 120 frames and exit */
-        if (--close_counter < 0)
-            at_fetch_or_explicit(&AMW.flags, amw_flag_dont_continue_work, memory_model_release);
+        /* TODO run 2048 frames and exit */
+        close_counter--;
+        if (close_counter < 0 && simulation_frame)
+            at_fetch_or_relaxed(&AMW.flags, amw_flag_dont_continue_work);
 
-    } while (((at_read_explicit(&AMW.flags, memory_model_seq_cst) & (amw_flag_run_gameloop | amw_flag_forced_exit)) == amw_flag_run_gameloop));
+    } while (!(at_read_relaxed(&AMW.flags) & (amw_flag_forced_exit)) && (simulation_frame || rendering_frame || gpuexec_frame));
     log_debug("MAINLOOP - - - END %s", at_read_relaxed(&AMW.flags) & amw_flag_forced_exit ? "!! FORCED EXIT" : "");
 
     a_moonlit_walk_cleanup__(&AMW);

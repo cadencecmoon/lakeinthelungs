@@ -71,17 +71,7 @@ struct application_config {
 enum amw_flag {
     amw_flag_dont_continue_work = (1u << 0), /**< Don't continue with more work - finish all current frames and exit. */
 
-    amw_flag_run_gameloop = (1u << 30), /**< A flag for the while condition. */
     amw_flag_forced_exit  = (1u << 31), /**< Close immediately, can't continue nor finish the work. */
-};
-
-/** Collects handles for individual systems that build up the game engine context. */
-struct a_moonlit_walk {
-    at_u32_t flags;
-
-    struct ipomoea *ia;
-    struct riven   *riven;
-    struct hadal   *hadal;
 };
 
 AMWAPI int a_moonlit_walk(

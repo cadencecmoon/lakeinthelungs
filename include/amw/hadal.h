@@ -41,10 +41,10 @@ AMWAPI bool hadal_api_is_supported(const u32 api);
 
 /** Get the enum hadal_api of the currently ran backend. If hadal is not 
  *  properly initialized or NULL is passed, hadal_api_auto is returned. */
-AMWAPI u32 hadal_api_get_current(const struct hadal *hadal);
+AMWAPI u32 hadal_api_get_current(void);
 
 /** Initializes the display backend. */
-AMWAPI struct hadal *hadal_init(
+AMWAPI i32 hadal_init(
         enum hadal_api api, 
         u32 window_width,
         u32 window_height,
@@ -56,21 +56,19 @@ AMWAPI struct hadal *hadal_init(
  *  work then, if requested, the display will enter headless mode and NULL out some stuff.
  *  In headless mode, the display api will work correctly with lack of some functionality,
  *  and there is no real graphical window to present - screenshots will still work tho. */
-AMWAPI i32 hadal_fallback(struct hadal *hadal, bool allow_headless);
+AMWAPI i32 hadal_fallback(bool allow_headless);
 
 /** Closes the display backend, including all window, input or event functionality. */
-AMWAPI void hadal_fini(struct hadal *hadal);
+AMWAPI void hadal_fini(void);
 
 /** The size of a system window in screen coordinates, the framebuffer size can be different. */
 AMWAPI void hadal_window_size(
-        const struct hadal *hadal, 
         u32 *out_width, 
         u32 *out_height);
 
 /** Get the current framebuffer size. This value can be different from the window size,
  *  depending on monitor configuration and fractional DPI scale on some platforms. */
 AMWAPI void hadal_framebuffer_size(
-        const struct hadal *hadal, 
         u32 *out_width, 
         u32 *out_height);
 
@@ -91,11 +89,11 @@ enum hadal_flag {
     hadal_flag_focused        = (1u << 10),
     hadal_flag_focus_on_show  = (1u << 11),
     hadal_flag_activated      = (1u << 12),
-    hadal_flag_initialized    = (1u << 13), /* always set, on a correct flags value */
+    hadal_flag_initialized    = (1u << 13), /* always set on a correct flags value */
 };
 
 /** Retrieve current hadal flags from non-local code, read only. */
-AMWAPI u32 hadal_flags(const struct hadal *hadal);
+AMWAPI u32 hadal_flags(void);
 
 /** Control: hadal_flag_should_close.
  *
@@ -103,14 +101,14 @@ AMWAPI u32 hadal_flags(const struct hadal *hadal);
  *  and all necessary termination or reinitialization must be done in this frame.
  *  Ofc., the flag can be ignored by setting it to false (if it was a close request 
  *  from the host windowing system, this can lead to undefined behaviour). */
-AMWAPI void hadal_should_close(struct hadal *hadal, bool should);
+AMWAPI void hadal_should_close(bool should);
 
 /** Control: hadal_flag_visible.
  *
  *  If the flag is true, the window surface is created and images are being
  *  rendered to the swapchain. Setting it to false will hide the window. If the 
  *  visible value is equal to the current visible flag, no operation is done. */
-AMWAPI void hadal_visible(struct hadal *hadal, bool visible);
+AMWAPI void hadal_visible(bool visible);
 
 AMW_C_DECL_END
 #endif /* _AMW_HADAL_H */
