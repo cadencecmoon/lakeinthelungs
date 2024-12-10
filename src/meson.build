@@ -5,7 +5,7 @@
 subdir('platform')
 subdir('audio')
 subdir('memory')
-subdir('renderer')
+subdir('vulkan')
 
 engine += files(
     'riven.c',
