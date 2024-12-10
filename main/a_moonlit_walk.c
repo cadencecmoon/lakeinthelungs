@@ -4,14 +4,10 @@
 
 #include <amw/a_moonlit_walk.h>
 
-/** Collects handles for individual systems that build up the game engine context. */
-struct a_moonlit_walk {
-    at_u32_t flags;
-};
-
 static void a_moonlit_walk_cleanup__(struct a_moonlit_walk *AMW)
 {
-    hadal_fini();
+    hadal_fini(AMW->hadal);
+    iafini(AMW->ia);
     iazerop(AMW);
 }
 
@@ -29,26 +25,29 @@ static void a_moonlit_walk_main__(
     struct a_moonlit_walk AMW;
     iazero(AMW);
 
-    /* TODO */
-    (void)threads;
-    (void)thread_count;
-
     { /* engine initialization */
         struct application_config *config = (struct application_config *)argument;
 
-        i = hadal_init(
+        i = iainit(AMW.ia, threads, thread_count);
+        if (i != result_success) {
+            log_fatal("Not enough system memory to initialize the tagged heap allocator.");
+            a_moonlit_walk_cleanup__(&AMW);
+            return;
+        }
+
+        AMW.hadal = hadal_init(
             config->hadal.api,
             config->hadal.width, 
             config->hadal.height,
             config->hadal.title,
             config->hadal.allow_headless
         );
-        if (i != result_success) {
+        if (!AMW.hadal) {
             log_fatal("Can't initialize the display backend.");
             a_moonlit_walk_cleanup__(&AMW);
             return; 
         }
-        hadal_visible(true);
+        hadal_visible(AMW.hadal, true);
     }
 
     /* TODO run 2048 frames and exit */
@@ -56,14 +55,16 @@ static void a_moonlit_walk_main__(
 
     struct framedata frames[AMW_MAX_FRAMES];
     for (i = 0; i < AMW_MAX_FRAMES; i++) {
-        frames[i].frame_idx = i;
-        frames[i].delta_time = 0.0;
+        frames[i].idx = i;
+        frames[i].dt = 0.0;
         frames[i].AMW = &AMW;
         frames[i].previous_frame = &frames[(i - 1 + AMW_MAX_FRAMES) % AMW_MAX_FRAMES];
     }
 
     struct riven_tear tears[3];
-
+    for (i = 0; i < 3; i++) {
+        tears[i].argument = NULL;
+    }
     tears[AMW_SIMULATION_TEAR_IDX].procedure = a_moonlit_walk_simulation_tear__;
     tears[AMW_SIMULATION_TEAR_IDX].name = "a_moonlit_walk_simulation_tear__";
 
@@ -72,10 +73,6 @@ static void a_moonlit_walk_main__(
 
     tears[AMW_GPUEXEC_TEAR_IDX].procedure = a_moonlit_walk_gpuexec_tear__;
     tears[AMW_GPUEXEC_TEAR_IDX].name = "a_moonlit_walk_gpuexec_tear__";
-
-    for (i = 0; i < 3; i++) {
-        tears[i].argument = NULL;
-    }
 
     struct framedata *simulation_frame = &frames[frame_idx % AMW_MAX_FRAMES];
     struct framedata *rendering_frame = NULL;
@@ -90,7 +87,7 @@ static void a_moonlit_walk_main__(
         /* GAME WORLD SIMULATION */
         tears[AMW_SIMULATION_TEAR_IDX].argument = simulation_frame;
         if (simulation_frame) {
-            simulation_frame->delta_time = dt;
+            simulation_frame->dt = dt;
         }
 
         /* VISUAL & AUDITORY RENDERING */
@@ -133,7 +130,6 @@ int a_moonlit_walk(
 {
     int res = result_success;
     size_t riven_bytes;
-    void *riven;
 
     struct application_config config;
     iazero(config);
@@ -166,7 +162,7 @@ int a_moonlit_walk(
         config.riven.threads,       /* How many CPU threads to run, including the main thread. */
         a_moonlit_walk_main__,      /* Main riven tear, serves as the entry point. */
         &config);                   /* Argument holding hints for other systems' configuration */
-    riven = malloc(riven_bytes);
+    void *riven = malloc(riven_bytes);
 
     riven_unveil_rift(
         riven,

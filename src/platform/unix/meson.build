@@ -4,7 +4,6 @@
 
 if have_posix
     engine += files(
-        'dll.c',
         'posix_threads.c',
         'posix_time.c',
     )

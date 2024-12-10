@@ -384,21 +384,30 @@ typedef uint64_t    u64;
 typedef float       f32;
 typedef double      f64;
 
-#undef min
-#undef max
-#undef swap
-#undef clamp
-#undef clamp_zo
-#undef bitmask
-#undef arraysize
-
+#ifndef min
 #define min(x, y)       (((x) < (y)) ? (x) : (y))
+#endif
+#ifndef max
 #define max(x, y)       (((x) > (y)) ? (x) : (y))
-#define swap(a,b)       { AMW_TYPEOF(a) temp_ = a; a = b; b = temp_; }
+#endif
+#ifndef clamp
 #define clamp(x, a, b)  (((x) < (a)) ? (a) : (((x) > (b)) ? (b) : (x)))
+#endif
+#ifndef clamp_zo
 #define clamp_zo(x)     (clamp(x, 0, 1))
+#endif
+#ifndef bitmask
 #define bitmask(n)      ((1u << (n)) - 1u)
+#endif
+#ifndef arraysize
 #define arraysize(a)    (sizeof(a) / sizeof(a[0]))
+#endif
+#ifndef xorswap
+#define xorswap(a,b)    { if (x != y) { *a ^= *b; *b ^= *a; *x ^= *b; }}
+#endif
+#ifndef swap
+#define swap(a,b)       { AMW_TYPEOF(a) temp_ = a; a = b; b = temp_; }
+#endif
 
 AMW_INLINE bool is_pow2(size_t x) {
     return (x != 0) && ((x & (x - 1)) == 0);
@@ -448,6 +457,9 @@ enum result {
     result_error_unknown,
     result_error_invalid_context,
     result_error_no_fallback,
+    result_error_loading_dll,
+    result_error_proc_address_dll,
+    result_error_missing_wayland,
 };
 
 AMW_C_DECL_END

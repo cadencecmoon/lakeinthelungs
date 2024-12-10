@@ -47,6 +47,7 @@ if sys == 'linux' or sys == 'bsd'
                 output : name + '-protocol-code.c',
                 install : false)
             engine += [ client_header, private_code ]
+            message('Generating Wayland \'' + name + '.xml\' protocol code.')
         endforeach
 
         summary_sys_apis += [ 'Wayland' ]

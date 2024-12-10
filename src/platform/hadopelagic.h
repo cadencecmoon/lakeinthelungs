@@ -35,35 +35,29 @@ struct window {
 struct hadopelagic_api {
     u32 api, last_api_fallback;
 
-    i32     (*init)(void);
-    void    (*fini)(void);
+    i32     (*init)(struct hadal *hadal);
+    void    (*fini)(struct hadal *hadal);
 
-    i32     (*window_create)(struct window *window, u32 width, u32 height);
-    void    (*window_destroy)(struct window *window);
+    i32     (*window_create)(struct hadal *hadal, u32 width, u32 height);
+    void    (*window_destroy)(struct hadal *hadal);
 
-    void    (*get_window_size)(const struct window *window, u32 *out_width, u32 *out_height);
-    void    (*get_framebuffer_size)(const struct window *window, u32 *out_width, u32 *out_height);
+    void    (*get_window_size)(const struct hadal *hadal, u32 *out_width, u32 *out_height);
+    void    (*get_framebuffer_size)(const struct hadal *hadal, u32 *out_width, u32 *out_height);
 
     /* Control hadal flags: */
-    void    (*visible_show)(struct window *window); /**< flag visible : true */
-    void    (*visible_hide)(struct window *window); /**< flag visible : false */
-
-    HADOPELAGIC_WAYLAND_API_WL_STATE
-    HADOPELAGIC_WAYLAND_API_XKB_STATE
+    void    (*visible_show)(struct hadal *hadal); /**< flag visible : true */
+    void    (*visible_hide)(struct hadal *hadal); /**< flag visible : false */
 };
 
 struct hadal {
     at_u32_t                flags;
     struct hadopelagic_api  api;
-    struct window          *window;
+    struct window           window;
     struct monitor        **monitors;
     u32                     monitor_count;
 
     HADOPELAGIC_WAYLAND_PLATFORM_STATE
 };
-
-/** The global state of the platform abstraction layer. */
-extern struct hadal HADAL;
 
 /** Implemented in AMW_DEBUG only, checks internal API. */
 extern bool _hadal_debug_validate_display_api(const struct hadopelagic_api *api);

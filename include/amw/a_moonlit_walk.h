@@ -74,6 +74,15 @@ enum amw_flag {
     amw_flag_forced_exit  = (1u << 31), /**< Close immediately, can't continue nor finish the work. */
 };
 
+/** Collects handles for individual systems that build up the game engine context. */
+struct a_moonlit_walk {
+    at_u32_t flags;
+
+    struct ipomoea *ia;
+    struct hadal *hadal;
+    struct riven *riven;
+};
+
 AMWAPI int a_moonlit_walk(
         int (*main__)(struct application_config *, int, char **), 
         int argc, char **argv);
@@ -109,10 +118,10 @@ AMW_RIVENS_TEARS(a_moonlit_walk_rendering_tear__);
 AMW_RIVENS_TEARS(a_moonlit_walk_gpuexec_tear__);
 
 struct framedata {
-    u32             frame_idx;          /**< The index of the current frames, incremented every frame. Should be cycled with %AMW_MAX_FRAMES. */
-    f64             delta_time;         /**< A seed for simulation, the time it took to complete the last frame. */
+    u32             idx;                /**< The index of the current frames, incremented every frame. Should be cycled with %AMW_MAX_FRAMES. */
+    f64             dt;                 /**< A seed for simulation, the time it took to complete the last frame. */
 
-    struct a_moonlit_walk *AMW;         /**< The engine context */
+    struct a_moonlit_walk *AMW;         /**< The engine context. */
 
     /** Holds a pointer to the previous work, read only. */
     const struct framedata *previous_frame;
