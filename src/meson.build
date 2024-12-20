@@ -6,7 +6,12 @@ engine += files(
 )
 
 subdir('arch')
-subdir('sys')
+subdir('android')
+subdir('linux')
+subdir('macos')
+subdir('unix')
+subdir('windows')
+
 subdir('base')
 subdir('audio')
 subdir('graphics')

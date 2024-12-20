@@ -1,5 +1,0 @@
-subdir('android')
-subdir('linux')
-subdir('macos')
-subdir('unix')
-subdir('windows')
