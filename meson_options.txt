@@ -1,0 +1,26 @@
+option('docs',      type : 'boolean', value : false, description : 'Generate Doxygen documentation')
+
+# CPU intrinsics
+option('avx',       type : 'boolean', value : true, description : 'Enable x86_64 AVX extensions')
+option('avx2',      type : 'boolean', value : false, description : 'Enable x86_64 AVX2 and FMA extensions')
+option('neon',      type : 'boolean', value : true, description : 'Enable ARM Neon extensions')
+option('rvv',       type : 'boolean', value : false, description : 'Enable RISC-V Vector extensions')
+
+# Linux display backends
+option('wayland',   type : 'feature', value : 'auto', description : 'Build a Wayland Linux display backend')
+option('xcb',       type : 'feature', value : 'auto', description : 'Build a X11 (XCB) Linux display backend') 
+option('kms',       type : 'feature', value : 'auto', description : 'Build a DRM/KMS Linux display backend')
+
+# Native audio backends
+option('core',      type : 'feature', value : 'auto', description : 'Build a CoreAudio Apple audio backend')
+option('wasapi',    type : 'feature', value : 'auto', description : 'Build a WASAPI Windows audio backend')
+option('xaudio2',   type : 'feature', value : 'auto', description : 'Build a XAudio2 Windows audio backend')
+option('aaudio',    type : 'feature', value : 'auto', description : 'Build an AAudio Android audio backend')
+option('alsa',      type : 'feature', value : 'auto', description : 'Build an ALSA Linux audio backend')
+option('jack',      type : 'feature', value : 'auto', description : 'Build an JACK Unix audio backend')
+option('pipewire',  type : 'feature', value : 'auto', description : 'Build a PipeWire Linux audio backend')
+option('pulse',     type : 'feature', value : 'auto', description : 'Build a PulseAudio Linux audio backend')
+option('oss',       type : 'feature', value : 'auto', description : 'Build an OSS Unix audio backend')
+
+# Rendering backends
+option('vulkan',   type : 'feature', value : 'enabled', description : 'Build a Vulkan rendering backend')

@@ -1,0 +1,3 @@
+main += files(
+    'main.c',
+)
