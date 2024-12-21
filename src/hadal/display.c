@@ -50,7 +50,7 @@ static bool select_api(struct hadal *hadal, uint32_t api, bool allow_headless)
     const size_t count = arraysize(supported_apis);
 
     if (api >= hadal_api_count) {
-        log_error("Invalid backend ID '%X : %s'", id, api_name_string(id));
+        log_error("Invalid hadal backend '%X : %s'", api, api_name_string(api));
         return false;
     }
 
@@ -294,7 +294,9 @@ bool _hadal_debug_validate_display_api(const struct hadopelagic_api *api)
     bool out = true;
     assert_debug(api != NULL);
     const char *name = api_name_string(api->api);
+#ifdef AMW_LOG_DISABLE_OUTPUT
     (void)name;
+#endif
 
 #define APICHECK(fn) \
         if (api->fn == NULL) { log_warn("Missing call in internal hadal API - '_hadal_%s_%s'", name, #fn); out = false; }

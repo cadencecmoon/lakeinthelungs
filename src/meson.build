@@ -1,6 +1,7 @@
 engine += files(
     'a_moonlit_walk.c',
     'gpuexec.c',
+    'log.c',
     'rendering.c',
     'riven.c',
     'simulation.c',
@@ -9,7 +10,6 @@ engine += files(
 
 subdir('asm')
 subdir('hadal')
-subdir('audio')
-subdir('graphics')
-subdir('memory')
-subdir('vulkan')
+subdir('ipomoea')
+subdir('nightingale')
+subdir('srebro')

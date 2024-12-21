@@ -30,7 +30,11 @@ AMWAPI thread_t thread_current(void);
  *  be equal to on how many hardware threads has one physical CPU core. The core 
  *  start index should be 0 or less than core_count-1, the thread_count_per_core
  *  should accomodate for how many CPU cores is the affinity created for. */
-AMWAPI void thread_affinity(uint8_t *stack_temp, thread_t *threads, size_t thread_count, size_t start_index);
+AMWAPI void thread_affinity(
+        uint8_t *stack_memory, 
+        thread_t *threads, 
+        size_t thread_count, 
+        size_t start_index);
 
 /** I had this fiber job system implemented in my old project.
  *  It is based on ideas presented by Naughty Dog in the talk 

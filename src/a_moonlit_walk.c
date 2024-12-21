@@ -146,7 +146,7 @@ int32_t a_moonlit_walk(
         if (hints.window.height <= 0)       hints.window.height = 800;
         if (hints.window.title == NULL)     hints.window.title = "A Moonlit Walk Engine";
 
-        if (hints.riven.thread_count == 0)  hadal_cpu_count((size_t *)&hints.riven.thread_count, NULL, NULL);
+        if (hints.riven.thread_count == 0)  hadal_cpu_count(&hints.riven.thread_count, NULL, NULL);
         if (hints.riven.fiber_count == 0)   hints.riven.fiber_count = 128;
         if (hints.riven.stack_size == 0)    hints.riven.stack_size = 64 * 1024;
         if (hints.riven.log_2_tears == 0)   hints.riven.log_2_tears = 12;
@@ -157,9 +157,8 @@ int32_t a_moonlit_walk(
             !hints.callbacks.gpuexec ||
             !hints.callbacks.cleanup)
         {
-            log_fatal("The application should setup all callbacks (init, simulation, rendering, gpuexec, cleanup). "
-                      "They can be empty procedures, just can't be NULL pointers.");
-            return 1;
+            log_fatal("The application should setup all callbacks (init, simulation, rendering, gpuexec, cleanup).");
+            return result_error_undefined; // TODO
         }
     }
 

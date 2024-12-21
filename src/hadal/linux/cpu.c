@@ -10,7 +10,7 @@
 
 static int32_t cpu_threads, cpu_cores, cpu_packages = 0;
 
-void hadal_cpu_count(size_t *threads, size_t *cores, size_t *packages)
+void hadal_cpu_count(uint32_t *threads, uint32_t *cores, uint32_t *packages)
 {
     if (cpu_packages != 0) goto get_count;
 
@@ -74,7 +74,7 @@ void hadal_cpu_count(size_t *threads, size_t *cores, size_t *packages)
     }
 
 get_count:
-    if (threads)  *threads = (size_t)cpu_threads;
-    if (cores)    *cores = (size_t)cpu_cores;
-    if (packages) *packages = (size_t)cpu_packages;
+    if (threads)  *threads = (uint32_t)cpu_threads;
+    if (cores)    *cores = (uint32_t)cpu_cores;
+    if (packages) *packages = (uint32_t)cpu_packages;
 }

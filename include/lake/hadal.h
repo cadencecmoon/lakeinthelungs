@@ -29,7 +29,7 @@ AMWAPI uint64_t hadal_timer_counter(void);
 /** Returns the frequency of the system timer. */
 AMWAPI uint64_t hadal_timer_frequency(void);
 
-AMWAPI void hadal_cpu_count(size_t *threads, size_t *cores, size_t *packages);
+AMWAPI void hadal_cpu_count(uint32_t *threads, uint32_t *cores, uint32_t *packages);
 
 /** Specifies an ID for a display backend. Not all display backends are 
  *  available, they are different on every platform. */
