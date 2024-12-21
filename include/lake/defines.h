@@ -403,4 +403,11 @@
 #define xorswap(a,b)    { if (a != b) { *a ^= *b; *b ^= *a; *a ^= *b; }}
 #define swap(a,b)       { AMW_TYPEOF(a) temp_ = a; a = b; b = temp_; }
 
+enum result_codes {
+    result_success = 0,
+    result_error_undefined,
+    result_error_invalid_engine_context,
+    result_error_no_fallback,
+};
+
 #endif /* _AMW_DEFINES_H */

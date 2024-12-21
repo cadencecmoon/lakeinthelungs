@@ -19,10 +19,12 @@
 
 struct a_moonlit_walk; /* forward declaration */
 
+/** Holds per-frame memory, pointer to the engine context and data needed to calculate and present a frame. */
 struct amw_framedata {
     uint32_t idx;
     double   dt;
 
+    struct a_moonlit_walk *AMW;
     const struct amw_framedata *previous;
 };
 
@@ -72,9 +74,9 @@ struct amw_hints {
 
 /** Used to control the framework's gameloop. */
 enum amw_flag {
-    amw_flag_parallel_gameloop_execution    = (1u << 0),  /**< Controls if the gameloop stages (simulation, rendering, gpuexec) should work in parallel on different frames, or if false, run in a pipeline one frame at a time. */
+    //amw_flag_parallel_gameloop_execution    = (1u << 0),  /**< Controls if the gameloop stages (simulation, rendering, gpuexec) will run in parallel for different frames, or if false, run in a pipeline one frame at a time. */
 
-    amw_flag_dont_continue_work             = (1u << 30), /**< Don't continue with more work - finish all current frames and exit. */
+    amw_flag_finalize_gameloop              = (1u << 30), /**< Don't continue with more work - finish all current frames and exit. */
     amw_flag_forced_exit                    = (1u << 31), /**< Close immediately, can't continue nor finish the work. */
 };
 
