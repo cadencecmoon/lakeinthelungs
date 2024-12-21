@@ -2,18 +2,14 @@ engine += files(
     'a_moonlit_walk.c',
     'gpuexec.c',
     'rendering.c',
+    'riven.c',
     'simulation.c',
+    'ticks.c',
 )
 
-subdir('arch')
-subdir('android')
-subdir('linux')
-subdir('macos')
-subdir('unix')
-subdir('windows')
-
-subdir('base')
+subdir('asm')
+subdir('hadal')
 subdir('audio')
 subdir('graphics')
-
-subdir('lake')
+subdir('memory')
+subdir('vulkan')

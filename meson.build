@@ -22,6 +22,7 @@ engine = []
 shaders = [] 
 main = []
 cross = []
+include = include_directories('include')
 
 if get_option('buildtype') == 'debug' or get_option('buildtype') == 'debugoptimized'
     defs += '-DAMW_DEBUG'
@@ -39,12 +40,31 @@ endif
 subdir('shaders')
 subdir('src')
 
-lakeinthelungs = executable(
-    'lakeinthelungs', 
-    engine, shaders, main,
+a_moonlit_walk = library(
+    'AMW', engine, shaders,
     c_args : defs,
     dependencies : deps,
-    include_directories : [ 'src' ],
+    include_directories : include,
+    install : false)
+dep_amw = declare_dependency(
+    include_directories : include,
+    link_args : cross,
+    link_with : a_moonlit_walk)
+
+subdir('main')
+
+lakeinthelungs = executable(
+    'lakeinthelungs', main,
+    c_args : defs,
+    dependencies : dep_amw,
+    include_directories : 'main',
     install : false)
 
 subdir('docs')
+
+summary({
+    'System type' : systype,
+    'Compiler' : cc.get_id(),
+    'Linker' : cc.get_linker_id(),
+    'Build type' : get_option('buildtype'),
+}, bool_yn : true, section : 'A Moonlit Walk Engine')
