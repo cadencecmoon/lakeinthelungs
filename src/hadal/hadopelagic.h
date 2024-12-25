@@ -1,10 +1,10 @@
-#ifndef _AMW_HADOPELAGIC_H
-#define _AMW_HADOPELAGIC_H
+#ifndef _HADOPELAGIC_H
+#define _HADOPELAGIC_H
 
 #include <lake/hadal.h>
 #include <lake/riven.h>
 
-#include "linux/wl_hadopelagic.h"
+#include "linux/wl_hadal.h"
 
 struct monitor {
     char        name[128];
@@ -13,7 +13,7 @@ struct monitor {
     /* A window is binded to a monitor if in fullscreen mode. */
     struct window *window;
 
-    _HADOPELAGIC_WAYLAND_MONITOR_STATE
+    _HADAL_WAYLAND_MONITOR_STATE
 };
 
 struct window {
@@ -25,7 +25,7 @@ struct window {
     /* A window is binded to a monitor if in fullscreen mode. */
     struct monitor *monitor;
 
-    _HADOPELAGIC_WAYLAND_WINDOW_STATE
+    _HADAL_WAYLAND_WINDOW_STATE
 };
 
 struct hadopelagic_api {
@@ -52,11 +52,11 @@ struct hadal {
     struct monitor        **monitors;
     uint32_t                monitor_count;
 
-    _HADOPELAGIC_WAYLAND_PLATFORM_STATE
+    _HADAL_WAYLAND_PLATFORM_STATE
 };
 
 #ifndef AMW_NDEBUG
 extern bool _hadal_debug_validate_display_api(const struct hadopelagic_api *api);
 #endif
 
-#endif /* _AMW_HADOPELAGIC_H */
+#endif /* _HADOPELAGIC_H */

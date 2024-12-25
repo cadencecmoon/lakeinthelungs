@@ -1,5 +1,5 @@
+#include <lake/bedrock/log.h>
 #include <lake/ipomoea.h>
-#include <lake/log.h>
 
 #include "../hadopelagic.h"
 
@@ -87,7 +87,7 @@ static const struct wl_registry_listener registry_listener = {
 bool _hadal_wayland_connect(struct hadal *hadal, uint32_t desired_api)
 {
     struct hadopelagic_api wayland = {
-        .api = hadal_api_wayland,
+        .api = hadal_backend_wayland,
         .init = _hadal_wayland_init,
         .fini = _hadal_wayland_fini,
         .window_create = _hadal_wayland_window_create,
@@ -100,7 +100,7 @@ bool _hadal_wayland_connect(struct hadal *hadal, uint32_t desired_api)
 
 #ifndef AMW_NDEBUG
     if (!_hadal_debug_validate_display_api(&wayland)) {
-        if (desired_api == hadal_api_wayland) {
+        if (desired_api == hadal_backend_wayland) {
             log_error("Internal display API for Wayland is not up to date.");
         }
         return false;
@@ -110,7 +110,7 @@ bool _hadal_wayland_connect(struct hadal *hadal, uint32_t desired_api)
     if (HADOPELAGIC_WL_CORE.module == NULL) {
         HADOPELAGIC_WL_CORE.module = hadal_load_dll("libwayland-client.so.0");
         if (!HADOPELAGIC_WL_CORE.module) {
-            if (desired_api == hadal_api_wayland) {
+            if (desired_api == hadal_backend_wayland) {
                 log_error("Failed to load libwayland-client.so.0");
             }
             return false;
@@ -118,7 +118,7 @@ bool _hadal_wayland_connect(struct hadal *hadal, uint32_t desired_api)
 
         HADOPELAGIC_WL_CORE.display_connect = (PFN_wl_display_connect)hadal_get_proc_address(HADOPELAGIC_WL_CORE.module, "wl_display_connect");
         if (!HADOPELAGIC_WL_CORE.display_connect) {
-            if (desired_api == hadal_api_wayland) {
+            if (desired_api == hadal_backend_wayland) {
                 log_error("Failed to load libwayland-client entry point");
             }
             hadal_close_dll(HADOPELAGIC_WL_CORE.module);
@@ -128,7 +128,7 @@ bool _hadal_wayland_connect(struct hadal *hadal, uint32_t desired_api)
 
     struct wl_display *display = HADOPELAGIC_WL_CORE.display_connect(NULL);
     if (!display) {
-        if (desired_api == hadal_api_wayland) {
+        if (desired_api == hadal_backend_wayland) {
             log_error("Can't connect to a Wayland display.");
         }
         hadal_close_dll(HADOPELAGIC_WL_CORE.module);

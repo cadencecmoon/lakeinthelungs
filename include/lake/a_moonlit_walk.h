@@ -1,17 +1,36 @@
 #ifndef _A_MOONLIT_WALK_H
 #define _A_MOONLIT_WALK_H
 
-#include <lake/defines.h>
+#include <lake/bedrock/defines.h>
 
-#include <lake/align.h>
-#include <lake/atomic.h>
-#include <lake/endian.h>
-#include <lake/log.h>
-#include <lake/time.h>
+#include <lake/hadal.h>         /* windowing system */
+#include <lake/ipomoea.h>       /* memory, tagged heap allocator */
+#include <lake/moth.h>          /* audio engine */
+#include <lake/riven.h>         /* fiber-based job system */
+#include <lake/silver.h>        /* renderer */
 
-#include <lake/hadal.h>
-#include <lake/ipomoea.h>
-#include <lake/riven.h>
+#include <lake/bedrock/align.h>
+#include <lake/bedrock/atomic.h>
+#include <lake/bedrock/endian.h>
+#include <lake/bedrock/log.h>
+#include <lake/bedrock/parser.h>
+#include <lake/bedrock/time.h>
+
+#include <lake/compute/math_types.h>
+#include <lake/compute/simd.h>
+
+#include <lake/datastructures/arena_allocator.h>
+
+#include <lake/input/gamepad.h>
+#include <lake/input/joystick.h>
+#include <lake/input/keyboard.h>
+#include <lake/input/mouse.h>
+#include <lake/input/pen.h>
+#include <lake/input/touch.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define AMW_VERSION_MAJOR 0
 #define AMW_VERSION_MINOR 1
@@ -64,7 +83,9 @@ struct amw_hints {
     } riven;
 
     struct {
-        uint32_t hadal_api;
+        uint32_t hadal_backend;
+        uint32_t moth_backend;
+        uint32_t silver_backend;
 
         bool allow_headless_display;
     } init;
@@ -84,12 +105,20 @@ enum amw_flag {
 struct a_moonlit_walk {
     at_uint32_t     flags;
 
+    /* backends */
     struct hadal   *hadal;
+    struct moth    *moth;
+    struct silver  *silver;
 
+    /* memory allocators */
+    struct ipomoea *ipomoea;
+
+    /* job system */
     struct riven   *riven;
     thread_t       *threads;
     size_t          thread_count;
 
+    /* application */
     struct amw_callbacks callbacks;
 };
 
@@ -184,5 +213,9 @@ int main(int argc, char **argv)
 }
 #endif
 #endif /* A_MOONLIT_WALK_MAIN */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _A_MOONLIT_WALK_H */

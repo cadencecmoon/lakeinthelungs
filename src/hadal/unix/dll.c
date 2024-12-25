@@ -1,5 +1,5 @@
+#include <lake/bedrock/log.h>
 #include <lake/hadal.h>
-#include <lake/log.h>
 
 #include <dlfcn.h>
 

@@ -1,6 +1,6 @@
+#include <lake/bedrock/parser.h>
+#include <lake/bedrock/log.h>
 #include <lake/hadal.h>
-#include <lake/parser.h>
-#include <lake/log.h>
 
 #include <string.h>
 #include <fcntl.h>

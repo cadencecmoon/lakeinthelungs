@@ -33,7 +33,7 @@ static void a_moonlit_walk_main__(
         AMW.callbacks = hints->callbacks;
 
         AMW.hadal = hadal_init(
-            hints->init.hadal_api,
+            hints->init.hadal_backend,
             hints->window.width, 
             hints->window.height,
             hints->window.title,
@@ -44,7 +44,7 @@ static void a_moonlit_walk_main__(
             a_moonlit_walk_cleanup__(&AMW);
             return; 
         }
-        hadal_visible(AMW.hadal, true);
+        hadal_window_visible(AMW.hadal, true);
     }
 
     struct amw_framedata frames[AMW_MAX_FRAMES];

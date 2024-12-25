@@ -1,10 +1,14 @@
 #ifndef _AMW_RIVEN_H
 #define _AMW_RIVEN_H
 
-#include <lake/defines.h>
+#include <lake/bedrock/defines.h>
 
-/** Atomic operations are provided by a CPU-specific implementation. */
-#include <lake/atomic.h>
+/* Atomic operations are provided by a CPU-specific implementation. */
+#include <lake/bedrock/atomic.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /** A handle for representing a worker thread. */
 typedef size_t thread_t;
@@ -211,5 +215,9 @@ AMWAPI size_t riven_unveil_rift(
         size_t thread_count,
         PFN_riven_main main_procedure,
         void *main_argument);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _AMW_RIVEN_H */

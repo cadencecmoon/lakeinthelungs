@@ -1,8 +1,12 @@
 #ifndef _AMW_HADAL_H
 #define _AMW_HADAL_H
 
-#include <lake/defines.h>
-#include <lake/atomic.h>
+#include <lake/bedrock/defines.h>
+#include <lake/bedrock/atomic.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /** @file hadal.h
  *
@@ -33,17 +37,17 @@ AMWAPI void hadal_cpu_count(uint32_t *threads, uint32_t *cores, uint32_t *packag
 
 /** Specifies an ID for a display backend. Not all display backends are 
  *  available, they are different on every platform. */
-enum hadal_api {
-    hadal_api_auto = 0u,
-    hadal_api_win32,
-    hadal_api_cocoa,
-    hadal_api_ios,
-    hadal_api_android,
-    hadal_api_wayland,
-    hadal_api_xcb,
-    hadal_api_kms,
-    hadal_api_headless,
-    hadal_api_count,
+enum hadal_backend {
+    hadal_backend_auto = 0u,
+    hadal_backend_win32,    /* TODO */
+    hadal_backend_cocoa,    /* TODO */
+    hadal_backend_ios,      /* TODO */
+    hadal_backend_android,  /* TODO */
+    hadal_backend_wayland,
+    hadal_backend_xcb,      /* TODO */
+    hadal_backend_kms,      /* TODO */
+    hadal_backend_headless,
+    hadal_backend_count,
 };
 
 /** True if the given backend is available on the host system. */
@@ -51,7 +55,7 @@ AMWAPI bool hadal_api_is_supported(const uint32_t api);
 
 /** Initializes the display backend. */
 AMWAPI struct hadal *hadal_init(
-        enum hadal_api api, 
+        enum hadal_backend id, 
         uint32_t window_width,
         uint32_t window_height,
         const char *window_title,
@@ -114,13 +118,17 @@ AMWAPI at_uint32_t *hadal_at_flags(struct hadal *hadal);
  *  and all necessary termination or reinitialization must be done in this frame.
  *  Ofc., the flag can be ignored by setting it to false (if it was a close request 
  *  from the host windowing system, this can lead to undefined behaviour). */
-AMWAPI uint32_t hadal_should_close(struct hadal *hadal, bool should);
+AMWAPI uint32_t hadal_window_should_close(struct hadal *hadal, bool should);
 
 /** Control: hadal_flag_visible. Returns old context flags, before the atomic operation.
  *
  *  If the flag is true, the window surface is created and images are being
  *  rendered to the swapchain. Setting it to false will hide the window. If the 
  *  visible value is equal to the current visible flag, no operation is done. */
-AMWAPI uint32_t hadal_visible(struct hadal *hadal, bool visible);
+AMWAPI uint32_t hadal_window_visible(struct hadal *hadal, bool visible);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _AMW_HADAL_H */

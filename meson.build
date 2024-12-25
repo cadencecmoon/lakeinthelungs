@@ -31,13 +31,13 @@ elif get_option('buildtype') == 'release'
 endif
 
 have_posix = cc.has_header_symbol('unistd.h', '_POSIX_VERSION')
-systype = (have_posix ? '@0@ (POSIX)' : '@0@'.format(sys))
+systype = (have_posix ? '@0@ (POSIX)' : '@0@').format(host_machine.system())
 systype = '@0@, @1@'.format(systype, host_machine.cpu())
 if meson.is_cross_build()
     systype = '@0@ (cross-compiling)'.format(systype)
 endif
 
-subdir('shaders')
+subdir('resources')
 subdir('src')
 
 a_moonlit_walk = library(

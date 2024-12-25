@@ -1,4 +1,4 @@
-#include <lake/log.h>
+#include <lake/bedrock/log.h>
 
 #include "../hadopelagic.h"
 

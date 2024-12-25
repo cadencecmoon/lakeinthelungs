@@ -3,7 +3,7 @@ dep_rt = cc.find_library('rt', required : false)
 dep_dl = cc.find_library('dl', required : false)
 
 engine += files(
-    'display.c',
+    'hadal.c',
 )
 
 subdir('android')

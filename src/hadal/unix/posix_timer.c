@@ -1,5 +1,5 @@
+#include <lake/bedrock/time.h>
 #include <lake/hadal.h>
-#include <lake/time.h>
 
 #include <sys/time.h>
 #ifdef AMW_HAS_CLOCK_GETTIME

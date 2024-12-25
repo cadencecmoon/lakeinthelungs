@@ -1,6 +1,5 @@
-#include <lake/defines.h>
+#include <lake/bedrock/log.h>
 #include <lake/riven.h>
-#include <lake/log.h>
 
 #include <pthread.h>
 

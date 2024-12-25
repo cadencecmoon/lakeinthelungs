@@ -1,7 +1,11 @@
 #ifndef _AMW_IPOMOEA_H
 #define _AMW_IPOMOEA_H
 
-#include <lake/defines.h>
+#include <lake/bedrock/defines.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /** Sets bits of a memory region of size n as c. */
 AMWAPI void *iamemset(void *dest, int32_t c, size_t n);
@@ -11,5 +15,10 @@ AMWAPI void *iamemset(void *dest, int32_t c, size_t n);
 #define iazeroa(mem) iamemset((mem), 0, sizeof((mem)))
 
 /* TODO tagged heap memory allocator */
+struct ipomoea;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _AMW_IPOMOEA_H */
