@@ -26,7 +26,7 @@ static PFN_vkVoidFunction device_proc_address(struct vulkan_instance_api *instan
     return address;
 }
 
-bool _silver_vulkan_open_driver(struct vulkan_instance_api *api)
+bool vulkan_open_driver(struct vulkan_instance_api *api)
 {
     assert_debug(api);
 
@@ -61,7 +61,7 @@ bool _silver_vulkan_open_driver(struct vulkan_instance_api *api)
     api->vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr)hadal_get_proc_address(api->module, "vkGetInstanceProcAddr");
 
     if (api->vkGetInstanceProcAddr == NULL) {
-        _silver_vulkan_close_driver(api);
+        vulkan_close_driver(api);
         log_error("Can't load vkGetInstanceProcAddr from Vulkan drivers.");
         return false;
     }
@@ -76,7 +76,7 @@ bool _silver_vulkan_open_driver(struct vulkan_instance_api *api)
         !api->vkEnumerateInstanceExtensionProperties ||
         !api->vkEnumerateInstanceLayerProperties) 
     {
-        _silver_vulkan_close_driver(api);
+        vulkan_close_driver(api);
         log_error("Can't load global function pointers from Vulkan drivers.");
         return false;
     }
@@ -84,7 +84,7 @@ bool _silver_vulkan_open_driver(struct vulkan_instance_api *api)
     return true;
 }
 
-void _silver_vulkan_close_driver(struct vulkan_instance_api *api)
+void vulkan_close_driver(struct vulkan_instance_api *api)
 {
     assert_debug(api);
 

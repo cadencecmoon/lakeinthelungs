@@ -3,6 +3,8 @@
 
 #include <lake/bedrock/defines.h>
 
+#include <string.h> /* memchr */
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -22,6 +24,11 @@ AMW_INLINE int32_t parser_atoi(const char *c) {
         c++; /* !! */
     }
     return value * sign;
+}
+
+AMW_INLINE size_t parse_strnlen(const char *s, size_t n) {
+    const char *p = (char *)memchr(s, 0, n);
+    return p ? (size_t)(p - s) : n;
 }
 
 #ifdef __cplusplus

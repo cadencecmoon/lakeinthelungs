@@ -160,7 +160,7 @@ struct vulkan_instance_api {
 /** Collects Vulkan device procedures and extensions. A minimal Vulkan target is version 1.2 with 
  *  dynamic_rendering and dynamic_rendering_local_read extensions. */
 struct vulkan_device_api {
-    /* core 1.0 // TODO remove unused later */
+    /* core 1.0 */
 	PFN_vkAllocateCommandBuffers                            vkAllocateCommandBuffers;
 	PFN_vkAllocateDescriptorSets                            vkAllocateDescriptorSets;
 	PFN_vkAllocateMemory                                    vkAllocateMemory;
@@ -282,7 +282,7 @@ struct vulkan_device_api {
 	PFN_vkUpdateDescriptorSets                              vkUpdateDescriptorSets;
 	PFN_vkWaitForFences                                     vkWaitForFences;
 
-    /* core 1.1 // TODO remove unused later */
+    /* core 1.1 */
     PFN_vkBindBufferMemory2                                 vkBindBufferMemory2;
     PFN_vkBindImageMemory2                                  vkBindImageMemory2;
     PFN_vkCmdDispatchBase                                   vkCmdDispatchBase;
@@ -300,7 +300,7 @@ struct vulkan_device_api {
     PFN_vkTrimCommandPool                                   vkTrimCommandPool;
     PFN_vkUpdateDescriptorSetWithTemplate                   vkUpdateDescriptorSetWithTemplate;
 
-    /* core 1.2 TODO remove unused later */
+    /* core 1.2 */
     PFN_vkCmdDrawIndexedIndirectCount                       vkCmdDrawIndexedIndirectCount;
     PFN_vkCmdDrawIndirectCount                              vkCmdDrawIndirectCount;
     PFN_vkGetBufferDeviceAddress                            vkGetBufferDeviceAddress;
@@ -311,7 +311,6 @@ struct vulkan_device_api {
     PFN_vkSignalSemaphore                                   vkSignalSemaphore;
     PFN_vkWaitSemaphores                                    vkWaitSemaphores;
 
-    /* core 1.3 and backwards compatibility extensions */
 #if defined(VK_VERSION_1_3)
     PFN_vkCmdBeginRendering                                 vkCmdBeginRendering;
     PFN_vkCmdEndRendering                                   vkCmdEndRendering;
@@ -320,8 +319,8 @@ struct vulkan_device_api {
         PFN_vkCmdBeginRenderingKHR                          vkCmdBeginRendering;
         PFN_vkCmdEndRenderingKHR                            vkCmdEndRendering;
     #endif
-#endif
-    /* core 1.4 and backwards compatibility extensions */
+#endif /* 1.3 */
+
 #if defined(VK_VERSION_1_4)
 	PFN_vkCmdSetRenderingAttachmentLocations                vkCmdSetRenderingAttachmentLocations;
 	PFN_vkCmdSetRenderingInputAttachmentIndices             vkCmdSetRenderingInputAttachmentIndices;
@@ -330,7 +329,8 @@ struct vulkan_device_api {
 	    PFN_vkCmdSetRenderingAttachmentLocationsKHR         vkCmdSetRenderingAttachmentLocations;
 	    PFN_vkCmdSetRenderingInputAttachmentIndicesKHR      vkCmdSetRenderingInputAttachmentIndices;
     #endif
-#endif
+#endif /* 1.4 */
+
 #if defined(VK_KHR_swapchain)
     PFN_vkAcquireNextImageKHR                               vkAcquireNextImageKHR;
     PFN_vkAcquireNextImage2KHR                              vkAcquireNextImage2KHR;
@@ -378,8 +378,8 @@ struct vulkan_device_api {
 #endif /* VK_KHR_acceleration_structure */
 };
 
-bool _silver_vulkan_open_driver(struct vulkan_instance_api *vk);
-void _silver_vulkan_close_driver(struct vulkan_instance_api *vk);
+bool vulkan_open_driver(struct vulkan_instance_api *vk);
+void vulkan_close_driver(struct vulkan_instance_api *vk);
 
 int32_t vulkan_instance_api_load_procedures(
         struct vulkan_instance_api *api, 
@@ -412,12 +412,13 @@ struct vulkan_swapchain {
 /* struct silver : backend */
 struct silver_vulkan {
     VkInstance                  instance;
-    struct vulkan_instance_api  api;
     struct vulkan_swapchain     swapchain;
+
     uint32_t                    extensions;
+    struct vulkan_instance_api  api;
 };
 
-/* struct silvdevice : GPU */
+/* struct silvdevice : GPU device */
 struct silvdevice_vulkan { 
     VkDevice                            logical;
     VkPhysicalDevice                    physical;
@@ -429,15 +430,15 @@ struct silvdevice_vulkan {
     VkPhysicalDeviceAccelerationStructurePropertiesKHR  acceleration_structure_properties;
     VkPhysicalDeviceAccelerationStructureFeaturesKHR    acceleration_structure_features;
 #endif
-    struct vulkan_device_api    api;
-
     VkQueue                     graphics_queue;
     VkQueue                     compute_queue;
     VkQueue                     transfer_queue;
     uint32_t                    graphics_queue_family_idx;
     uint32_t                    compute_queue_family_idx;
     uint32_t                    transfer_queue_family_idx;
+
     uint32_t                    extensions;
+    struct vulkan_device_api    api;
 };
 
 #endif /* _SILVER_VULKAN_H */
