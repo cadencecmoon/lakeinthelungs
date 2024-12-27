@@ -73,7 +73,7 @@ void log_message(
         fprintf(stdout, "%s %s%s ", timestamp, level_colors[log.level], level_strings[log.level]);
         fprintf(stdout, "\033[38;5;8m%26s:%-5d%s ", log.file, log.line, level_colors[log.level]);
     } else {
-        fprintf(stdout, "%s%s ", level_colors[log.level], level_strings[log.level]);
+        fprintf(stdout, "%s ", level_colors[log.level]);
     }
     vfprintf(stdout, log.fmt, log.ap);
     fprintf(stdout, "\n");

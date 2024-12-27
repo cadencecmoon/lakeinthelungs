@@ -219,7 +219,7 @@ struct hadal_wayland {
     uint32_t serial;
 };
 
-extern bool _hadal_wayland_connect(struct hadal *hadal, uint32_t desired_api);
+extern bool _hadal_wayland_entry_point(struct hadal *hadal, uint32_t desired_id);
 extern int32_t _hadal_wayland_init(struct hadal *hadal);
 extern void _hadal_wayland_fini(struct hadal *hadal);
 

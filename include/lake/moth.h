@@ -9,7 +9,7 @@ extern "C" {
 
 /** Audio backends are using native APIs of different platforms. */
 enum moth_backend {
-    moth_backend_auto = 0u,
+    moth_backend_invalid = 0u,
     moth_backend_coreaudio,     /* TODO */
     moth_backend_wasapi,        /* TODO */
     moth_backend_xaudio2,       /* TODO */

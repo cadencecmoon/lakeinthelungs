@@ -38,7 +38,7 @@ AMWAPI void hadal_cpu_count(uint32_t *threads, uint32_t *cores, uint32_t *packag
 /** Specifies an ID for a display backend. Not all display backends are 
  *  available, they are different on every platform. */
 enum hadal_backend {
-    hadal_backend_auto = 0u,
+    hadal_backend_invalid = 0u,
     hadal_backend_win32,    /* TODO */
     hadal_backend_cocoa,    /* TODO */
     hadal_backend_ios,      /* TODO */
@@ -106,11 +106,6 @@ enum hadal_flag {
 
 /** Atomically retrieve current hadal context flags from non-local code, a read only copy. */
 AMWAPI uint32_t hadal_flags(struct hadal *hadal, enum memory_model model);
-
-/** Retrieve a pointer to the hadal context flags from non-local code, this can be used in atomic
- *  read/modify/write operations. The calling code must ensure proper handling of this atomic type.
- *  If the context is invalid, NULL is returned instead. */
-AMWAPI at_uint32_t *hadal_at_flags(struct hadal *hadal);
 
 /** Control: hadal_flag_should_close. Returns old context flags, before the atomic operation.
  *

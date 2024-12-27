@@ -61,6 +61,7 @@ lakeinthelungs = executable(
     install : false)
 
 subdir('docs')
+subdir('tools')
 
 summary({
     'System type' : systype,

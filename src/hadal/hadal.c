@@ -24,18 +24,21 @@ static const char *backend_name_string(uint32_t id)
     return "(none)";
 }
 
-static const struct { uint32_t api; bool (*connect)(struct hadal *hadal, uint32_t desired_api); } supported_apis[] = {
+static const struct { uint32_t backend; bool (*entry_point)(struct hadal *hadal, uint32_t desired_id); } supported_backends[] = {
 #if defined(AMW_PLATFORM_WINDOWS)
     /* TODO */
-#elif defined(AMW_PLATFORM_MACOS)
+#endif
+#if defined(AMW_PLATFORM_MACOS)
     /* TODO */
-#elif defined(AMW_PLATFORM_IOS)
+#endif
+#if defined(AMW_PLATFORM_IOS)
     /* TODO */
-#elif defined(AMW_PLATFORM_ANDROID)
+#endif
+#if defined(AMW_PLATFORM_ANDROID)
     /* TODO */
 #endif
 #ifdef AMW_NATIVE_WAYLAND
-    { hadal_backend_wayland, _hadal_wayland_connect},
+    { hadal_backend_wayland, _hadal_wayland_entry_point},
 #endif
 #ifdef AMW_NATIVE_XCB
     /* TODO */
@@ -45,17 +48,17 @@ static const struct { uint32_t api; bool (*connect)(struct hadal *hadal, uint32_
 #endif
 };
 
-static bool select_api(struct hadal *hadal, uint32_t api, bool allow_headless)
+static bool select_api(struct hadal *hadal, uint32_t desired_id, bool allow_headless)
 {
-    const size_t count = arraysize(supported_apis);
+    const size_t count = arraysize(supported_backends);
 
-    if (api >= hadal_backend_count) {
-        log_error("Invalid hadal backend '%X : %s'", api, backend_name_string(api));
+    if (desired_id >= hadal_backend_count) {
+        log_error("Invalid hadal backend id %X", desired_id);
         return false;
     }
 
     /* only allow headless mode if explicitly requested */
-    if (api == hadal_backend_headless || (count == 0 && allow_headless)) {
+    if (desired_id == hadal_backend_headless || (count == 0 && allow_headless)) {
         /* TODO init headless */
         return false;
     } else if (count == 0) {
@@ -63,23 +66,21 @@ static bool select_api(struct hadal *hadal, uint32_t api, bool allow_headless)
         return false;
     }
 
-    if (api == hadal_backend_auto) {
+    if (desired_id == hadal_backend_invalid) {
         if (count == 1)
-            return supported_apis[0].connect(hadal, api);
+            return supported_backends[0].entry_point(hadal, desired_id);
 
         for (uint32_t i = 0; i < count; i++) {
-            fprintf(stderr, "mlemiauka 2222 %d\n", i);
-            if (supported_apis[i].connect(hadal, api))
+            if (supported_backends[i].entry_point(hadal, desired_id))
                 return true;
         }
-        log_error("Failed to detect any supported backends.");
+        log_error("Failed to detect any supported display backends.");
     } else {
         for (uint32_t i = 0; i < count; i++) {
-            fprintf(stderr, "mlemiauka 3333 %d\n", i);
-            if (supported_apis[i].api == api)
-                return supported_apis[i].connect(hadal, api);
+            if (supported_backends[i].backend == desired_id)
+                return supported_backends[i].entry_point(hadal, desired_id);
         }
-        log_error("The requested backend is not supported on this platform.");
+        log_error("The requested display backend is not supported on this platform.");
     }
     return false;
 }
@@ -96,12 +97,12 @@ static void terminate(struct hadal *hadal)
 
 bool hadal_api_is_supported(const uint32_t api)
 {
-    const uint32_t count = arraysize(supported_apis);
+    const uint32_t count = arraysize(supported_backends);
 
     if (api == hadal_backend_headless)
         return true;
     for (uint32_t i = 0; i < count; i++)
-        if (api == supported_apis[i].api)
+        if (api == supported_backends[i].backend)
             return true;
     return false;
 }
@@ -114,7 +115,7 @@ struct hadal *hadal_init(
         bool allow_headless)
 {
     if (backend <= 0)
-        backend = hadal_backend_auto;
+        backend = hadal_backend_invalid;
 
     struct hadal *hadal = (struct hadal *)malloc(sizeof(struct hadal));
     iazerop(hadal);
@@ -126,7 +127,7 @@ struct hadal *hadal_init(
         free(hadal);
         return NULL;
     }
-    hadal->api.last_api_fallback = hadal_backend_auto;
+    hadal->api.last_api_fallback = hadal_backend_invalid;
 
     if (hadal->api.init(hadal) != result_success) {
         log_error("Can't initialize the display backend.");
@@ -176,7 +177,7 @@ int32_t hadal_fallback(struct hadal *hadal, bool allow_headless)
      * Those are: android + DRM/KMS ; Wayland + X11 + DRM/KMS. So 2 variables for API id work. */
     uint32_t now = hadal->api.api;
     uint32_t last = hadal->api.last_api_fallback;
-    uint32_t supp = arraysize(supported_apis);
+    uint32_t supp = arraysize(supported_backends);
 
     if (now == hadal_backend_headless)
         return result_error_no_fallback;
@@ -186,10 +187,10 @@ int32_t hadal_fallback(struct hadal *hadal, bool allow_headless)
     hadal->api.last_api_fallback = now;
 
     for (uint32_t i = 0; i < supp; i++) {
-        if (supported_apis[i].api == now || supported_apis[i].api == last) 
+        if (supported_backends[i].backend == now || supported_backends[i].backend == last) 
             continue;
-        if (supported_apis[i].connect(hadal, now) == result_success) {
-            log_debug("Connected to a display fallback: %s", backend_name_string(supported_apis[i].api));
+        if (supported_backends[i].entry_point(hadal, now) == result_success) {
+            log_debug("Connected to a display fallback: %s", backend_name_string(supported_backends[i].backend));
             if (hadal->api.init(hadal) == result_success)
                 return result_success;
             log_debug("Can't initialize the connected backend. Looking further...");

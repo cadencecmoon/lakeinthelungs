@@ -6,6 +6,7 @@
 
 static void a_moonlit_walk_cleanup__(struct a_moonlit_walk *AMW)
 {
+    platinum_fini(&AMW->plat);
     hadal_fini(AMW->hadal);
     iazerop(AMW);
 }
@@ -45,6 +46,19 @@ static void a_moonlit_walk_main__(
             return; 
         }
         hadal_window_visible(AMW.hadal, true);
+
+        i = platinum_init(&AMW.plat, AMW.hadal, hints->app_name, hints->version);
+        if (i != result_success) {
+            log_fatal("Can't initialize the rendering backend.");
+            a_moonlit_walk_cleanup__(&AMW);
+            return;
+        }
+        i = platinum_construct_novas(&AMW.plat, -1, 0, thread_count);
+        if (i != result_success) {
+            log_fatal("Creating rendering devices failed. No rendering is possible.");
+            a_moonlit_walk_cleanup__(&AMW);
+            return;
+        }
     }
 
     struct amw_framedata frames[AMW_MAX_FRAMES];

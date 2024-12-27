@@ -12,6 +12,10 @@
 extern "C" {
 #endif
 
+#define AMW_VERSION_MAJOR 0
+#define AMW_VERSION_MINOR 1
+#define AMW_VERSION_REVISION 1
+
 #define AMW_VERSION_NUM_MAJOR(version) ((version) / 1000000)
 #define AMW_VERSION_NUM_MINOR(version) (((version) / 1000) % 1000)
 #define AMW_VERSION_NUM_REVISION(version) ((version) % 1000)
@@ -21,6 +25,8 @@ extern "C" {
 
 #define _AMW_CONCAT_VERSION_STR__(major, minor, revision) #major "." #minor "." #revision
 #define AMW_VERSION_MAKE_STR(major, minor, revision) _AMW_CONCAT_VERSION_STR__(major, minor, revision)
+
+#define AMW_VERSION (AMW_VERSION_NUM(AMW_VERSION_MAJOR, AMW_VERSION_MINOR, AMW_VERSION_REVISION))
 
 /* detect platform */
 #if !defined(AMW_PLATFORM_WINDOWS)
@@ -407,6 +413,15 @@ extern "C" {
 #define arraysize(a)    (sizeof(a) / sizeof(a[0]))
 #define xorswap(a,b)    { if (a != b) { *a ^= *b; *b ^= *a; *a ^= *b; }}
 #define swap(a,b)       { AMW_TYPEOF(a) temp_ = a; a = b; b = temp_; }
+
+AMW_INLINE uint32_t count_bits32(uint32_t n) {
+    uint32_t count = 0;
+    while (n) {
+        n &= (n - 1);
+        count++;
+    }
+    return count;
+}
 
 enum result_codes {
     result_success = 0,

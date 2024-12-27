@@ -3,6 +3,7 @@
 
 #include <lake/bedrock/defines.h>
 #include <lake/bedrock/atomic.h>
+#include <lake/bedrock/log.h>
 #include <lake/bedrock/parser.h>
 #include <lake/ipomoea.h>
 
@@ -26,12 +27,16 @@ struct arena_allocator {
     struct region *end;
 };
 
+/* TODO use tagged heap as a backend */
 AMW_INLINE struct region *region_new(size_t capacity) 
 {
-    /* TODO use tagged heap as a backend */
     size_t bytes = sizeof(struct region) + sizeof(uintptr_t) * capacity;
     struct region *r = (struct region *)malloc(bytes);
     assert_debug(r != NULL);
+
+#ifdef AMW_DEBUG
+    log_debug("Allocated a memory region of size %lu + %lu bytes", sizeof(struct region), bytes - sizeof(struct region));
+#endif
 
     at_store_relaxed(&r->next, NULL);
     at_store_relaxed(&r->count, 0);
@@ -39,9 +44,12 @@ AMW_INLINE struct region *region_new(size_t capacity)
     return r;
 }
 
+/* TODO use tagged heap as a backend */
 AMW_INLINE void region_free(struct region *r) 
 {
-    /* TODO use tagged heap as a backend */
+#ifdef AMW_DEBUG
+    log_debug("Freeing a memory region of size %lu + %lu bytes", sizeof(struct region), at_read_relaxed(&r->capacity));
+#endif
     free(r);
 }
 
@@ -49,8 +57,11 @@ AMW_INLINE void region_free(struct region *r)
  *  Preallocates a memory region with of a size atleast given bytes. */
 AMW_INLINE void arena_init(struct arena_allocator *a, size_t bytes) 
 {
+    assert_debug(a);
+
     if (bytes < 4096) 
         bytes = 4096;
+
     struct region *r = region_new(bytes);
     a->begin = a->end = r;
 }

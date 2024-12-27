@@ -1,5 +1,5 @@
-#ifndef _SILVER_VULKAN_H
-#define _SILVER_VULKAN_H
+#ifndef _PLATYNOVA_VULKAN_H
+#define _PLATYNOVA_VULKAN_H
 
 #ifndef VK_NO_PROTOTYPES
     #define VK_NO_PROTOTYPES
@@ -26,7 +26,8 @@
     #include <vulkan/vulkan.h>
 #endif
 
-#include <lake/silver.h>
+#include <lake/platynova.h>
+#include <lake/datastructures/arena_allocator.h>
 
 /** Collects Vulkan extensions in use as bit flags for checking their availability.
   * We use different uint32_t variables to represent extensions per instance or per device. */
@@ -41,9 +42,10 @@ enum vulkan_extensions {
     vulkan_extension_headless_surface_bit               = (1u << 6),  /**< VK_KHR_headless_surface */
     vulkan_extension_display_bit                        = (1u << 7),  /**< VK_KHR_display */
     vulkan_extension_acquire_drm_display_bit            = (1u << 8),  /**< VK_EXT_acquire_drm_display */
+    vulkan_extension_direct_mode_display_bit            = (1u << 9),  /**< VK_EXT_direct_mode_display */
     /* instance extensions, debug builds only */
-    vulkan_extension_debug_utils_bit                    = (1u << 9),  /**< VK_EXT_debug_utils */
-    vulkan_extension_layer_validation_bit               = (1u << 10), /**< VK_LAYER_KHRONOS_validation */
+    vulkan_extension_debug_utils_bit                    = (1u << 10), /**< VK_EXT_debug_utils */
+    vulkan_extension_layer_validation_bit               = (1u << 11), /**< VK_LAYER_KHRONOS_validation */
 
     /* device extensions */
     vulkan_extension_swapchain_bit                      = (1u << 0),  /**< VK_KHR_swapchain */
@@ -138,6 +140,9 @@ struct vulkan_instance_api {
     PFN_vkGetPhysicalDeviceDisplayPlanePropertiesKHR        vkGetPhysicalDeviceDisplayPlanePropertiesKHR;
     PFN_vkGetPhysicalDeviceDisplayPropertiesKHR             vkGetPhysicalDeviceDisplayPropertiesKHR;
 #endif /* VK_KHR_display */
+#if defined(VK_EXT_direct_mode_display) && defined(AMW_NATIVE_KMS)
+    PFN_vkReleaseDisplayEXT                                 vkReleaseDisplayEXT;
+#endif /* VK_EXT_direct_mode_display */
 #if defined(VK_EXT_acquire_drm_display) && defined(AMW_NATIVE_KMS)
     PFN_vkAcquireDrmDisplayEXT                              vkAcquireDrmDisplayEXT;
     PFN_vkGetDrmDisplayEXT                                  vkGetDrmDisplayEXT;
@@ -393,6 +398,9 @@ int32_t vulkan_device_api_load_procedures(
         uint32_t drivers_version,
         uint32_t *device_extension_bits);
 
+/** Entry point for the vulkan backend. */
+int32_t _platinum_vulkan_entry_point(struct platinum *plat);
+
 struct vulkan_swapchain {
     VkSwapchainKHR              sc;
     VkSurfaceKHR                surface;
@@ -409,17 +417,36 @@ struct vulkan_swapchain {
     uint32_t                    image_count;
 };
 
-/* struct silver : backend */
-struct silver_vulkan {
+/* struct platinum : backend */
+struct platinum_vulkan {
     VkInstance                  instance;
     struct vulkan_swapchain     swapchain;
+
+#if !defined(AMW_NDEBUG) && defined(VK_EXT_debug_utils)
+    VkDebugUtilsMessengerEXT    messenger;
+#endif
 
     uint32_t                    extensions;
     struct vulkan_instance_api  api;
 };
 
-/* struct silvdevice : GPU device */
-struct silvdevice_vulkan { 
+int32_t _platinum_vulkan_init(
+        void *internal, 
+        struct hadal *hadal, 
+        const char *application_name, 
+        uint32_t application_version,
+        struct arena_allocator *temp_arena);
+void _platinum_vulkan_fini(void *internal);
+
+VkResult vulkan_create_surface(
+        struct vulkan_instance_api *api, 
+        VkInstance instance, 
+        struct hadal *hadal, 
+        const VkAllocationCallbacks *allocator, 
+        VkSurfaceKHR *surface);
+
+/* struct platynova : GPU device */
+struct platynova_vulkan { 
     VkDevice                            logical;
     VkPhysicalDevice                    physical;
     VkPhysicalDeviceProperties          physical_properties;
@@ -430,6 +457,9 @@ struct silvdevice_vulkan {
     VkPhysicalDeviceAccelerationStructurePropertiesKHR  acceleration_structure_properties;
     VkPhysicalDeviceAccelerationStructureFeaturesKHR    acceleration_structure_features;
 #endif
+    /* 1 per worker thread */
+    VkCommandPool              *command_pools;
+
     VkQueue                     graphics_queue;
     VkQueue                     compute_queue;
     VkQueue                     transfer_queue;
@@ -441,4 +471,15 @@ struct silvdevice_vulkan {
     struct vulkan_device_api    api;
 };
 
-#endif /* _SILVER_VULKAN_H */
+#if !defined(AMW_NDEBUG)
+    #define VERIFY_VK(x) { \
+        if ((x) != VK_SUCCESS) { \
+            log_error("Failed to assert VK_SUCCESS for: %s", #x); \
+            assert_debug(!"VkResult assertion"); \
+        } \
+    }
+#else
+    #define VERIFY_VK(x) (void)(x)
+#endif
+
+#endif /* _PLATYNOVA_VULKAN_H */

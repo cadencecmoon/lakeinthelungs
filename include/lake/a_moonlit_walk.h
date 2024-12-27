@@ -6,8 +6,8 @@
 #include <lake/hadal.h>         /* windowing system */
 #include <lake/ipomoea.h>       /* memory, tagged heap allocator */
 #include <lake/moth.h>          /* audio engine */
+#include <lake/platynova.h>     /* renderer */
 #include <lake/riven.h>         /* fiber-based job system */
-#include <lake/silver.h>        /* renderer */
 
 #include <lake/bedrock/align.h>
 #include <lake/bedrock/atomic.h>
@@ -31,10 +31,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#define AMW_VERSION_MAJOR 0
-#define AMW_VERSION_MINOR 1
-#define AMW_VERSION_REVISION 1
 
 struct a_moonlit_walk; /* forward declaration */
 
@@ -85,7 +81,6 @@ struct amw_hints {
     struct {
         uint32_t hadal_backend;
         uint32_t moth_backend;
-        uint32_t silver_backend;
 
         bool allow_headless_display;
     } init;
@@ -106,9 +101,9 @@ struct a_moonlit_walk {
     at_uint32_t     flags;
 
     /* backends */
-    struct hadal   *hadal;
-    struct moth    *moth;
-    struct silver  *silver;
+    struct hadal   *hadal; // TODO should not be opaque, only internally
+    struct moth    *moth; // TODO should not be opaque, only internally
+    struct platinum plat;
 
     /* memory allocators */
     struct ipomoea *ipomoea;

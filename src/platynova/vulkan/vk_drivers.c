@@ -1,12 +1,11 @@
 #include <lake/bedrock/log.h>
 #include <lake/hadal.h>
 
-#include "vk_silver.h"
+#include "vk_platynova.h"
 
 #if defined(AMW_PLATFORM_APPLE)
 #include <stdlib.h> /* getenv, for MacOS */
 #endif
-#include <string.h> /* strcmp */
 
 static PFN_vkVoidFunction instance_proc_address(struct vulkan_instance_api *api, VkInstance instance, const char *procname)
 {
@@ -29,6 +28,7 @@ static PFN_vkVoidFunction device_proc_address(struct vulkan_instance_api *instan
 bool vulkan_open_driver(struct vulkan_instance_api *api)
 {
     assert_debug(api);
+    api->module = NULL;
 
 #if defined(AMW_PLATFORM_WINDOWS)
     api->module = hadal_load_dll("vulkan-1.dll");
@@ -96,18 +96,6 @@ void vulkan_close_driver(struct vulkan_instance_api *api)
     api->module = NULL;
 }
 
-#if 0
-bool vk_has_extension(const VkExtensionProperties *ext, uint32_t count, const char *name)
-{
-    for (uint32_t i = 0; i < count; i++) {
-        if (!strcmp(ext[i].extensionName, name)) {
-            return true;
-        }
-    }
-    return false;
-}
-#endif
-
 int32_t vulkan_instance_api_load_procedures(
         struct vulkan_instance_api *api, 
         VkInstance instance, 
@@ -161,7 +149,7 @@ int32_t vulkan_instance_api_load_procedures(
     }
 #if defined(VK_KHR_surface)
     if (*instance_extension_bits & vulkan_extension_surface_bit) {
-        api->vkDestroySurfaceKHR = (PFN_vkDestroySurfaceKHR)(void *)instance_proc_address(api, instance, "vkCreateDevice");
+        api->vkDestroySurfaceKHR = (PFN_vkDestroySurfaceKHR)(void *)instance_proc_address(api, instance, "vkDestroySurfaceKHR");
         api->vkGetPhysicalDeviceSurfaceSupportKHR = (PFN_vkGetPhysicalDeviceSurfaceSupportKHR)(void *)instance_proc_address(api, instance, "vkGetPhysicalDeviceSurfaceSupportKHR");
         api->vkGetPhysicalDeviceSurfaceCapabilitiesKHR = (PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR)(void *)instance_proc_address(api, instance, "vkGetPhysicalDeviceSurfaceCapabilitiesKHR");
         api->vkGetPhysicalDeviceSurfaceFormatsKHR = (PFN_vkGetPhysicalDeviceSurfaceFormatsKHR)(void *)instance_proc_address(api, instance, "vkGetPhysicalDeviceSurfaceFormatsKHR");
@@ -280,6 +268,17 @@ int32_t vulkan_instance_api_load_procedures(
         }
     }
 #endif /* VK_KHR_display */
+#if defined(VK_EXT_direct_mode_display) && defined(AMW_NATIVE_KMS)
+    if (*instance_extension_bits & vulkan_extension_direct_mode_display_bit) {
+        api->vkReleaseDisplayEXT = (PFN_vkReleaseDisplayEXT)(void *)instance_proc_address(api, instance, "vkReleaseDisplayEXT");
+        
+        if (!api->vkReleaseDisplayEXT) {
+            log_warn("Can't load VK_EXT_direct_mode_display extension procedure. DRM/KMS may be limited");
+            *instance_extension_bits &= ~(vulkan_extension_acquire_drm_display_bit | vulkan_extension_direct_mode_display_bit);
+            out = result_error_undefined; // TODO
+        }
+    }
+#endif /* VK_EXT_direct_mode_display */
 #if defined(VK_EXT_acquire_drm_display) && defined(AMW_NATIVE_KMS)
     if (*instance_extension_bits & vulkan_extension_acquire_drm_display_bit) {
         api->vkAcquireDrmDisplayEXT = (PFN_vkAcquireDrmDisplayEXT)(void *)instance_proc_address(api, instance, "vkAcquireDrmDisplayEXT");
@@ -289,7 +288,7 @@ int32_t vulkan_instance_api_load_procedures(
             !api->vkGetDrmDisplayEXT) 
         {
             log_warn("Can't load VK_EXT_acquire_drm_display extension procedures. DRM/KMS may be limited.");
-            *instance_extension_bits &= ~(vulkan_extension_acquire_drm_display_bit);
+            *instance_extension_bits &= ~(vulkan_extension_acquire_drm_display_bit | vulkan_extension_direct_mode_display_bit);
             out = result_error_undefined; // TODO
         }
     }
@@ -719,9 +718,6 @@ int32_t vulkan_device_api_load_procedures(
             log_error("Can't load VK_KHR_swapchain extension procedures. This extension is required.");
             return result_error_undefined; // TODO
         }
-    } else {
-        log_error("The device extension VK_KHR_swapchain is not present. This extension is required.");
-        return result_error_undefined; // TODO
     }
 #endif /* VK_KHR_swapchain */
 #if defined(VK_KHR_display_swapchain) && defined(AMW_NATIVE_KMS)
