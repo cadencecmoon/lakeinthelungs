@@ -26,7 +26,7 @@ int32_t _platinum_vulkan_entry_point(struct platinum *plat)
     plat_vk->api.vkEnumerateInstanceVersion = api.vkEnumerateInstanceVersion;
     plat_vk->api.vkEnumerateInstanceExtensionProperties = api.vkEnumerateInstanceExtensionProperties;
     plat_vk->api.vkEnumerateInstanceLayerProperties = api.vkEnumerateInstanceLayerProperties;
-    plat->internal = (void *)plat_vk;
+    plat->internal_plat = (void *)plat_vk;
 
     return result_success;
 }
@@ -108,7 +108,7 @@ static void destroy_validation_layers(struct platinum_vulkan *plat_vk)
 #endif /* validation layers */
 
 int32_t _platinum_vulkan_init(
-        void *internal, 
+        void *internal_plat, 
         struct hadal *hadal, 
         const char *application_name, 
         uint32_t application_version,
@@ -116,7 +116,7 @@ int32_t _platinum_vulkan_init(
 {
     uint32_t instance_version = 0, extension_count = 0, layer_count = 0;
     char **instance_extensions = NULL;
-    struct platinum_vulkan *plat_vk = (struct platinum_vulkan *)internal;
+    struct platinum_vulkan *plat_vk = (struct platinum_vulkan *)internal_plat;
 
     plat_vk->api.vkEnumerateInstanceVersion(&instance_version);
     plat_vk->api.vkEnumerateInstanceLayerProperties(&layer_count, NULL);
@@ -227,18 +227,18 @@ int32_t _platinum_vulkan_init(
     const char *validation_layers[] = {
         "VK_LAYER_KHRONOS_validation"
     };
+    log_debug("%p, %p", validation_layers, validation_layers[0]);
 
     if (layer_count > 0 && plat_vk->extensions & vulkan_extension_debug_utils_bit) {
         plat_vk->extensions |= vulkan_extension_layer_validation_bit;
         instance_create_info.pNext = &validation_features;
         instance_create_info.enabledLayerCount = 1;
-        instance_create_info.ppEnabledLayerNames = validation_layers;
+        instance_create_info.ppEnabledLayerNames = (const char * const *)validation_layers;
     }
 #endif /* validation layers */
 
     VERIFY_VK(plat_vk->api.vkCreateInstance(&instance_create_info, NULL, &plat_vk->instance));
     vulkan_instance_api_load_procedures(&plat_vk->api, plat_vk->instance, &plat_vk->extensions);
-    arena_reset(temp_arena);
 
 #if !defined(AMW_NDEBUG) && defined(VK_EXT_debug_utils)
     if (plat_vk->extensions & vulkan_extension_layer_validation_bit)    

@@ -741,17 +741,6 @@ int32_t vulkan_device_api_load_procedures(
         }
     }
 #endif /* VK_EXT_device_fault */
-#if defined(VK_AMD_buffer_marker)
-    if (*device_extension_bits & vulkan_extension_amd_buffer_marker_bit) {
-        api->vkCmdWriteBufferMarkerAMD = (PFN_vkCmdWriteBufferMarkerAMD)(void *)device_proc_address(instance_api, device, "vkCmdWriteBufferMarkerAMD");
-
-        if (!api->vkCmdWriteBufferMarkerAMD) {
-            log_warn("Can't load vkCmdWriteBufferMarkerAMD from the VK_AMD_buffer_marker extension.");
-            *device_extension_bits &= ~vulkan_extension_amd_buffer_marker_bit;
-            out = result_error_undefined; // TODO
-        }
-    }
-#endif /* VK_AMD_buffer_marker */
 #if defined(VK_AMD_shader_info)
     if (*device_extension_bits & vulkan_extension_amd_shader_info_bit) {
         api->vkGetShaderInfoAMD = (PFN_vkGetShaderInfoAMD)(void *)device_proc_address(instance_api, device, "vkGetShaderInfoAMD");

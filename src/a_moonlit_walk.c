@@ -47,13 +47,13 @@ static void a_moonlit_walk_main__(
         }
         hadal_window_visible(AMW.hadal, true);
 
-        i = platinum_init(&AMW.plat, AMW.hadal, hints->app_name, hints->version);
+        i = platinum_init(&AMW.plat, AMW.hadal, hints->app_name, hints->version, thread_count);
         if (i != result_success) {
             log_fatal("Can't initialize the rendering backend.");
             a_moonlit_walk_cleanup__(&AMW);
             return;
         }
-        i = platinum_construct_novas(&AMW.plat, -1, 0, thread_count);
+        i = platinum_construct_novas(&AMW.plat, -1, 1);
         if (i != result_success) {
             log_fatal("Creating rendering devices failed. No rendering is possible.");
             a_moonlit_walk_cleanup__(&AMW);
@@ -86,7 +86,7 @@ static void a_moonlit_walk_main__(
     struct amw_framedata *rendering_frame = NULL;
     struct amw_framedata *gpuexec_frame = NULL;
 
-    /* TODO run 128 frames and exit */
+    /* TODO run X frames and exit */
     int32_t close_counter = 128;
 
     log_debug("A MOONLIT WALK - GAMELOOP - - - BEGIN");
@@ -122,7 +122,7 @@ static void a_moonlit_walk_main__(
         simulation_frame = (at_read_relaxed(&AMW.flags) & amw_flag_finalize_gameloop) 
             == amw_flag_finalize_gameloop ? NULL : &frames[(++frame_idx) % AMW_MAX_FRAMES];
 
-        /* TODO run 128 frames and exit */
+        /* TODO run X frames and exit */
         close_counter--;
         if (close_counter < 0) // && simulation_frame)
             at_fetch_or_relaxed(&AMW.flags, amw_flag_finalize_gameloop);
@@ -132,10 +132,9 @@ static void a_moonlit_walk_main__(
 
     a_moonlit_walk_cleanup__(&AMW);
 
-    log_info("Application was running for a total of:  %llu min, %02llu sec, %03lu ms", 
-        (ticks_ns()/AMW_NS_PER_SECOND)/60, (ticks_ns()/AMW_NS_PER_SECOND)%60, ticks_ms()%AMW_MS_PER_SECOND);
+    log_info("Application was running for a total of:    %llu min, %02llu sec, %03lu ms    %u frames", 
+        (ticks_ns()/AMW_NS_PER_SECOND)/60, (ticks_ns()/AMW_NS_PER_SECOND)%60, ticks_ms()%AMW_MS_PER_SECOND, frame_idx-1);
 }
-
 
 int32_t a_moonlit_walk(
         int32_t (*main__)(struct amw_hints *, int32_t, char **), 

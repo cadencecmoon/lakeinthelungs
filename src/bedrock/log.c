@@ -70,14 +70,14 @@ void log_message(
         char timestamp[22];
         timestamp[strftime(timestamp, sizeof(timestamp), "%H:%M:%S", log.time)] = '\0';
 
-        fprintf(stdout, "%s %s%s ", timestamp, level_colors[log.level], level_strings[log.level]);
-        fprintf(stdout, "\033[38;5;8m%26s:%-5d%s ", log.file, log.line, level_colors[log.level]);
+        fprintf(stderr, "%s %s%s ", timestamp, level_colors[log.level], level_strings[log.level]);
+        fprintf(stderr, "\033[38;5;8m%26s:%-5d%s ", log.file, log.line, level_colors[log.level]);
     } else {
-        fprintf(stdout, "%s ", level_colors[log.level]);
+        fprintf(stderr, "%s", level_colors[log.level]);
     }
-    vfprintf(stdout, log.fmt, log.ap);
-    fprintf(stdout, "\n");
-    fflush(stdout);
+    vfprintf(stderr, log.fmt, log.ap);
+    fprintf(stderr, "\x1b[0m\n");
+    fflush(stderr);
 
     at_clear(&spinlock);
     va_end(log.ap);

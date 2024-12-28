@@ -35,7 +35,7 @@ AMW_INLINE struct region *region_new(size_t capacity)
     assert_debug(r != NULL);
 
 #ifdef AMW_DEBUG
-    log_debug("Allocated a memory region of size %lu + %lu bytes", sizeof(struct region), bytes - sizeof(struct region));
+    log_debug("Allocated a memory region of size %lu + %lu bytes", sizeof(struct region), capacity);
 #endif
 
     at_store_relaxed(&r->next, NULL);

@@ -54,16 +54,16 @@ enum vulkan_extensions {
     vulkan_extension_memory_budget_bit                  = (1u << 3),  /**< VK_EXT_memory_budget */
     vulkan_extension_memory_priority_bit                = (1u << 4),  /**< VK_EXT_memory_priority */
     /* device extensions, vendor AMD */
-    vulkan_extension_amd_buffer_marker_bit              = (1u << 5),  /**< VK_AMD_buffer_marker */
-    vulkan_extension_amd_shader_info_bit                = (1u << 6),  /**< VK_AMD_shader_info */
+    vulkan_extension_amd_shader_info_bit                = (1u << 5),  /**< VK_AMD_shader_info */
     /* device extensions, raytracing */
-    vulkan_extension_deferred_host_operations_bit       = (1u << 7), /**< VK_KHR_deferred_host_operations */
-    vulkan_extension_acceleration_structure_bit         = (1u << 8), /**< VK_KHR_acceleration_structure */
-    vulkan_extension_ray_query_bit                      = (1u << 9), /**< VK_KHR_ray_query */
+    vulkan_extension_deferred_host_operations_bit       = (1u << 6), /**< VK_KHR_deferred_host_operations */
+    vulkan_extension_acceleration_structure_bit         = (1u << 7), /**< VK_KHR_acceleration_structure */
+    vulkan_extension_ray_query_bit                      = (1u << 8), /**< VK_KHR_ray_query */
     /* core 1.4, for backwards compatibility */
-    vulkan_extension_dynamic_rendering_local_read_bit   = (1u << 10), /**< VK_KHR_dynamic_rendering_local_read */
+    vulkan_extension_dynamic_rendering_local_read_bit   = (1u << 20), /**< VK_KHR_dynamic_rendering_local_read */
     /* core 1.3, for backwards compatibility */
-    vulkan_extension_dynamic_rendering_bit              = (1u << 11), /**< VK_KHR_dynamic_rendering */
+    vulkan_extension_dynamic_rendering_bit              = (1u << 21), /**< VK_KHR_dynamic_rendering */
+    /* core 1.2, for backwards compatibility */
 };
 #define vulkan_extension_mask_raytracing \
     (vulkan_extension_deferred_host_operations_bit | \
@@ -350,9 +350,6 @@ struct vulkan_device_api {
 #if defined(VK_EXT_device_fault)
     PFN_vkGetDeviceFaultInfoEXT                             vkGetDeviceFaultInfoEXT;
 #endif /* VK_EXT_device_fault */
-#if defined(VK_AMD_buffer_marker)
-    PFN_vkCmdWriteBufferMarkerAMD                           vkCmdWriteBufferMarkerAMD;
-#endif /* VK_AMD_buffer_marker */
 #if defined(VK_AMD_shader_info)
     PFN_vkGetShaderInfoAMD                                  vkGetShaderInfoAMD;
 #endif /* VK_AMD_shader_info */
@@ -431,12 +428,13 @@ struct platinum_vulkan {
 };
 
 int32_t _platinum_vulkan_init(
-        void *internal, 
+        void *internal_plat, 
         struct hadal *hadal, 
         const char *application_name, 
         uint32_t application_version,
         struct arena_allocator *temp_arena);
-void _platinum_vulkan_fini(void *internal);
+
+void _platinum_vulkan_fini(void *internal_plat);
 
 VkResult vulkan_create_surface(
         struct vulkan_instance_api *api, 
@@ -444,6 +442,27 @@ VkResult vulkan_create_surface(
         struct hadal *hadal, 
         const VkAllocationCallbacks *allocator, 
         VkSurfaceKHR *surface);
+
+void _platinum_vulkan_select_physical_devices(
+        void *internal_plat,
+        void **out_internal_novas, 
+        struct arena_allocator *temp_arena,
+        uint32_t *out_gpu_count, 
+        uint32_t max_gpu_count, 
+        int32_t preferred_main_gpu);
+
+int32_t _platinum_vulkan_create_devices(
+        void *internal_plat,
+        void *internal_novas,
+        struct arena_allocator *temp_arena,
+        uint32_t nova_count,
+        uint32_t thread_count);
+
+void _platinum_vulkan_destroy_devices(
+        void *internal_plat,
+        void *internal_novas,
+        uint32_t nova_count,
+        uint32_t thread_count);
 
 /* struct platynova : GPU device */
 struct platynova_vulkan { 
@@ -457,12 +476,17 @@ struct platynova_vulkan {
     VkPhysicalDeviceAccelerationStructurePropertiesKHR  acceleration_structure_properties;
     VkPhysicalDeviceAccelerationStructureFeaturesKHR    acceleration_structure_features;
 #endif
-    /* 1 per worker thread */
-    VkCommandPool              *command_pools;
+    VkCommandPool              *graphics_command_pools; /**< 3 command pools per worker thread for the single graphics queue. */
+    VkCommandPool              *compute_command_pools;  /**< 3 command pools per worker thread per compute queue. */
+    VkCommandPool              *transfer_command_pools; /**< 1 command pool per worker thread per transfer queue. */
 
-    VkQueue                     graphics_queue;
-    VkQueue                     compute_queue;
-    VkQueue                     transfer_queue;
+    VkQueue                    *graphics_queues;        /**< For now we'll use just one graphics queue, but to keep stuff clean lets define it like the other queues. */
+    VkQueue                    *compute_queues;         /**< Compute workload can be partitioned and submitted per queue, on compute & transfer only families they are independent. */
+    VkQueue                    *transfer_queues;        /**< A separate transfer family is optimal, some AMD cards offer two DMA cores we can use. */
+    uint32_t                    graphics_queue_count;
+    uint32_t                    compute_queue_count;
+    uint32_t                    transfer_queue_count;
+
     uint32_t                    graphics_queue_family_idx;
     uint32_t                    compute_queue_family_idx;
     uint32_t                    transfer_queue_family_idx;
@@ -470,6 +494,11 @@ struct platynova_vulkan {
     uint32_t                    extensions;
     struct vulkan_device_api    api;
 };
+
+void _platynova_vulkan_setup_internal_device(
+        struct platynova *nova,
+        void *internal_novas,
+        uint32_t nova_idx);
 
 #if !defined(AMW_NDEBUG)
     #define VERIFY_VK(x) { \
