@@ -1,6 +1,6 @@
 #include <lake/bedrock/log.h>
 
-#include "../hadopelagic.h"
+#include "wl_hadopelagic.h"
 
 static void resize_framebuffer(struct hadal *hadal, uint32_t width, uint32_t height)
 {

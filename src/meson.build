@@ -7,7 +7,7 @@ engine += files(
 )
 
 subdir('bedrock')
-subdir('hadal')
-subdir('ipomoea')
-subdir('moth')
-subdir('platynova')
+subdir('platform')
+subdir('audio')
+subdir('renderer')
+subdir('memory')

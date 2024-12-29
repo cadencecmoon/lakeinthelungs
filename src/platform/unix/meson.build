@@ -1,8 +1,8 @@
 if have_posix
     engine += files(
+        'dynamic_lib.c',
         'posix_threads.c',
         'posix_timer.c',
-        'dll.c',
     )
     deps += [ dep_threads, dep_rt, dep_dl ]
 

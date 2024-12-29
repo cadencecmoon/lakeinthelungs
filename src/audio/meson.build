@@ -1,3 +1,5 @@
+engine += files('silver')
+
 # CoreAudio
 dep_core = dependency('appleframeworks', modules : [ 'CoreAudio' ], required : get_option('core'))
 if dep_core.found()
@@ -67,12 +69,8 @@ endif
 # PipeWire
 dep_pipewire = dependency('libpipewire-0.3', required : get_option('pipewire'))
 if dep_pipewire.found()
-    #negine += files('')
-
-    defs += [ 
-        '-DAMW_NATIVE_PIPEWIRE=1', 
-        '-D_GNU_SOURCE' ]
-    #deps += dep_pipewire
+    negine += files('backends/pipewire.c')
+    defs += '-DAMW_NATIVE_PIPEWIRE=1'
 endif
 
 # OSS

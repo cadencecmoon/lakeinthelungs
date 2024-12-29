@@ -70,7 +70,7 @@ endif
 # Linux (DRM/KMS)
 if sys == 'android' or sys == 'linux' or sys == 'bsd'
     engine += files(
-        'cpu.c',
+        'linux_system.c',
     )
 
     defs += '-DAMW_PLATFORM_LINUX=1'
@@ -84,7 +84,7 @@ if sys == 'android' or sys == 'linux' or sys == 'bsd'
         #engine += files('')
 
         defs += [
-            '-DAMW_NATIVE_KMS=1',
+            '-DAMW_NATIVE_DRM=1',
             '-DVK_USE_PLATFORM_KMS_KHR' ]
     endif
 endif

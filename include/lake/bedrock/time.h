@@ -19,11 +19,15 @@ extern "C" {
 #define AMW_US_TO_NS(US)        (((uint64_t)(US)) * AMW_NS_PER_US)
 #define AMW_NS_TO_US(NS)        ((NS) / AMW_NS_PER_US)
 
+#ifndef AMW_NO_PROTOTYPES
+
 /** Get the time passed since the game initialized in milliseconds. */
-AMWAPI uint64_t ticks_ms(void);
+AMWAPI uint64_t AMWAPIENTRY ticks_ms(void);
 
 /** Get the time passed since the game initialized in nanoseconds. */
-AMWAPI uint64_t ticks_ns(void);
+AMWAPI uint64_t AMWAPIENTRY ticks_ns(void);
+
+#endif /* AMW_NO_PROTOTYPES */
 
 #ifdef __cplusplus
 }

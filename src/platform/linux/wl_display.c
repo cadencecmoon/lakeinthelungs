@@ -1,7 +1,8 @@
 #include <lake/bedrock/log.h>
-#include <lake/ipomoea.h>
+#include <lake/hadopelagic.h>
+#include <lake/ipomoeaalba.h>
 
-#include "../hadopelagic.h"
+#include "wl_hadopelagic.h"
 
 struct hadopelagic_api_wl_core HADOPELAGIC_WL_CORE;
 struct hadopelagic_api_wl_cursor HADOPELAGIC_WL_CURSOR;

@@ -1,5 +1,5 @@
 #include <lake/bedrock/time.h>
-#include <lake/hadal.h>
+#include <lake/hadopelagic.h>
 
 static uint64_t tick_start = 0;
 static uint32_t tick_numerator_ms;
@@ -36,7 +36,7 @@ static void ticks_init(void)
         --tick_start;
 }
 
-uint64_t ticks_ms(void)
+AMWAPI uint64_t AMWAPIENTRY ticks_ms(void)
 {
     uint64_t starting_value, value;
 
@@ -50,7 +50,7 @@ uint64_t ticks_ms(void)
     return value;
 }
 
-uint64_t ticks_ns(void)
+AMWAPI uint64_t AMWAPIENTRY ticks_ns(void)
 {
     uint64_t starting_value, value;
 

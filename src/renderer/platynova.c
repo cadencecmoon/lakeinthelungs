@@ -7,8 +7,10 @@
 
 int32_t platinum_construct_novas(
         struct platinum *plat, 
+        struct riven *riven,
         int32_t preferred_main_idx, 
-        uint32_t max_nova_count)
+        uint32_t max_nova_count,
+        bool use_raytracing)
 {
     uint32_t nova_count = 0;
 
@@ -27,7 +29,7 @@ int32_t platinum_construct_novas(
     }
 
     if (_platinum_vulkan_create_devices(plat->internal_plat, plat->internal_novas, &temp_arena, nova_count, plat->thread_count) != result_success) {
-        _platinum_vulkan_destroy_devices(plat->internal_plat, plat->internal_novas, plat->nova_count, plat->thread_count);
+        _platinum_vulkan_destroy_devices(plat->internal_novas, plat->nova_count, plat->thread_count);
         arena_fini(&temp_arena);
         log_error("Can't create a Vulkan device.");
         return result_error_undefined;
@@ -39,7 +41,7 @@ int32_t platinum_construct_novas(
     for (uint32_t i = 0; i < nova_count; i++) {
         novas[i].plat = plat;
         at_store_relaxed(&novas[i].flags, i == 0u ? platynova_flag_is_the_main_device : 0u);
-        _platynova_vulkan_setup_internal_device(&novas[i], plat->internal_novas, i);
+        _platynova_vulkan_setup_internal_device(&novas[i], plat->internal_novas, i, use_raytracing);
     }
     plat->novas = novas;
 
@@ -58,7 +60,7 @@ void platinum_implode_novas(struct platinum *plat)
     plat->novas = NULL;
 
     if (plat->internal_novas) {
-        _platinum_vulkan_destroy_devices(plat->internal_plat, plat->internal_novas, plat->nova_count, plat->thread_count);
+        _platinum_vulkan_destroy_devices(plat->internal_novas, plat->nova_count, plat->thread_count);
         free(plat->internal_novas);
     }
     plat->internal_novas = NULL;

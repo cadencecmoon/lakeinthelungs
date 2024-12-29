@@ -5,7 +5,7 @@
 #include <lake/bedrock/atomic.h>
 #include <lake/bedrock/log.h>
 #include <lake/bedrock/parser.h>
-#include <lake/ipomoea.h>
+#include <lake/ipomoeaalba.h> /* TODO */
 
 #include <stdlib.h> /* malloc, free */
 #include <string.h> /* memcpy, strdup */
@@ -13,6 +13,10 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/* TODO when i'll be using ipomoeaalba.h as the memory backend, the functions can't be inline anymore,
+ * or else with AMW_NO_PROTOTYPES and dynamically loading the engine library, the allocator will fail.
+ * For now it's fine, it will take me some time to figure out stuff. */
 
 /* FIXME use the tagged heap as a memory backend instead. */
 struct region {
@@ -128,8 +132,7 @@ AMW_INLINE void arena_fini(struct arena_allocator *a)
         r0 = at_read_relaxed(&r0->next);
         region_free(r1);
     }
-    a->begin = NULL;
-    a->end = NULL;
+    a->begin = a->end = NULL;
 }
 
 #ifdef __cplusplus

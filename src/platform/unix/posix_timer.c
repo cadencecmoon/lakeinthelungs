@@ -1,5 +1,5 @@
 #include <lake/bedrock/time.h>
-#include <lake/hadal.h>
+#include <lake/hadopelagic.h>
 
 #include <sys/time.h>
 #ifdef AMW_HAS_CLOCK_GETTIME
@@ -30,7 +30,8 @@ static void check_monotonic(void)
     checked_monotonic = true;
 }
 
-uint64_t hadal_timer_counter(void)
+AMWAPI uint64_t AMWAPIENTRY 
+hadal_timer_counter(void)
 {
     uint64_t ticks = 0;
 
@@ -59,7 +60,8 @@ uint64_t hadal_timer_counter(void)
     return ticks;
 }
 
-uint64_t hadal_timer_frequency(void)
+AMWAPI uint64_t AMWAPIENTRY 
+hadal_timer_frequency(void)
 {
     if (!checked_monotonic) {
         check_monotonic();

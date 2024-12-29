@@ -210,98 +210,100 @@ int32_t _platinum_vulkan_create_devices(
         uint32_t extension_count = 0;
         char **extensions = NULL;
 
+        struct platynova_vulkan *nova = &novas_vk[i];
+
         log_info("\nCreating a rendering device (platynova) for GPU:\n"
                  "    Device name: %s\n"
                  "    Device type: %s, ID: %X\n"
                  "    Vendor: %s, ID: %X\n"
                  "    Api version: %u.%u.%u",
-                 novas_vk[i].physical_properties.deviceName,
-                 device_type_string(novas_vk[i].physical_properties.deviceType),
-                 novas_vk[i].physical_properties.deviceID,
-                 vendor_name_string(novas_vk[i].physical_properties.vendorID),
-                 novas_vk[i].physical_properties.vendorID,
-                 (novas_vk[i].physical_properties.apiVersion >> 22U),
-                 (novas_vk[i].physical_properties.apiVersion >> 12U) & 0x3ffU,
-                 (novas_vk[i].physical_properties.apiVersion & 0xfffU));
+                 nova->physical_properties.deviceName,
+                 device_type_string(nova->physical_properties.deviceType),
+                 nova->physical_properties.deviceID,
+                 vendor_name_string(nova->physical_properties.vendorID),
+                 nova->physical_properties.vendorID,
+                 (nova->physical_properties.apiVersion >> 22U),
+                 (nova->physical_properties.apiVersion >> 12U) & 0x3ffU,
+                 (nova->physical_properties.apiVersion & 0xfffU));
 
         arena_reset(temp_arena);
         VkPhysicalDevice *pds = (VkPhysicalDevice *)arena_alloc(temp_arena, sizeof(VkPhysicalDevice) * pd_count);
         VERIFY_VK(plat_vk->api.vkEnumeratePhysicalDevices(plat_vk->instance, &pd_count, pds));
 
         /* we already made sure the GPU in question supports the command queues we need */
-        plat_vk->api.vkGetPhysicalDeviceQueueFamilyProperties(novas_vk[i].physical, &queue_family_count, NULL);
+        plat_vk->api.vkGetPhysicalDeviceQueueFamilyProperties(nova->physical, &queue_family_count, NULL);
         VkQueueFamilyProperties *queue_families = (VkQueueFamilyProperties *)arena_alloc(temp_arena, queue_family_count * sizeof(VkQueueFamilyProperties) * queue_family_count);
-        plat_vk->api.vkGetPhysicalDeviceQueueFamilyProperties(novas_vk[i].physical, &queue_family_count, queue_families);
+        plat_vk->api.vkGetPhysicalDeviceQueueFamilyProperties(nova->physical, &queue_family_count, queue_families);
 
         for (uint32_t j = 0; j < queue_family_count; j++) {
             /* ask for one independent graphics queue, don't be picky */
-            if (novas_vk[i].graphics_queue_count == 0 && queue_families[j].queueCount > 0 && (queue_families[j].queueFlags & VK_QUEUE_GRAPHICS_BIT)) {
-                novas_vk[i].graphics_queue_count = 1;
-                novas_vk[i].graphics_queue_family_idx = j;
+            if (nova->graphics_queue_count == 0 && queue_families[j].queueCount > 0 && (queue_families[j].queueFlags & VK_QUEUE_GRAPHICS_BIT)) {
+                nova->graphics_queue_count = 1;
+                nova->graphics_queue_family_idx = j;
             }
 
             /* ask for independent compute queue(s) */
-            if (novas_vk[i].compute_queue_count == 0 && queue_families[j].queueCount > 0 
+            if (nova->compute_queue_count == 0 && queue_families[j].queueCount > 0 
                 && (queue_families[j].queueFlags & VK_QUEUE_COMPUTE_BIT)
                 && (queue_families[j].queueFlags & VK_QUEUE_GRAPHICS_BIT) == 0)
             {
-                novas_vk[i].compute_queue_count = queue_families[j].queueCount;
-                novas_vk[i].compute_queue_family_idx = j;
+                nova->compute_queue_count = queue_families[j].queueCount;
+                nova->compute_queue_family_idx = j;
             }
 
             /* ask for independent transfer queue(s) */
-            if (novas_vk[i].transfer_queue_count == 0 && queue_families[j].queueCount > 0 
+            if (nova->transfer_queue_count == 0 && queue_families[j].queueCount > 0 
                 && (queue_families[j].queueFlags & VK_QUEUE_TRANSFER_BIT) 
                 && (queue_families[j].queueFlags & VK_QUEUE_COMPUTE_BIT) == 0
                 && (queue_families[j].queueFlags & VK_QUEUE_GRAPHICS_BIT) == 0) 
             {
-                novas_vk[i].transfer_queue_count = min(queue_families[j].queueCount, 2);
-                novas_vk[i].transfer_queue_family_idx = j;
+                nova->transfer_queue_count = min(queue_families[j].queueCount, 2);
+                nova->transfer_queue_family_idx = j;
 
             /* otherwise ask for compute + transfer queues(s) */
-            } else if (novas_vk[i].compute_queue_count != 0 
-                && novas_vk[i].transfer_queue_count == 0 && queue_families[j].queueCount > 0 
+            } else if (nova->compute_queue_count != 0 
+                && nova->transfer_queue_count == 0 && queue_families[j].queueCount > 0 
                 && (queue_families[j].queueFlags & VK_QUEUE_TRANSFER_BIT) 
                 && (queue_families[j].queueFlags & VK_QUEUE_COMPUTE_BIT)
                 && (queue_families[j].queueFlags & VK_QUEUE_GRAPHICS_BIT) == 0) 
             {
-                novas_vk[i].transfer_queue_count = 1;
-                novas_vk[i].transfer_queue_family_idx = j;
+                nova->transfer_queue_count = 1;
+                nova->transfer_queue_family_idx = j;
 
                 /* my gpu (RX 7600) has a compute+transfer family for example.. */
                 if (queue_families[j].queueCount > 1) {
-                    novas_vk[i].compute_queue_count = queue_families[j].queueCount - 1;
-                    first_transfer_queue_idx = novas_vk[i].compute_queue_count - 1; /* implied that compute family is different from graphics */
+                    nova->compute_queue_count = queue_families[j].queueCount - 1;
+                    first_transfer_queue_idx = nova->compute_queue_count - 1; /* implied that compute family is different from graphics */
                 } else {
-                    novas_vk[i].compute_queue_count = 0;
+                    nova->compute_queue_count = 0;
                 }
             }
         }
 
         /* resolve compute queues, if no asynchronous compute families exist */
-        if (novas_vk[i].compute_queue_count == 0) {
-            uint32_t idx = novas_vk[i].graphics_queue_family_idx;
+        if (nova->compute_queue_count == 0) {
+            uint32_t idx = nova->graphics_queue_family_idx;
             uint32_t count = queue_families[idx].queueCount;
-            novas_vk[i].compute_queue_family_idx = idx;
+            nova->compute_queue_family_idx = idx;
             if (count > 1) {
-                novas_vk[i].compute_queue_count = count - 1;
-                first_compute_queue_idx = novas_vk[i].graphics_queue_count;
+                nova->compute_queue_count = count - 1;
+                first_compute_queue_idx = nova->graphics_queue_count;
             } else {
                 /* share the only available graphics + compute queue */
-                novas_vk[i].compute_queue_count = 1;
+                nova->compute_queue_count = 1;
                 first_compute_queue_idx = 0;
             }
         }
 
         /* resolve transfer queues, if no asynchronous transfer families exist */
-        if (novas_vk[i].transfer_queue_count == 0) {
-            uint32_t count = queue_families[novas_vk[i].transfer_queue_family_idx].queueCount;
-            novas_vk[i].transfer_queue_count = 1;
-            novas_vk[i].transfer_queue_family_idx = novas_vk[i].compute_queue_family_idx;
+        if (nova->transfer_queue_count == 0) {
+            uint32_t count = queue_families[nova->transfer_queue_family_idx].queueCount;
+            nova->transfer_queue_count = 1;
+            nova->transfer_queue_family_idx = nova->compute_queue_family_idx;
 
             if (count > 2) {
-                novas_vk[i].compute_queue_count--;
-                first_transfer_queue_idx = first_compute_queue_idx + novas_vk[i].compute_queue_count;
+                nova->compute_queue_count--;
+                first_transfer_queue_idx = first_compute_queue_idx + nova->compute_queue_count;
             } else if (count > 1) {
                 first_transfer_queue_idx = first_compute_queue_idx; /* if sharing the graphics queue, will be 0 */
             }
@@ -315,71 +317,72 @@ int32_t _platinum_vulkan_create_devices(
             queue_create_infos[j].pNext = NULL;
             queue_create_infos[j].flags = 0;
             queue_create_infos[j].pQueuePriorities = queue_priorities;
-            queue_create_infos[j].queueCount = novas_vk[i].graphics_queue_count;
-            queue_create_infos[j].queueFamilyIndex = novas_vk[i].graphics_queue_family_idx;
+            queue_create_infos[j].queueCount = nova->graphics_queue_count;
+            queue_create_infos[j].queueFamilyIndex = nova->graphics_queue_family_idx;
         }
-        queue_create_infos[1].queueCount = novas_vk[i].compute_queue_count;
-        queue_create_infos[1].queueFamilyIndex = novas_vk[i].compute_queue_family_idx;
-        queue_create_infos[2].queueCount = novas_vk[i].transfer_queue_count;
-        queue_create_infos[2].queueFamilyIndex = novas_vk[i].transfer_queue_family_idx;
+        queue_create_infos[1].queueCount = nova->compute_queue_count;
+        queue_create_infos[1].queueFamilyIndex = nova->compute_queue_family_idx;
+        queue_create_infos[2].queueCount = nova->transfer_queue_count;
+        queue_create_infos[2].queueFamilyIndex = nova->transfer_queue_family_idx;
 
         /* separate compute + transfer family */
-        if (novas_vk[i].transfer_queue_family_idx == novas_vk[i].compute_queue_family_idx
-            && novas_vk[i].transfer_queue_family_idx != novas_vk[i].graphics_queue_family_idx)
+        if (nova->transfer_queue_family_idx == nova->compute_queue_family_idx
+            && nova->transfer_queue_family_idx != nova->graphics_queue_family_idx)
         {
-            queue_count = min(queue_families[novas_vk[i].compute_queue_family_idx].queueCount, 
-                novas_vk[i].compute_queue_count + novas_vk[i].transfer_queue_count);
+            queue_count = min(queue_families[nova->compute_queue_family_idx].queueCount, 
+                nova->compute_queue_count + nova->transfer_queue_count);
             queue_create_infos[1].queueCount = queue_count;
-            queue_count += novas_vk[i].graphics_queue_count;
+            queue_count += nova->graphics_queue_count;
             queue_create_info_count = 2;
         /* separate compute family */
-        } else if (novas_vk[i].transfer_queue_family_idx != novas_vk[i].compute_queue_family_idx
-            && novas_vk[i].transfer_queue_family_idx == novas_vk[i].graphics_queue_family_idx)
+        } else if (nova->transfer_queue_family_idx != nova->compute_queue_family_idx
+            && nova->transfer_queue_family_idx == nova->graphics_queue_family_idx)
         {
-            queue_count = min(queue_families[novas_vk[i].transfer_queue_family_idx].queueCount, 
-                novas_vk[i].graphics_queue_count + novas_vk[i].transfer_queue_count);
+            queue_count = min(queue_families[nova->transfer_queue_family_idx].queueCount, 
+                nova->graphics_queue_count + nova->transfer_queue_count);
             queue_create_infos[0].queueCount = queue_count;
-            queue_count += novas_vk[i].compute_queue_count;
+            queue_count += nova->compute_queue_count;
             queue_create_info_count = 2;
-        } else if (novas_vk[i].transfer_queue_family_idx == novas_vk[i].compute_queue_family_idx
-            && novas_vk[i].transfer_queue_family_idx == novas_vk[i].graphics_queue_family_idx
-            && novas_vk[i].compute_queue_family_idx == novas_vk[i].graphics_queue_family_idx)
+        /* one queue family that supports everything */
+        } else if (nova->transfer_queue_family_idx == nova->compute_queue_family_idx
+            && nova->transfer_queue_family_idx == nova->graphics_queue_family_idx
+            && nova->compute_queue_family_idx == nova->graphics_queue_family_idx)
         {
-            queue_count = min(queue_families[novas_vk[i].graphics_queue_family_idx].queueCount, 
-                novas_vk[i].graphics_queue_count + novas_vk[i].compute_queue_count + novas_vk[i].transfer_queue_count);
+            queue_count = min(queue_families[nova->graphics_queue_family_idx].queueCount, 
+                nova->graphics_queue_count + nova->compute_queue_count + nova->transfer_queue_count);
             queue_create_infos[0].queueCount = queue_count;
             queue_create_info_count = 1;
         }
 
         /* validate state */
-        assert_debug(novas_vk[i].graphics_queue_count > 0);
-        assert_debug(novas_vk[i].compute_queue_count > 0);
-        assert_debug(novas_vk[i].transfer_queue_count > 0);
+        assert_debug(nova->graphics_queue_count > 0);
+        assert_debug(nova->compute_queue_count > 0);
+        assert_debug(nova->transfer_queue_count > 0);
 
         /* enable the needed extensions */
-        j = 0; extension_count = count_bits32(novas_vk[i].extensions);
+        j = 0; extension_count = count_bits32(nova->extensions);
         extensions = (char **)arena_alloc(temp_arena, sizeof(char *) * extension_count);
-        if (novas_vk[i].extensions & vulkan_extension_swapchain_bit)
+        if (nova->extensions & vulkan_extension_swapchain_bit)
             extensions[j++] = "VK_KHR_swapchain";
-        if (novas_vk[i].extensions & vulkan_extension_display_swapchain_bit)
+        if (nova->extensions & vulkan_extension_display_swapchain_bit)
             extensions[j++] = "VK_KHR_display_swapchain";
-        if (novas_vk[i].extensions & vulkan_extension_device_fault_bit)
+        if (nova->extensions & vulkan_extension_device_fault_bit)
             extensions[j++] = "VK_EXT_device_fault";
-        if (novas_vk[i].extensions & vulkan_extension_memory_budget_bit)
+        if (nova->extensions & vulkan_extension_memory_budget_bit)
             extensions[j++] = "VK_EXT_memory_budget";
-        if (novas_vk[i].extensions & vulkan_extension_memory_priority_bit)
+        if (nova->extensions & vulkan_extension_memory_priority_bit)
             extensions[j++] = "VK_EXT_memory_priority";
-        if (novas_vk[i].extensions & vulkan_extension_amd_shader_info_bit)
+        if (nova->extensions & vulkan_extension_amd_shader_info_bit)
             extensions[j++] = "VK_AMD_shader_info";
-        if (novas_vk[i].extensions & vulkan_extension_deferred_host_operations_bit)
+        if (nova->extensions & vulkan_extension_deferred_host_operations_bit)
             extensions[j++] = "VK_KHR_deferred_host_operations";
-        if (novas_vk[i].extensions & vulkan_extension_acceleration_structure_bit)
+        if (nova->extensions & vulkan_extension_acceleration_structure_bit)
             extensions[j++] = "VK_KHR_acceleration_structure";
-        if (novas_vk[i].extensions & vulkan_extension_ray_query_bit)
+        if (nova->extensions & vulkan_extension_ray_query_bit)
             extensions[j++] = "VK_KHR_ray_query";
-        if (novas_vk[i].extensions & vulkan_extension_dynamic_rendering_local_read_bit)
+        if (nova->extensions & vulkan_extension_dynamic_rendering_local_read_bit)
             extensions[j++] = "VK_KHR_dynamic_rendering_local_read";
-        if (novas_vk[i].extensions & vulkan_extension_dynamic_rendering_bit)
+        if (nova->extensions & vulkan_extension_dynamic_rendering_bit)
             extensions[j++] = "VK_KHR_dynamic_rendering";
 
         VkPhysicalDeviceFeatures physical_device_feats = {
@@ -401,7 +404,7 @@ int32_t _platinum_vulkan_create_devices(
         };
         VkPhysicalDeviceDynamicRenderingLocalReadFeaturesKHR dynamic_rendering_local_read_feats = {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_LOCAL_READ_FEATURES_KHR,
-            .pNext = ((novas_vk[i].extensions & vulkan_extension_mask_raytracing) 
+            .pNext = ((nova->extensions & vulkan_extension_mask_raytracing) 
                     == vulkan_extension_mask_raytracing) ? &ray_query_feats : NULL,
             .dynamicRenderingLocalRead = VK_TRUE,
         };
@@ -433,56 +436,56 @@ int32_t _platinum_vulkan_create_devices(
         };
 
         /* continue on error, for the validation layers to seek errors with other devices */
-        if (plat_vk->api.vkCreateDevice(novas_vk[i].physical, &device_create_info, NULL, &novas_vk[i].logical) != VK_SUCCESS) {
+        if (plat_vk->api.vkCreateDevice(nova->physical, &device_create_info, NULL, &nova->logical) != VK_SUCCESS) {
             log_error("Failed to create a Vulkan logical device !!");
             result = result_error_undefined; /* TODO */
             continue;
         }
-        if ((result = vulkan_device_api_load_procedures(&plat_vk->api, &novas_vk[i].api, novas_vk[i].logical, novas_vk[i].physical_properties.apiVersion, &novas_vk[i].extensions)) != result_success)
+        if ((result = vulkan_device_api_load_procedures(&plat_vk->api, &nova->api, nova->logical, nova->physical_properties.apiVersion, &nova->extensions)) != result_success)
             continue;
 
         /* grab the command queues */
-        novas_vk[i].graphics_queues = (VkQueue *)malloc(sizeof(VkQueue) * novas_vk[i].graphics_queue_count);
-        iamemset(novas_vk[i].graphics_queues, 0u, sizeof(VkQueue) * novas_vk[i].graphics_queue_count);
-        for (j = 0; j < novas_vk[i].graphics_queue_count; j++)
-            novas_vk[i].api.vkGetDeviceQueue(novas_vk[i].logical, novas_vk[i].graphics_queue_family_idx, j, &novas_vk[i].graphics_queues[j]);
-        novas_vk[i].compute_queues = (VkQueue *)malloc(sizeof(VkQueue) * novas_vk[i].compute_queue_count);
-        iamemset(novas_vk[i].compute_queues, 0u, sizeof(VkQueue) * novas_vk[i].compute_queue_count);
-        for (j = first_compute_queue_idx; j < novas_vk[i].compute_queue_count; j++)
-            novas_vk[i].api.vkGetDeviceQueue(novas_vk[i].logical, novas_vk[i].compute_queue_family_idx, j, &novas_vk[i].compute_queues[j]);
-        novas_vk[i].transfer_queues = (VkQueue *)malloc(sizeof(VkQueue) * novas_vk[i].transfer_queue_count);
-        iamemset(novas_vk[i].transfer_queues, 0u, sizeof(VkQueue) * novas_vk[i].transfer_queue_count);
-        for (j = first_transfer_queue_idx; j < novas_vk[i].transfer_queue_count; j++)
-            novas_vk[i].api.vkGetDeviceQueue(novas_vk[i].logical, novas_vk[i].transfer_queue_family_idx, j, &novas_vk[i].transfer_queues[j]);
+        nova->graphics_queues = (VkQueue *)malloc(sizeof(VkQueue) * nova->graphics_queue_count);
+        iamemset(nova->graphics_queues, 0u, sizeof(VkQueue) * nova->graphics_queue_count);
+        for (j = 0; j < nova->graphics_queue_count; j++)
+            nova->api.vkGetDeviceQueue(nova->logical, nova->graphics_queue_family_idx, j, &nova->graphics_queues[j]);
+        nova->compute_queues = (VkQueue *)malloc(sizeof(VkQueue) * nova->compute_queue_count);
+        iamemset(nova->compute_queues, 0u, sizeof(VkQueue) * nova->compute_queue_count);
+        for (j = first_compute_queue_idx; j < nova->compute_queue_count; j++)
+            nova->api.vkGetDeviceQueue(nova->logical, nova->compute_queue_family_idx, j, &nova->compute_queues[j]);
+        nova->transfer_queues = (VkQueue *)malloc(sizeof(VkQueue) * nova->transfer_queue_count);
+        iamemset(nova->transfer_queues, 0u, sizeof(VkQueue) * nova->transfer_queue_count);
+        for (j = first_transfer_queue_idx; j < nova->transfer_queue_count; j++)
+            nova->api.vkGetDeviceQueue(nova->logical, nova->transfer_queue_family_idx, j, &nova->transfer_queues[j]);
 
         /* we use 3 (PLATYNOVA_MAX_IMAGES) command pools (or 1 command pool for transfer)
          * per worker thread, per graphics/compute queue, per device */
-        uint32_t graphics_command_pool_count = novas_vk[i].graphics_queue_count * PLATYNOVA_MAX_IMAGES * thread_count;
-        uint32_t compute_command_pool_count = novas_vk[i].compute_queue_count * PLATYNOVA_MAX_IMAGES * thread_count;
-        uint32_t transfer_command_pool_count = novas_vk[i].transfer_queue_count * thread_count;
+        uint32_t graphics_command_pool_count = nova->graphics_queue_count * PLATYNOVA_MAX_IMAGES * thread_count;
+        uint32_t compute_command_pool_count = nova->compute_queue_count * PLATYNOVA_MAX_IMAGES * thread_count;
+        uint32_t transfer_command_pool_count = nova->transfer_queue_count * thread_count;
 
         /* create the command pools */
-        novas_vk[i].graphics_command_pools = (VkCommandPool *)malloc(sizeof(VkCommandPool) * graphics_command_pool_count);
-        iamemset(novas_vk[i].graphics_command_pools, 0u, sizeof(VkCommandPool) * graphics_command_pool_count);
-        novas_vk[i].compute_command_pools = (VkCommandPool *)malloc(sizeof(VkCommandPool) * compute_command_pool_count);
-        iamemset(novas_vk[i].compute_command_pools, 0u, sizeof(VkCommandPool) * compute_command_pool_count);
-        novas_vk[i].transfer_command_pools = (VkCommandPool *)malloc(sizeof(VkCommandPool) * transfer_command_pool_count);
-        iamemset(novas_vk[i].transfer_command_pools, 0u, sizeof(VkCommandPool) * transfer_command_pool_count);
+        nova->graphics_command_pools = (VkCommandPool *)malloc(sizeof(VkCommandPool) * graphics_command_pool_count);
+        iamemset(nova->graphics_command_pools, 0u, sizeof(VkCommandPool) * graphics_command_pool_count);
+        nova->compute_command_pools = (VkCommandPool *)malloc(sizeof(VkCommandPool) * compute_command_pool_count);
+        iamemset(nova->compute_command_pools, 0u, sizeof(VkCommandPool) * compute_command_pool_count);
+        nova->transfer_command_pools = (VkCommandPool *)malloc(sizeof(VkCommandPool) * transfer_command_pool_count);
+        iamemset(nova->transfer_command_pools, 0u, sizeof(VkCommandPool) * transfer_command_pool_count);
 
         VkCommandPoolCreateInfo command_pool_create_info = {
             .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
             .pNext = NULL,
             .flags = 0,
         };
-        command_pool_create_info.queueFamilyIndex = novas_vk[i].graphics_queue_family_idx;
+        command_pool_create_info.queueFamilyIndex = nova->graphics_queue_family_idx;
         for (j = 0; j < graphics_command_pool_count; j++)
-            VERIFY_VK(novas_vk[i].api.vkCreateCommandPool(novas_vk[i].logical, &command_pool_create_info, NULL, &novas_vk[i].graphics_command_pools[j]));
-        command_pool_create_info.queueFamilyIndex = novas_vk[i].compute_queue_family_idx;
+            VERIFY_VK(nova->api.vkCreateCommandPool(nova->logical, &command_pool_create_info, NULL, &nova->graphics_command_pools[j]));
+        command_pool_create_info.queueFamilyIndex = nova->compute_queue_family_idx;
         for (j = 0; j < compute_command_pool_count; j++)
-            VERIFY_VK(novas_vk[i].api.vkCreateCommandPool(novas_vk[i].logical, &command_pool_create_info, NULL, &novas_vk[i].compute_command_pools[j]));
-        command_pool_create_info.queueFamilyIndex = novas_vk[i].transfer_queue_family_idx;
-        for (j = 0; j < compute_command_pool_count; j++) {
-            VERIFY_VK(novas_vk[i].api.vkCreateCommandPool(novas_vk[i].logical, &command_pool_create_info, NULL, &novas_vk[i].transfer_command_pools[j]));
+            VERIFY_VK(nova->api.vkCreateCommandPool(nova->logical, &command_pool_create_info, NULL, &nova->compute_command_pools[j]));
+        command_pool_create_info.queueFamilyIndex = nova->transfer_queue_family_idx;
+        for (j = 0; j < transfer_command_pool_count; j++) {
+            VERIFY_VK(nova->api.vkCreateCommandPool(nova->logical, &command_pool_create_info, NULL, &nova->transfer_command_pools[j]));
         }
 
         log_debug("Created %d unique command queues and %d command pools:\n"
@@ -490,91 +493,98 @@ int32_t _platinum_vulkan_create_devices(
                   "    compute queues  : %2d  compute queue family idx  : %d   command pools : %d\n"
                   "    transfer queues : %2d  transfer queue family idx : %d   command pools : %d", 
                 queue_count, graphics_command_pool_count + compute_command_pool_count + transfer_command_pool_count,
-                novas_vk[i].graphics_queue_count, 
-                novas_vk[i].graphics_queue_family_idx, 
+                nova->graphics_queue_count, 
+                nova->graphics_queue_family_idx, 
                 graphics_command_pool_count,
-                novas_vk[i].compute_queue_count, 
-                novas_vk[i].compute_queue_family_idx, 
+                nova->compute_queue_count, 
+                nova->compute_queue_family_idx, 
                 compute_command_pool_count,
-                novas_vk[i].transfer_queue_count, 
-                novas_vk[i].transfer_queue_family_idx,
+                nova->transfer_queue_count, 
+                nova->transfer_queue_family_idx,
                 transfer_command_pool_count);
 
+#if defined(VK_KHR_acceleration_structure)
         /* retrieve acceleration structure properties if raytracing supported */
-        if ((novas_vk[i].extensions & vulkan_extension_mask_raytracing) == vulkan_extension_mask_raytracing) {
-            novas_vk[i].acceleration_structure_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR;
+        if ((nova->extensions & vulkan_extension_mask_raytracing) == vulkan_extension_mask_raytracing) {
+            nova->acceleration_structure_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR;
             VkPhysicalDeviceProperties2 device_properties2 = {
                 .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2_KHR,
-                .pNext = &novas_vk[i].acceleration_structure_properties,
+                .pNext = &nova->acceleration_structure_properties,
             };
-            plat_vk->api.vkGetPhysicalDeviceProperties2(novas_vk[i].physical, &device_properties2);
+            plat_vk->api.vkGetPhysicalDeviceProperties2(nova->physical, &device_properties2);
             log_info("This GPU supports hardware accelerated ray tracing.");
         }
+#endif
     }
 
     if (result != result_success) {
-        _platinum_vulkan_destroy_devices(internal_plat, internal_novas, nova_count, thread_count);
-        free(internal_novas);
+        log_error("An error occured when creating rendering devices.");
+        _platinum_vulkan_destroy_devices(internal_novas, nova_count, thread_count);
     }
 
     return result;
 }
 
-#include <unistd.h>
-
 void _platinum_vulkan_destroy_devices(
-        void *internal_plat,
         void *internal_novas,
         uint32_t nova_count,
         uint32_t thread_count)
 {
-    struct platinum_vulkan *plat_vk = (struct platinum_vulkan *)internal_plat;
     struct platynova_vulkan *novas_vk = (struct platynova_vulkan *)internal_novas;
 
-    (void)plat_vk;
-
     for (uint32_t i = 0; i < nova_count; i++) {
-        if (novas_vk[i].logical == VK_NULL_HANDLE)
+        struct platynova_vulkan *nova = &novas_vk[i];
+
+        if (nova->logical == VK_NULL_HANDLE)
             continue;
 
-        novas_vk[i].api.vkDeviceWaitIdle(novas_vk[i].logical);
+        nova->api.vkDeviceWaitIdle(nova->logical);
 
-        if (novas_vk[i].graphics_command_pools) {
-            uint32_t graphics_command_pool_count = novas_vk[i].graphics_queue_count * PLATYNOVA_MAX_IMAGES * thread_count;
-            uint32_t compute_command_pool_count = novas_vk[i].compute_queue_count * PLATYNOVA_MAX_IMAGES * thread_count;
-            uint32_t transfer_command_pool_count = novas_vk[i].transfer_queue_count * thread_count;
+        if (nova->graphics_command_pools) {
+            uint32_t graphics_command_pool_count = nova->graphics_queue_count * PLATYNOVA_MAX_IMAGES * thread_count;
+            uint32_t compute_command_pool_count = nova->compute_queue_count * PLATYNOVA_MAX_IMAGES * thread_count;
+            uint32_t transfer_command_pool_count = nova->transfer_queue_count * thread_count;
 
             for (uint32_t j = 0; j < graphics_command_pool_count; j++)
-                novas_vk[i].api.vkDestroyCommandPool(novas_vk[i].logical, novas_vk[i].graphics_command_pools[j], NULL);
+                nova->api.vkDestroyCommandPool(nova->logical, nova->graphics_command_pools[j], NULL);
             for (uint32_t j = 0; j < compute_command_pool_count; j++)
-                novas_vk[i].api.vkDestroyCommandPool(novas_vk[i].logical, novas_vk[i].compute_command_pools[j], NULL);
+                nova->api.vkDestroyCommandPool(nova->logical, nova->compute_command_pools[j], NULL);
             for (uint32_t j = 0; j < transfer_command_pool_count; j++)
-                novas_vk[i].api.vkDestroyCommandPool(novas_vk[i].logical, novas_vk[i].transfer_command_pools[j], NULL);
+                nova->api.vkDestroyCommandPool(nova->logical, nova->transfer_command_pools[j], NULL);
 
             /* the first graphics command pool points to the beginning of the command pool array */
-            free(novas_vk[i].graphics_command_pools);
-            free(novas_vk[i].compute_command_pools);
-            free(novas_vk[i].transfer_command_pools);
+            free(nova->graphics_command_pools);
+            free(nova->compute_command_pools);
+            free(nova->transfer_command_pools);
         }
 
-        if (novas_vk[i].graphics_queues) {
+        if (nova->graphics_queues) {
             /* the first graphics queue points to the beginning of the queue array */
-            free(novas_vk[i].graphics_queues);
-            free(novas_vk[i].compute_queues);
-            free(novas_vk[i].transfer_queues);
+            free(nova->graphics_queues);
+            free(nova->compute_queues);
+            free(nova->transfer_queues);
         }
 
-        log_info("Destroying a rendering device (platynova) for GPU: %s", novas_vk[i].physical_properties.deviceName);
-        novas_vk[i].api.vkDestroyDevice(novas_vk[i].logical, NULL);
+        log_info("Destroying a rendering device (platynova) for GPU: %s", nova->physical_properties.deviceName);
+        nova->api.vkDestroyDevice(nova->logical, NULL);
     }
 }
 
 void _platynova_vulkan_setup_internal_device(
         struct platynova *nova,
         void *internal_novas,
-        uint32_t nova_idx)
+        uint32_t nova_idx,
+        bool use_raytracing)
 {
     struct platynova_vulkan *novas_vk = (struct platynova_vulkan *)internal_novas;
 
     nova->internal_nova = &novas_vk[nova_idx];
+
+    if ((novas_vk[nova_idx].extensions & vulkan_extension_mask_raytracing) == vulkan_extension_mask_raytracing) {
+        at_fetch_or_relaxed(&nova->flags, platynova_flag_hardware_raytracing_support);
+        if (use_raytracing)
+            at_fetch_or_relaxed(&nova->plat->flags, platinum_flag_use_raytracing_accelerated);
+    } else if (use_raytracing) {
+        at_fetch_or_relaxed(&nova->plat->flags, platinum_flag_use_raytracing_soft);
+    }
 }

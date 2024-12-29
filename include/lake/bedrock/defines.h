@@ -399,6 +399,15 @@ extern "C" {
     #endif
 #endif
 
+/* use the C calling convention */
+#ifndef AMWAPIENTRY
+    #ifdef AMW_PLATFORM_WINDOWS
+        #define AMWAPIENTRY __cdecl
+    #else
+        #define AMWAPIENTRY 
+    #endif
+#endif
+
 #ifndef __cplusplus
     #define false 0
     #define true 1

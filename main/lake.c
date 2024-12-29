@@ -3,46 +3,46 @@
 
 int32_t lake_in_the_lungs_init__(
         struct a_moonlit_walk *AMW, 
-        struct amw_framedata *frames, 
-        uint32_t frame_count, 
+        struct amw_workload *work, 
+        uint32_t workload_count, 
         void *context) 
 {
     (void)AMW;
-    (void)frames;
-    (void)frame_count;
+    (void)work;
+    (void)workload_count;
     (void)context;
     return 0;
 }
 
 int32_t lake_in_the_lungs_simulation__(
         struct a_moonlit_walk *AMW, 
-        struct amw_framedata *frame, 
+        struct amw_workload *work, 
         void *context)
 {
     (void)AMW;
-    (void)frame;
+    (void)work;
     (void)context;
     return 0;
 }
 
 int32_t lake_in_the_lungs_rendering__(
         struct a_moonlit_walk *AMW, 
-        struct amw_framedata *frame, 
+        struct amw_workload *work, 
         void *context)
 {
     (void)AMW;
-    (void)frame;
+    (void)work;
     (void)context;
     return 0;
 }
 
 int32_t lake_in_the_lungs_gpuexec__(
         struct a_moonlit_walk *AMW, 
-        struct amw_framedata *frame, 
+        struct amw_workload *work, 
         void *context)
 {
     (void)AMW;
-    (void)frame;
+    (void)work;
     (void)context;
     return 0;
 }

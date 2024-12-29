@@ -3,11 +3,11 @@
 
 #include <lake/bedrock/defines.h>
 
-#include <lake/hadal.h>         /* windowing system */
-#include <lake/ipomoea.h>       /* memory, tagged heap allocator */
-#include <lake/moth.h>          /* audio engine */
+#include <lake/hadopelagic.h>   /* windowing system */
+#include <lake/ipomoeaalba.h>   /* tagged heap allocator */
 #include <lake/platynova.h>     /* renderer */
 #include <lake/riven.h>         /* fiber-based job system */
+#include <lake/silver.h>        /* audio engine */
 
 #include <lake/bedrock/align.h>
 #include <lake/bedrock/atomic.h>
@@ -35,31 +35,23 @@ extern "C" {
 struct a_moonlit_walk; /* forward declaration */
 
 /** Holds per-frame memory, pointer to the engine context and data needed to calculate and present a frame. */
-struct amw_framedata {
+struct amw_workload {
     uint32_t idx;
     double   dt;
 
     struct a_moonlit_walk *AMW;
-    const struct amw_framedata *previous;
+    const struct amw_workload *previous;
 };
 
 /** Application defined procedures. It's guaranteed that a single mainloop stage will not run 
  *  their callback in parallel with other internal procedures, needing no special synchronization
  *  work from the application's code. The individual stages still run in parallel, working on 
  *  different frames, unless the parallel gameloop execution has been disabled. */
-typedef int32_t (*PFN_amw_init)(struct a_moonlit_walk *AMW, struct amw_framedata *frames, uint32_t frame_count, void *context);
-typedef int32_t (*PFN_amw_simulation)(struct a_moonlit_walk *AMW, struct amw_framedata *frame, void *context);
-typedef int32_t (*PFN_amw_rendering)(struct a_moonlit_walk *AMW, struct amw_framedata *frame, void *context);
-typedef int32_t (*PFN_amw_gpuexec)(struct a_moonlit_walk *AMW, struct amw_framedata *frame, void *context);
-typedef void    (*PFN_amw_cleanup)(struct a_moonlit_walk *AMW, void *context);
-
-struct amw_callbacks {
-    PFN_amw_init        init;
-    PFN_amw_simulation  simulation;
-    PFN_amw_rendering   rendering;
-    PFN_amw_gpuexec     gpuexec;
-    PFN_amw_cleanup     cleanup;
-};
+typedef int32_t (AMWAPIENTRY *PFN_amw_init)(struct a_moonlit_walk *AMW, struct amw_workload *work, uint32_t frame_count, void *context);
+typedef int32_t (AMWAPIENTRY *PFN_amw_simulation)(struct a_moonlit_walk *AMW, struct amw_workload *work, void *context);
+typedef int32_t (AMWAPIENTRY *PFN_amw_rendering)(struct a_moonlit_walk *AMW, struct amw_workload *work, void *context);
+typedef int32_t (AMWAPIENTRY *PFN_amw_gpuexec)(struct a_moonlit_walk *AMW, struct amw_workload *work, void *context);
+typedef void    (AMWAPIENTRY *PFN_amw_cleanup)(struct a_moonlit_walk *AMW, void *context);
 
 /** Data used for configuring the framework from the application space. */
 struct amw_hints {
@@ -79,17 +71,22 @@ struct amw_hints {
     } riven;
 
     struct {
-        uint32_t hadal_backend;
-        uint32_t moth_backend;
+        PFN_hadopelagic_entry_point hadopelagic;
+        PFN_platinum_entry_point platinum;
+        PFN_silver_entry_point silver;
+    } entry_points;
 
-        bool allow_headless_display;
-    } init;
-
-    struct amw_callbacks callbacks;
+    struct {
+        PFN_amw_init        init;
+        PFN_amw_simulation  simulation;
+        PFN_amw_rendering   rendering;
+        PFN_amw_gpuexec     gpuexec;
+        PFN_amw_cleanup     cleanup;
+    } callbacks;
 };
 
 /** Used to control the framework's gameloop. */
-enum amw_flag {
+enum amw_flags {
     //amw_flag_parallel_gameloop_execution    = (1u << 0),  /**< Controls if the gameloop stages (simulation, rendering, gpuexec) will run in parallel for different frames, or if false, run in a pipeline one frame at a time. */
 
     amw_flag_finalize_gameloop              = (1u << 30), /**< Don't continue with more work - finish all current frames and exit. */
@@ -98,29 +95,28 @@ enum amw_flag {
 
 /** Collects handles for individual systems that build up the game engine context. */
 struct a_moonlit_walk {
-    at_uint32_t     flags;
+    at_uint32_t         flags;
 
-    /* backends */
-    struct hadal   *hadal; // TODO should not be opaque, only internally
-    struct moth    *moth; // TODO should not be opaque, only internally
-    struct platinum plat;
+    struct hadopelagic  hadal;
+    struct platinum     plat;
 
-    /* memory allocators */
-    struct ipomoea *ipomoea;
+    struct ipomoeaalba  ia;
 
-    /* job system */
-    struct riven   *riven;
-    thread_t       *threads;
-    size_t          thread_count;
+    struct riven       *riven;
+    thread_t           *threads;
+    uint32_t            thread_count;
 
-    /* application */
-    struct amw_callbacks callbacks;
+    struct amw_hints hints;
 };
 
+#ifndef AMW_NO_PROTOTYPES
+
 /** Entry point for the framework. */
-AMWAPI int32_t a_moonlit_walk(
+AMWAPI int32_t AMWAPIENTRY a_moonlit_walk(
         int32_t (*main__)(struct amw_hints *hints, int32_t, char **),
         int32_t argc, char **argv);
+
+#endif /* AMW_NO_PROTOTYPES */
 
 #ifdef A_MOONLIT_WALK_MAIN
 #undef A_MOONLIT_WALK_MAIN

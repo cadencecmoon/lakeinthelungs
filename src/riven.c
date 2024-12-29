@@ -516,7 +516,7 @@ static void entrypoint(void *raw_entrypoint_data)
     AMW_UNREACHABLE;
 }
 
-void riven_split_and_unchain(
+AMWAPI void AMWAPIENTRY riven_split_and_unchain(
         struct riven *riven,
         struct riven_tear *tears,
         size_t splits)
@@ -526,7 +526,7 @@ void riven_split_and_unchain(
     riven_unchain(riven, chain);
 }
 
-void riven_split(
+AMWAPI void AMWAPIENTRY riven_split(
         struct riven *riven,
         struct riven_tear *tears,
         size_t splits,
@@ -548,7 +548,7 @@ void riven_split(
     }
 }
 
-void riven_unchain(
+AMWAPI void AMWAPIENTRY riven_unchain(
         struct riven *riven, 
         riven_chain_t chain)
 {
@@ -575,7 +575,7 @@ void riven_unchain(
     }
 }
 
-void riven_chain_exile(
+AMWAPI void AMWAPIENTRY riven_chain_exile(
         struct riven *riven,
         riven_chain_t *chain)
 {
@@ -583,13 +583,14 @@ void riven_chain_exile(
     *counters = get_lock(riven, 1);
 }
 
-void riven_unchain_exile(riven_chain_t chain)
+AMWAPI void AMWAPIENTRY riven_unchain_exile(
+        riven_chain_t chain)
 {
     at_size_t *counter = chain;
     at_store_explicit(counter, 0ul, memory_model_release);
 }
 
-size_t riven_unveil_rift(
+AMWAPI size_t AMWAPIENTRY riven_unveil_rift(
         void *riven_memory,
         size_t fiber_stack_bytes,
         size_t fiber_count,
@@ -719,7 +720,7 @@ size_t riven_unveil_rift(
     do_the_work((void *)&riven->tls[0]);
 
     for (size_t i = 0; i <= riven->fiber_count; i++) {
-        stack_memory_stop(&riven->stack[i * (riven->stack_bytes + AMW_RIVEN_STACK_GUARD)], AMW_RIVEN_STACK_GUARD);
+        stack_memory_stop(&riven->stack[i * (riven->stack_bytes + RIVEN_STACK_GUARD)], RIVEN_STACK_GUARD);
     }
 
     return 0;

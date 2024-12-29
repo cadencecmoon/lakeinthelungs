@@ -27,7 +27,6 @@
 #endif
 
 #include <lake/platynova.h>
-#include <lake/datastructures/arena_allocator.h>
 
 /** Collects Vulkan extensions in use as bit flags for checking their availability.
   * We use different uint32_t variables to represent extensions per instance or per device. */
@@ -395,9 +394,6 @@ int32_t vulkan_device_api_load_procedures(
         uint32_t drivers_version,
         uint32_t *device_extension_bits);
 
-/** Entry point for the vulkan backend. */
-int32_t _platinum_vulkan_entry_point(struct platinum *plat);
-
 struct vulkan_swapchain {
     VkSwapchainKHR              sc;
     VkSurfaceKHR                surface;
@@ -414,6 +410,15 @@ struct vulkan_swapchain {
     uint32_t                    image_count;
 };
 
+VkResult vulkan_create_surface(
+        struct vulkan_instance_api *api, 
+        VkInstance instance, 
+        struct hadal *hadal, 
+        const VkAllocationCallbacks *allocator, 
+        VkSurfaceKHR *surface);
+
+RIVENS_TEAR(_plat_vulkan_construct_swapchain_tear__, struct platinum);
+
 /* struct platinum : backend */
 struct platinum_vulkan {
     VkInstance                  instance;
@@ -425,25 +430,20 @@ struct platinum_vulkan {
 
     uint32_t                    extensions;
     struct vulkan_instance_api  api;
+
+    VkAllocationCallbacks       allocator;
 };
 
-int32_t _platinum_vulkan_init(
+int32_t _plat_vulkan_init(
         void *internal_plat, 
         struct hadal *hadal, 
         const char *application_name, 
         uint32_t application_version,
         struct arena_allocator *temp_arena);
 
-void _platinum_vulkan_fini(void *internal_plat);
+void _plat_vulkan_fini(void *internal_plat);
 
-VkResult vulkan_create_surface(
-        struct vulkan_instance_api *api, 
-        VkInstance instance, 
-        struct hadal *hadal, 
-        const VkAllocationCallbacks *allocator, 
-        VkSurfaceKHR *surface);
-
-void _platinum_vulkan_select_physical_devices(
+void _plat_vulkan_select_physical_devices(
         void *internal_plat,
         void **out_internal_novas, 
         struct arena_allocator *temp_arena,
@@ -451,15 +451,14 @@ void _platinum_vulkan_select_physical_devices(
         uint32_t max_gpu_count, 
         int32_t preferred_main_gpu);
 
-int32_t _platinum_vulkan_create_devices(
+int32_t _plat_vulkan_create_devices(
         void *internal_plat,
         void *internal_novas,
         struct arena_allocator *temp_arena,
         uint32_t nova_count,
         uint32_t thread_count);
 
-void _platinum_vulkan_destroy_devices(
-        void *internal_plat,
+void _plat_vulkan_destroy_devices(
         void *internal_novas,
         uint32_t nova_count,
         uint32_t thread_count);
@@ -474,7 +473,6 @@ struct platynova_vulkan {
 
 #if defined(VK_KHR_acceleration_structure)
     VkPhysicalDeviceAccelerationStructurePropertiesKHR  acceleration_structure_properties;
-    VkPhysicalDeviceAccelerationStructureFeaturesKHR    acceleration_structure_features;
 #endif
     VkCommandPool              *graphics_command_pools; /**< 3 command pools per worker thread for the single graphics queue. */
     VkCommandPool              *compute_command_pools;  /**< 3 command pools per worker thread per compute queue. */
@@ -495,10 +493,11 @@ struct platynova_vulkan {
     struct vulkan_device_api    api;
 };
 
-void _platynova_vulkan_setup_internal_device(
+void _nova_vulkan_setup_internal_device(
         struct platynova *nova,
         void *internal_novas,
-        uint32_t nova_idx);
+        uint32_t nova_idx,
+        bool use_raytracing);
 
 #if !defined(AMW_NDEBUG)
     #define VERIFY_VK(x) { \

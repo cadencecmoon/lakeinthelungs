@@ -1,8 +1,6 @@
 #include <lake/bedrock/log.h>
-#include <lake/ipomoea.h>
-#include <lake/hadal.h>
-
-#include "hadopelagic.h"
+#include <lake/hadopelagic.h>
+#include <lake/ipomoeaalba.h>
 
 /* TODO replace malloc & strdup with the tagged heap allocator */
 #include <stdlib.h>
@@ -313,3 +311,88 @@ bool _hadal_debug_validate_display_api(const struct hadopelagic_api *api)
     return out;
 }
 #endif
+
+#ifndef AMW_PLATFORM_WINDOWS
+AMWAPI bool AMWAPIENTRY hadopelagic_win32_entry_point(struct hadopelagic *hadal)
+{
+    (void)hadal;
+    log_debug("The Win32 display backend is not available in this build.");
+    return false;
+}
+#endif /* AMW_PLATFORM_WINDOWS */
+
+#ifndef AMW_PLATFORM_MACOS
+AMWAPI bool AMWAPIENTRY hadopelagic_cocoa_entry_point(struct hadopelagic *hadal)
+{
+    (void)hadal;
+    log_debug("The Cocoa display backend is not available in this build.");
+    return false;
+}
+#endif /* AMW_PLATFORM_MACOS */
+
+#ifndef AMW_PLATFORM_IOS
+AMWAPI bool AMWAPIENTRY hadopelagic_ios_entry_point(struct hadopelagic *hadal)
+{
+    (void)hadal;
+    log_debug("The iOS display backend is not available in this build.");
+    return false;
+}
+#endif /* AMW_PLATFORM_IOS */
+
+#ifndef AMW_PLATFORM_ANDROID
+AMWAPI bool AMWAPIENTRY hadopelagic_android_entry_point(struct hadopelagic *hadal)
+{
+    (void)hadal;
+    log_debug("The Android display backend is not available in this build.");
+    return false;
+}
+#endif /* AMW_PLATFORM_ANDROID */
+
+#ifndef AMW_NATIVE_WAYLAND
+AMWAPI bool AMWAPIENTRY hadopelagic_wayland_entry_point(struct hadopelagic *hadal)
+{
+    (void)hadal;
+    log_debug("The Wayland display backend is not available in this build.");
+    return false;
+}
+#endif /* AMW_NATIVE_WAYLAND */
+
+#ifndef AMW_NATIVE_XCB
+AMWAPI bool AMWAPIENTRY hadopelagic_xcb_entry_point(struct hadopelagic *hadal)
+{
+    (void)hadal;
+    log_debug("The XCB (X11) display backend is not available in this build.");
+    return false;
+}
+#endif /* AMW_NATIVE_XCB */
+
+#ifndef AMW_NATIVE_DRM
+AMWAPI bool AMWAPIENTRY hadopelagic_drm_entry_point(struct hadopelagic *hadal)
+{
+    (void)hadal;
+    log_debug("The DRM/KMS display backend is not available in this build.");
+    return false;
+}
+#endif /* AMW_NATIVE_DRM */
+
+AMWAPI bool AMWAPIENTRY hadopelagic_headless_entry_point(struct hadopelagic *hadal)
+{
+    (void)hadal;
+    log_debug("The headless display backend is not available right now, TODO.");
+    return false
+}
+
+AMWAPI bool AMWAPIENTRY hadopelagic_entry_point(struct hadopelagic *hadal)
+{
+    if (hadopelagic_wayland_entry_point(hadal)) return true;
+#if 0
+    if (hadopelagic_win32_entry_point(hadal)) return true;
+    if (hadopelagic_cocoa_entry_point(hadal)) return true;
+    if (hadopelagic_ios_entry_point(hadal)) return true;
+    if (hadopelagic_android_entry_point(hadal)) return true;
+    if (hadopelagic_xcb_entry_point(hadal)) return true;
+    if (hadopelagic_drm_entry_point(hadal)) return true;
+    if (hadopelagic_headless_entry_point(hadal)) return true;
+#endif
+    return false;
+}

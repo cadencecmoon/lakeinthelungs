@@ -1,6 +1,6 @@
 #include <lake/bedrock/parser.h>
 #include <lake/bedrock/log.h>
-#include <lake/hadal.h>
+#include <lake/hadopelagic.h>
 
 #include <string.h>
 #include <fcntl.h>
@@ -10,7 +10,11 @@
 
 static int32_t cpu_threads, cpu_cores, cpu_packages = 0;
 
-void hadal_cpu_count(uint32_t *threads, uint32_t *cores, uint32_t *packages)
+AMWAPI void AMWAPIENTRY 
+hadal_cpu_count(
+        uint32_t *threads, 
+        uint32_t *cores, 
+        uint32_t *packages)
 {
     if (cpu_packages != 0) goto get_count;
 

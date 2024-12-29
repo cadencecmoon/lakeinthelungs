@@ -1,9 +1,11 @@
 #include <lake/bedrock/log.h>
-#include <lake/hadal.h>
+#include <lake/hadopelagic.h>
 
 #include <dlfcn.h>
 
-void *hadal_load_dll(const char *libname)
+AMWAPI void * AMWAPIENTRY 
+hadal_load_dll(
+        const char *libname)
 {
     void *handle = dlopen(libname, RTLD_NOW | RTLD_LOCAL);
     if (!handle) {
@@ -14,13 +16,18 @@ void *hadal_load_dll(const char *libname)
     return handle;
 }
 
-void hadal_close_dll(void *handle)
+AMWAPI void AMWAPIENTRY 
+hadal_close_dll(
+        void *handle)
 {
     if (handle)
         dlclose(handle);
 }
 
-void *hadal_get_proc_address(void *handle, const char *procname)
+AMWAPI void * AMWAPIENTRY 
+hadal_get_proc_address(
+        void *handle, 
+        const char *procname)
 {
     assert_debug(handle && procname);
 

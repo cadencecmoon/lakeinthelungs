@@ -1,6 +1,6 @@
 #include <lake/bedrock/log.h>
 #include <lake/hadal.h>
-#include <lake/ipomoea.h>
+#include <lake/ipomoeaalba.h>
 
 #include "vk_platynova.h"
 
@@ -8,11 +8,9 @@
 
 int32_t _platinum_vulkan_entry_point(struct platinum *plat)
 {
-    (void)plat;
-
     struct vulkan_instance_api api;
     if (!vulkan_open_driver(&api)) {
-        log_error("Can't load the Vulkan drivers. This can be either because they are not installed, or because the shared Vulkan library is not added to the system path.");
+        log_debug("Can't load the Vulkan drivers. This can be either because they are not installed, or because the shared Vulkan library is not added to the system path.");
         return result_error_undefined; /* TODO */
     }
 
@@ -26,6 +24,10 @@ int32_t _platinum_vulkan_entry_point(struct platinum *plat)
     plat_vk->api.vkEnumerateInstanceVersion = api.vkEnumerateInstanceVersion;
     plat_vk->api.vkEnumerateInstanceExtensionProperties = api.vkEnumerateInstanceExtensionProperties;
     plat_vk->api.vkEnumerateInstanceLayerProperties = api.vkEnumerateInstanceLayerProperties;
+
+    //plat->calls.init = _plat_vulkan_init;
+    //plat->calls.fini = _plat_vulkan_fini;
+
     plat->internal_plat = (void *)plat_vk;
 
     return result_success;
@@ -64,7 +66,7 @@ debug_utils_callback(
         break;
     default:
         log_error("%s %s", typestr, callbackdata->pMessage);
-        assertion(!"Vulkan Validation !!");
+        assertion(!"Vulkan validation error !!");
     }
     return VK_FALSE;
 }
@@ -117,6 +119,9 @@ int32_t _platinum_vulkan_init(
     uint32_t instance_version = 0, extension_count = 0, layer_count = 0;
     char **instance_extensions = NULL;
     struct platinum_vulkan *plat_vk = (struct platinum_vulkan *)internal_plat;
+
+    /* TODO */
+    //plat_vk->allocator = (VkAllocationCallbacks){};
 
     plat_vk->api.vkEnumerateInstanceVersion(&instance_version);
     plat_vk->api.vkEnumerateInstanceLayerProperties(&layer_count, NULL);
@@ -227,7 +232,6 @@ int32_t _platinum_vulkan_init(
     const char *validation_layers[] = {
         "VK_LAYER_KHRONOS_validation"
     };
-    log_debug("%p, %p", validation_layers, validation_layers[0]);
 
     if (layer_count > 0 && plat_vk->extensions & vulkan_extension_debug_utils_bit) {
         plat_vk->extensions |= vulkan_extension_layer_validation_bit;

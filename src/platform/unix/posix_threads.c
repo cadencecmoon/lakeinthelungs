@@ -6,7 +6,8 @@
 #include <sys/types.h>
 #include <sys/cdefs.h>
 
-void thread_create(
+AMWAPI void AMWAPIENTRY 
+thread_create(
         thread_t *thread, 
         void *(*procedure)(void *), 
         void *argument)
@@ -27,7 +28,9 @@ void thread_create(
     pthread_attr_destroy(&attr);
 }
 
-void thread_destroy(thread_t thread)
+AMWAPI void AMWAPIENTRY 
+thread_destroy(
+        thread_t thread)
 {
     assert_debug(!pthread_equal((pthread_t)thread, pthread_self()));
 
@@ -41,7 +44,9 @@ void thread_destroy(thread_t thread)
     }
 }
 
-void thread_join(thread_t thread)
+AMWAPI void AMWAPIENTRY 
+thread_join(
+        thread_t thread)
 {
     assert_debug(!pthread_equal((pthread_t)thread, pthread_self()));
 
@@ -51,7 +56,8 @@ void thread_join(thread_t thread)
     }
 }
 
-size_t thread_index(
+AMWAPI size_t AMWAPIENTRY 
+thread_index(
         thread_t *threads, 
         size_t thread_count)
 {
@@ -70,12 +76,14 @@ size_t thread_index(
     }
 }
 
-thread_t thread_current(void)
+AMWAPI thread_t AMWAPIENTRY 
+thread_current(void)
 {
     return (thread_t)pthread_self();
 }
 
-void thread_affinity(
+AMWAPI void AMWAPIENTRY
+thread_affinity(
         uint8_t *stack_memory,
         thread_t *threads, 
         size_t thread_count, 
