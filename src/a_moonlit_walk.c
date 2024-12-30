@@ -4,7 +4,7 @@
 
 #include <stdlib.h> /* malloc, free */
 
-static void a_moonlit_walk_cleanup__(struct a_moonlit_walk *AMW)
+static void AMWAPIENTRY a_moonlit_walk_cleanup__(struct a_moonlit_walk *AMW)
 {
     platinum_fini(&AMW->plat);
     hadopelagic_fini(&AMW->hadal);
@@ -12,7 +12,7 @@ static void a_moonlit_walk_cleanup__(struct a_moonlit_walk *AMW)
     iazerop(AMW);
 }
 
-static void a_moonlit_walk_main__(
+static void AMWAPIENTRY a_moonlit_walk_main__(
         struct riven *riven,
         thread_t *threads,
         size_t thread_count,
@@ -134,9 +134,8 @@ static void a_moonlit_walk_main__(
         (ticks_ns()/AMW_NS_PER_SECOND)/60, (ticks_ns()/AMW_NS_PER_SECOND)%60, ticks_ms()%AMW_MS_PER_SECOND, frame_idx-1);
 }
 
-int32_t a_moonlit_walk(
-        int32_t (*main__)(struct amw_hints *, int32_t, char **), 
-        int32_t argc, char **argv)
+AMWAPI int32_t AMWAPIENTRY 
+a_moonlit_walk(int32_t (*main__)(struct amw_hints *, int32_t, char **), int32_t argc, char **argv)
 {
     int res = 0;
     size_t riven_bytes;

@@ -4,8 +4,7 @@
 #include <dlfcn.h>
 
 AMWAPI void * AMWAPIENTRY 
-hadal_load_dll(
-        const char *libname)
+hadal_load_dll(const char *libname)
 {
     void *handle = dlopen(libname, RTLD_NOW | RTLD_LOCAL);
     if (!handle) {
@@ -17,17 +16,14 @@ hadal_load_dll(
 }
 
 AMWAPI void AMWAPIENTRY 
-hadal_close_dll(
-        void *handle)
+hadal_close_dll(void *handle)
 {
     if (handle)
         dlclose(handle);
 }
 
 AMWAPI void * AMWAPIENTRY 
-hadal_get_proc_address(
-        void *handle, 
-        const char *procname)
+hadal_get_proc_address(void *handle, const char *procname)
 {
     assert_debug(handle && procname);
 

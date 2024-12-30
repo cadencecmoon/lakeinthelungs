@@ -11,10 +11,7 @@
 static int32_t cpu_threads, cpu_cores, cpu_packages = 0;
 
 AMWAPI void AMWAPIENTRY 
-hadal_cpu_count(
-        uint32_t *threads, 
-        uint32_t *cores, 
-        uint32_t *packages)
+hadal_cpu_count(uint32_t *threads, uint32_t *cores, uint32_t *packages)
 {
     if (cpu_packages != 0) goto get_count;
 

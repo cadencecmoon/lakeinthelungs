@@ -1,4 +1,4 @@
-dep_vulkan = dependency('vulkan', required : true)
+dep_vulkan = dependency('vulkan', required : get_option('vulkan'))
 if dep_vulkan.found()
     engine += files(
         'spirv_shaders.c',

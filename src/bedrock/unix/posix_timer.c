@@ -63,9 +63,8 @@ hadal_timer_counter(void)
 AMWAPI uint64_t AMWAPIENTRY 
 hadal_timer_frequency(void)
 {
-    if (!checked_monotonic) {
+    if (!checked_monotonic)
         check_monotonic();
-    }
 
     if (has_monotonic) {
 #ifdef AMW_HAS_CLOCK_GETTIME

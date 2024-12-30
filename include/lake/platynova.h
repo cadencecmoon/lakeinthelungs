@@ -30,23 +30,17 @@ struct platynova;
  *  - TODO WebGPU ?
  *  - TODO Proxy ?
  *  - Mock (no api, validation and debugging) */
-typedef bool (AMWAPIENTRY *PFN_platinum_entry_point)(struct platinum *plat);
+typedef int32_t (AMWAPIENTRY *PFN_platinum_entry_point)(struct platinum *plat, struct ipomoeaalba *ia);
 
 #ifndef AMW_NO_PROTOTYPES
-AMWAPI bool AMWAPIENTRY platinum_vulkan_entry_point(struct platinum *plat);
-AMWAPI bool AMWAPIENTRY platinum_d3d12_entry_point(struct platinum *plat);
-AMWAPI bool AMWAPIENTRY platinum_metal_entry_point(struct platinum *plat);
-AMWAPI bool AMWAPIENTRY platinum_webgpu_entry_point(struct platinum *plat);
-AMWAPI bool AMWAPIENTRY platinum_proxy_entry_point(struct platinum *plat);
-AMWAPI bool AMWAPIENTRY platinum_mock_entry_point(struct platinum *plat);
-/** Select the first appropriate rendering backend supported by this build:
- *  in order: (metal -> d3d12 -> vulkan -> webgpu -> mock)
- *  Proxy should be called explicitly. */
-AMWAPI bool AMWAPIENTRY platinum_entry_point(struct platinum *plat);
+AMWAPI int32_t AMWAPIENTRY platinum_vulkan_entry_point(struct platinum *plat, struct ipomoeaalba *ia);
+AMWAPI int32_t AMWAPIENTRY platinum_mock_entry_point(struct platinum *plat, struct ipomoeaalba *ia);
+/** Select the first appropriate rendering backend supported by this build. */
+AMWAPI int32_t AMWAPIENTRY platinum_entry_point(struct platinum *plat, struct ipomoeaalba *ia);
 #endif /* AMW_NO_PROTOTYPES */
 
 /** Initialize the internal rendering backend. */
-typedef int32_t (AMWAPIENTRY *PFN_platinum_init)(struct platinum *plat, struct hadopelagic *hadal, const char *application_name, uint32_t application_version, struct arena_allocator *temp_arena);
+typedef int32_t (AMWAPIENTRY *PFN_platinum_init)(struct platinum *plat, struct ipomoeaalba *ia, struct hadopelagic *hadal, const char *application_name, uint32_t application_version, struct arena_allocator *temp_arena);
 
 /** Finalize the internal rendering backend. */
 typedef void    (AMWAPIENTRY *PFN_platinum_fini)(struct platinum *plat);
@@ -80,7 +74,8 @@ struct platinum {
 
 #ifndef AMW_NO_PROTOTYPES
 
-AMWAPI int32_t AMWAPIENTRY platinum_init(
+AMWAPI int32_t AMWAPIENTRY 
+platinum_init(
         PFN_platinum_entry_point entry_point__,
         struct platinum *plat, 
         struct ipomoeaalba *ia,
@@ -88,16 +83,21 @@ AMWAPI int32_t AMWAPIENTRY platinum_init(
         const char *application_name,
         uint32_t application_version,
         uint32_t thread_count);
-AMWAPI void AMWAPIENTRY platinum_fini(struct platinum *plat);
 
-AMWAPI int32_t AMWAPIENTRY platinum_construct_novas(
+AMWAPI void AMWAPIENTRY 
+platinum_fini(struct platinum *plat);
+
+AMWAPI int32_t AMWAPIENTRY 
+platinum_construct_novas(
         struct platinum *plat, 
+        struct ipomoeaalba *ia,
         struct riven *riven,
         int32_t preferred_main_idx, 
         uint32_t max_nova_count,
         bool use_raytracing);
 
-AMWAPI void AMWAPIENTRY platinum_implode_novas(struct platinum *plat);
+AMWAPI void AMWAPIENTRY 
+platinum_implode_novas(struct platinum *plat);
 
 #endif /* AMW_NO_PROTOTYPES */
 

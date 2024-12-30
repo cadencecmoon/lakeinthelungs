@@ -1,6 +1,7 @@
 #include <lake/ipomoeaalba.h>
 
-AMWAPI void * AMWAPIENTRY iamemset(void *dest, int32_t c, size_t n)
+AMWAPI void * AMWAPIENTRY 
+iamemset(void *dest, int32_t c, size_t n)
 {
     uint8_t *s = dest;
     size_t k;
@@ -83,24 +84,21 @@ AMWAPI void * AMWAPIENTRY iamemset(void *dest, int32_t c, size_t n)
     return dest;
 }
 
-AMWAPI int32_t AMWAPIENTRY iainit(
-        struct ipomoeaalba *ia)
+AMWAPI int32_t AMWAPIENTRY 
+iainit(struct ipomoeaalba *ia)
 {
     (void)ia;
     return result_success;
 }
 
-AMWAPI void AMWAPIENTRY iafini(
-        struct ipomoeaalba *ia)
+AMWAPI void AMWAPIENTRY 
+iafini(struct ipomoeaalba *ia)
 {
     (void)ia;
 }
 
-AMWAPI void * AMWAPIENTRY iaalloc(
-        struct ipomoeaalba *ia, 
-        size_t size, 
-        size_t alignment, 
-        uint64_t tag)
+AMWAPI void * AMWAPIENTRY 
+iaalloc(struct ipomoeaalba *ia, size_t size, size_t alignment, uint64_t tag)
 {
     (void)ia;
     (void)size;
@@ -109,12 +107,8 @@ AMWAPI void * AMWAPIENTRY iaalloc(
     return NULL;
 }
 
-AMWAPI void * AMWAPIENTRY iarealloc(
-        struct ipomoeaalba *ia, 
-        void *allocation, 
-        size_t size, 
-        size_t alignment, 
-        uint64_t tag)
+AMWAPI void * AMWAPIENTRY 
+iarealloc(struct ipomoeaalba *ia, void *allocation, size_t size, size_t alignment, uint64_t tag)
 {
     (void)ia;
     (void)allocation;
@@ -124,9 +118,8 @@ AMWAPI void * AMWAPIENTRY iarealloc(
     return NULL;
 }
 
-AMWAPI void AMWAPIENTRY iafree(
-        struct ipomoeaalba *ia, 
-        uint64_t tag)
+AMWAPI void AMWAPIENTRY 
+iafree(struct ipomoeaalba *ia, uint64_t tag)
 {
     (void)ia;
     (void)tag;

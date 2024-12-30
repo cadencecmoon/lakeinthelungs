@@ -36,7 +36,8 @@ static void ticks_init(void)
         --tick_start;
 }
 
-AMWAPI uint64_t AMWAPIENTRY ticks_ms(void)
+AMWAPI uint64_t AMWAPIENTRY 
+ticks_ms(void)
 {
     uint64_t starting_value, value;
 
@@ -50,7 +51,8 @@ AMWAPI uint64_t AMWAPIENTRY ticks_ms(void)
     return value;
 }
 
-AMWAPI uint64_t AMWAPIENTRY ticks_ns(void)
+AMWAPI uint64_t AMWAPIENTRY 
+ticks_ns(void)
 {
     uint64_t starting_value, value;
 

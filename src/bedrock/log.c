@@ -43,11 +43,7 @@ struct logdata {
 };
 
 AMWAPI void AMWAPIENTRY 
-log_message(
-        enum log_level level, 
-        const char *filename, 
-        int32_t line, 
-        const char *fmt, ...)
+log_message(enum log_level level, const char *filename, int32_t line, const char *fmt, ...)
 {
     if (at_read_relaxed(&quiet) || (level < at_read_relaxed(&level)))
         return;
@@ -85,23 +81,20 @@ log_message(
 }
 
 AMWAPI void AMWAPIENTRY 
-log_set_level(
-        enum log_level set_level)
+log_set_level(enum log_level set_level)
 {
     assert_debug(set_level <= log_level_fatal && set_level >= 0);
     at_store_explicit(&level, set_level, memory_model_acq_rel);
 }
 
 AMWAPI void AMWAPIENTRY 
-log_set_verbose(
-        bool set_verbose)
+log_set_verbose(bool set_verbose)
 {
     at_store_explicit(&verbose, set_verbose, memory_model_acq_rel);
 }
 
 AMWAPI void AMWAPIENTRY 
-log_set_quiet(
-        bool set_quiet)
+log_set_quiet(bool set_quiet)
 {
     at_store_explicit(&quiet, set_quiet, memory_model_acq_rel);
 }

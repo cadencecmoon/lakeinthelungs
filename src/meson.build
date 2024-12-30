@@ -7,7 +7,7 @@ engine += files(
 )
 
 subdir('bedrock')
-subdir('platform')
 subdir('audio')
-subdir('renderer')
+subdir('display')
 subdir('memory')
+subdir('renderer')

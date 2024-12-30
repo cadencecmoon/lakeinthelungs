@@ -1,5 +1,5 @@
-#ifndef _SREBRO_SPIRV_SHADERS_H
-#define _SREBRO_SPIRV_SHADERS_H
+#ifndef _PLATINUM_SPIRV_SHADERS_H
+#define _PLATINUM_SPIRV_SHADERS_H
 
 #include <stdint.h>
 #include <stddef.h>
@@ -18,4 +18,4 @@ extern const size_t   shading_pass_vert_glsl_size;
 extern const uint32_t shading_pass_frag_glsl_spv[];
 extern const size_t   shading_pass_frag_glsl_size;
 
-#endif /* _SREBRO_SPIRV_SHADERS_H */
+#endif /* _PLATINUM_SPIRV_SHADERS_H */

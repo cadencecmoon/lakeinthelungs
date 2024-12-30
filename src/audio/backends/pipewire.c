@@ -4,9 +4,9 @@
 #define _GNU_SOURCE 1
 #endif
 
-AMWAPI bool AMWAPIENTRY silver_pipewire_entry_point(struct silver *silv)
-{
-    (void)silv;
-    // TODO
-    return true;
+AMWAPI int32_t AMWAPIENTRY 
+silver_pipewire_entry_point(struct silver *silv, struct ipomoeaalba *ia) 
+{ 
+    (void)silv; (void)ia; 
+    return result_success;
 }

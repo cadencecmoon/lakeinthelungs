@@ -435,8 +435,12 @@ AMW_INLINE uint32_t count_bits32(uint32_t n) {
 enum result_codes {
     result_success = 0,
     result_error_undefined,
-    result_error_invalid_engine_context,
     result_error_no_fallback,
+    result_error_invalid_engine_context,
+    result_error_missing_procedure,
+    result_error_missing_shared_library,
+    result_error_wayland_unsupported_protocol,
+    result_feature_unsupported,
 };
 
 #ifdef __cplusplus

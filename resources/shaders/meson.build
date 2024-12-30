@@ -5,7 +5,7 @@ shaders_src = [
     'shading_pass.vert.glsl',
 ]
 
-glslang = find_program('glslangValidator', required : true)
+glslang = find_program('glslangValidator', required : get_option('vulkan'))
 
 if glslang.found()
     foreach shader : shaders_src

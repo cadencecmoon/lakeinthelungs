@@ -36,3 +36,55 @@ else
     error('CPU architecture \'' + host_machine.cpu_family() + '\' is not yet supported.')
     # WebAssembly ?
 endif
+
+dep_threads = dependency('threads', required : true)
+dep_rt = cc.find_library('rt', required : false)
+dep_dl = cc.find_library('dl', required : false)
+
+# POSIX / UNIX
+if have_posix
+    engine += files(
+        'dynamic_lib.c',
+        'posix_threads.c',
+        'posix_timer.c',
+    )
+    defs += '-DAMW_PLATFORM_UNIX=1'
+    deps += [ dep_threads, dep_rt, dep_dl ]
+
+    if cc.has_function('clock_gettime', dependencies : [dep_rt])
+        defs += '-DAMW_HAS_CLOCK_GETTIME=1'
+    endif
+endif
+
+# Windows
+if sys == 'windows'
+    #engine = files('')
+
+    defs += [
+        '-DAMW_PLATFORM_WINDOWS=1',
+        '-DVK_USE_PLATFORM_WIN32_KHR' ]
+    deps += dep_threads
+
+# Apple MacOS/iOS
+elif sys == 'darwin'
+    #engine = files('')
+
+    defs += [
+        '-DAMW_PLATFORM_APPLE=1',
+        '-DVK_USE_PLATFORM_METAL_EXT' ]
+    add_languages('objc')
+
+    if host_machine.subsystem() == 'ios'
+        defs += '-DAMW_PLATFORM_IOS=1'
+    else
+        defs += '-DAMW_PLATFORM_MACOS=1'
+    endif
+
+# Linux / BSD / Android
+elif sys == 'android' or sys == 'linux' or sys == 'bsd'
+    engine += files(
+        'linux_system.c',
+    )
+
+    defs += '-DAMW_PLATFORM_LINUX=1'
+endif

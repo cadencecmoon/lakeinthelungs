@@ -4,6 +4,8 @@
 #include <lake/bedrock/defines.h>
 #include <lake/bedrock/atomic.h>
 
+#include <lake/ipomoeaalba.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -18,27 +20,22 @@ struct silver {
  *  @return True if loading the backend module and procedures was successful.
  *
  *  Available audio backends in A Moonlit Walk are: 
- *  - Apple: CoreAudio
- *  - Windows: WASAPI, XAudio2
- *  - Android: AAudio
- *  - Unix/Linux: JACK, OSS
- *  - Linux: ALSA, PulseAudio, PipeWire
- *  - Dummy (no api, validation and debugging) */
-typedef bool (AMWAPIENTRY *PFN_silver_entry_point)(struct silver *silv);
+ *  - Apple: TODO CoreAudio
+ *  - Windows: TODO WASAPI, XAudio2
+ *  - Android: TODO AAudio
+ *  - Unix/Linux: TODO JACK, OSS
+ *  - Linux: TODO ALSA, PulseAudio, PipeWire
+ *  - Dummy (no api, validation and debugging)
+ *
+ *  Creating a possible backend from middleware like OpenAL, Wwise or FMOD, or other proprietary 
+ *  APIs like Steinberg ASIO, should be straightforward if an application wishes to support them. */
+typedef int32_t (AMWAPIENTRY *PFN_silver_entry_point)(struct silver *silv, struct ipomoeaalba *ia);
 
 #ifndef AMW_NO_PROTOTYPES
-AMWAPI bool AMWAPIENTRY silver_coreaudio_entry_point(struct silver *silv);
-AMWAPI bool AMWAPIENTRY silver_wasapi_entry_point(struct silver *silv);
-AMWAPI bool AMWAPIENTRY silver_xaudio2_entry_point(struct silver *silv);
-AMWAPI bool AMWAPIENTRY silver_aaudio_entry_point(struct silver *silv);
-AMWAPI bool AMWAPIENTRY silver_alsa_entry_point(struct silver *silv);
-AMWAPI bool AMWAPIENTRY silver_jack_entry_point(struct silver *silv);
-AMWAPI bool AMWAPIENTRY silver_pipewire_entry_point(struct silver *silv);
-AMWAPI bool AMWAPIENTRY silver_pulse_entry_point(struct silver *silv);
-AMWAPI bool AMWAPIENTRY silver_oss_entry_point(struct silver *silv);
-AMWAPI bool AMWAPIENTRY silver_dummy_entry_point(struct silver *silv);
+AMWAPI int32_t AMWAPIENTRY silver_pipewire_entry_point(struct silver *silv, struct ipomoeaalba *ia);
+AMWAPI int32_t AMWAPIENTRY silver_dummy_entry_point(struct silver *silv, struct ipomoeaalba *ia);
 /** Select the first appropriate audio backend supported by this build. */
-AMWAPI bool AMWAPIENTRY silver_entry_point(struct silver *silv);
+AMWAPI int32_t AMWAPIENTRY silver_entry_point(struct silver *silv, struct ipomoeaalba *ia);
 #endif /* AMW_NO_PROTOTYPES */
 
 #ifdef __cplusplus
