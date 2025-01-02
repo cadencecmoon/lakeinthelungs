@@ -5,44 +5,11 @@
 
 /* Atomic operations are provided by a CPU-specific implementation. */
 #include <lake/bedrock/atomic.h>
+#include <lake/bedrock/os.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-/** A handle for representing a worker thread. */
-typedef size_t thread_t;
-
-#ifndef AMW_NO_PROTOTYPES
-
-/** Creates and runs a worker thread at a given handle. */
-AMWAPI void AMWAPIENTRY thread_create(thread_t *thread, void *(*procedure)(void *), void *argument);
-
-/** Destroys and joins a given thread. Shouldn't really be called 
- *  unless a dynamic thread was ever spawned outside of riven. */
-AMWAPI void AMWAPIENTRY thread_destroy(thread_t thread);
-
-/** Just joins a thread, without destroying it. It will wait for the 
- *  thread to finish its work before continuing. */
-AMWAPI void AMWAPIENTRY thread_join(thread_t thread);
-
-/** Gets the index of the current worker thread, in a given array of threads. */
-AMWAPI size_t AMWAPIENTRY thread_index(thread_t *threads, size_t thread_count);
-
-/** Retrieve the handle of the current worker thread. */
-AMWAPI thread_t AMWAPIENTRY thread_current(void);
-
-/** Set thread affinity for an array of threads. Thread count per core should 
- *  be equal to on how many hardware threads has one physical CPU core. The core 
- *  start index should be 0 or less than core_count-1, the thread_count_per_core
- *  should accomodate for how many CPU cores is the affinity created for. */
-AMWAPI void AMWAPIENTRY thread_affinity(
-        uint8_t *stack_memory, 
-        thread_t *threads, 
-        size_t thread_count, 
-        size_t start_index);
-
-#endif /* AMW_NO_PROTOTYPES */
 
 /** I had this fiber job system implemented in my old project.
  *  It is based on ideas presented by Naughty Dog in the talk 
@@ -140,60 +107,57 @@ AMWAPI void AMWAPIENTRY thread_affinity(
  */
 
 /** Opaque handle for the fiber job system's context. */
-struct riven;
+typedef struct rivens_rift rivens_rift;
 
-typedef void (AMWAPIENTRY *PFN_riven_tear)(void *argument);
-typedef void (AMWAPIENTRY *PFN_riven_main)(struct riven *riven, thread_t *threads, size_t thread_count, void *argument);
+typedef void (*PFN_riven_tear)(void *argument);
+typedef void (*PFN_riven_main)(rivens_rift *riven, thread_id *threads, ssize thread_count, void *argument);
 
 #define RIVENS_TEAR(tear, arg) \
-     void AMWAPIENTRY tear(arg)
+     void tear(arg)
+#define RIVENS_TEAR_PFN(tear, arg) \
+    typedef void (*tear)(arg)
 
 /** A chain points to an atomic counter that is binded to 
  *  a job queue. It will block any wait calls to Riven, until
  *  all jobs bound to the chain are finished. In short, it's 
  *  used as a synchronization primitive for the job system. */
-typedef at_size_t *riven_chain_t;
+typedef at_ssize *rivens_chain;
 
 /** A job for the fiber context */
-struct riven_tear {
+typedef struct rivens_tear {
     PFN_riven_tear procedure;
     void          *argument;
     const char    *name;
-};
+} rivens_tear;
 
 #ifndef AMW_NO_PROTOTYPES
 
 /** Runs 'splits' amount of jobs, passed in the flat array 'tears'.
  *  Waits for them to finish, before returning. So, this will block 
  *  until all jobs have been handled. */
-AMWAPI void AMWAPIENTRY 
-riven_split_and_unchain(struct riven *riven, struct riven_tear *tears, size_t splits);
+AMWAPI void riven_split_and_unchain(rivens_rift *riven, rivens_tear *tears, ssize splits);
 
 /** Run 'splits' amount of jobs, passed in the flat array 'tears'.
  *  This will return immediately, and the jobs will be handled in 
  *  the background in parallel. If 'chain' is not null, it will 
  *  be set to a value that can be used to wait for a bound split 
  *  to finish the tears. */
-AMWAPI void AMWAPIENTRY 
-riven_split(struct riven *riven, struct riven_tear *tears, size_t splits, riven_chain_t *chain);
+AMWAPI void riven_split(rivens_rift *riven, rivens_tear *tears, ssize splits, rivens_chain *chain);
 
 /** If chain is not null, then wait for all of the jobs bound to 
  *  a given chain to finish. If the chain is null, then the call 
  *  may or may not be yield to the job system before returning. */
-AMWAPI void AMWAPIENTRY 
-riven_unchain(struct riven *riven, riven_chain_t chain);
+AMWAPI void riven_unchain(rivens_rift *riven, rivens_chain chain);
 
 /** Used to get an exiled chain that's not bound to any working 
  *  tears. The chain will become a bound state and block any call 
  *  to 'riven_unchain' until 'riven_unchain_exile' is called. */
-AMWAPI void AMWAPIENTRY 
-riven_chain_exile(struct riven *riven, riven_chain_t *chain);
+AMWAPI void riven_chain_exile(rivens_rift *riven, rivens_chain *chain);
 
 /** Used to mark an exiled chain as unbound. Once called, the 
  *  chain is now invalid and should not be used in any future
  *  chain/unchain nor split calls - implies risk of fiber leaks. */
-AMWAPI void AMWAPIENTRY 
-riven_unchain_exile(riven_chain_t chain);
+AMWAPI void riven_unchain_exile(rivens_chain chain);
 
 /** This function serves as the entry point to the fiber job system.
  *  Riven's memory will be initialized using a standard malloc.
@@ -204,15 +168,14 @@ riven_unchain_exile(riven_chain_t chain);
  *  system threads will be created before calling 'main_procedure'
  *  with the arguments of 'riven', 'threads', 'thread_count' and 
  *  'argument' to serve as an entry point. */
-AMWAPI size_t AMWAPIENTRY 
-riven_unveil_rift(
-        void *riven_memory,
-        size_t fiber_stack_bytes,
-        size_t fiber_count,
-        size_t log_2_tear_count,
-        size_t thread_count,
-        PFN_riven_main main_procedure,
-        void *main_argument);
+AMWAPI ssize riven_unveil_rift(
+    void          *riven_memory,
+    ssize          fiber_stack_bytes,
+    ssize          fiber_count,
+    ssize          log_2_tear_count,
+    ssize          thread_count,
+    PFN_riven_main main_procedure,
+    void          *main_argument);
 
 #endif /* AMW_NO_PROTOTYPES */
 

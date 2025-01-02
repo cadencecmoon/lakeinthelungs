@@ -44,11 +44,11 @@ dep_dl = cc.find_library('dl', required : false)
 # POSIX / UNIX
 if have_posix
     engine += files(
-        'dynamic_lib.c',
-        'posix_threads.c',
-        'posix_timer.c',
+        'unix/dynamic_lib.c',
+        'unix/posix_threads.c',
+        'unix/posix_timer.c',
     )
-    defs += '-DAMW_PLATFORM_UNIX=1'
+    defs += [ '-DAMW_PLATFORM_UNIX=1', '-D_GNU_SOURCE']
     deps += [ dep_threads, dep_rt, dep_dl ]
 
     if cc.has_function('clock_gettime', dependencies : [dep_rt])
@@ -83,7 +83,7 @@ elif sys == 'darwin'
 # Linux / BSD / Android
 elif sys == 'android' or sys == 'linux' or sys == 'bsd'
     engine += files(
-        'linux_system.c',
+        'linux/cpu.c',
     )
 
     defs += '-DAMW_PLATFORM_LINUX=1'

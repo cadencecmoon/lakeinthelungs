@@ -16,9 +16,9 @@ enum touch_device {
 
 /** Data about a single finger in a multitouch event. */
 struct finger {
-    uint64_t id;
-    float x, y;
-    float pressure;
+    u64 id;
+    f32 x, y;
+    f32 pressure;
 };
 
 #ifdef __cplusplus

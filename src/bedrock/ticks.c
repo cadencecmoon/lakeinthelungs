@@ -1,13 +1,13 @@
 #include <lake/bedrock/time.h>
-#include <lake/hadopelagic.h>
+#include <lake/bedrock/os.h>
 
-static uint64_t tick_start = 0;
-static uint32_t tick_numerator_ms;
-static uint32_t tick_denominator_ms;
-static uint32_t tick_numerator_ns;
-static uint32_t tick_denominator_ns;
+static u64 tick_start = 0;
+static u32 tick_numerator_ms;
+static u32 tick_denominator_ms;
+static u32 tick_numerator_ns;
+static u32 tick_denominator_ns;
 
-static uint32_t calculate_gcd(uint32_t a, uint32_t b)
+static u32 calculate_gcd(u32 a, u32 b)
 {
     if (b == 0)
         return a;
@@ -16,50 +16,48 @@ static uint32_t calculate_gcd(uint32_t a, uint32_t b)
 
 static void ticks_init(void)
 {
-    uint64_t tick_freq;
-    uint32_t gcd;
+    u64 tick_freq;
+    u32 gcd;
 
-    tick_freq = hadal_timer_frequency();
-    assert_debug(tick_freq > 0 && tick_freq <= (uint64_t)UINT32_MAX);
+    tick_freq = bedrock_rtc_frequency();
+    assert_debug(tick_freq > 0 && tick_freq <= (u64)UINT32_MAX);
 
-    gcd = calculate_gcd(AMW_MS_PER_SECOND, (uint32_t)tick_freq);
+    gcd = calculate_gcd(AMW_MS_PER_SECOND, (u32)tick_freq);
     tick_numerator_ms = (AMW_MS_PER_SECOND / gcd);
-    tick_denominator_ms = (uint32_t)(tick_freq / gcd);
+    tick_denominator_ms = (u32)(tick_freq / gcd);
 
-    gcd = calculate_gcd(AMW_NS_PER_SECOND, (uint32_t)tick_freq);
+    gcd = calculate_gcd(AMW_NS_PER_SECOND, (u32)tick_freq);
     tick_numerator_ns = (AMW_NS_PER_SECOND / gcd);
-    tick_denominator_ns = (uint32_t)(tick_freq / gcd);
+    tick_denominator_ns = (u32)(tick_freq / gcd);
 
-    tick_start = hadal_timer_counter();
+    tick_start = bedrock_rtc_counter();
 
     if (!tick_start)
         --tick_start;
 }
 
-AMWAPI uint64_t AMWAPIENTRY 
-ticks_ms(void)
+AMWAPI u64 ticks_ms(void)
 {
-    uint64_t starting_value, value;
+    u64 starting_value, value;
 
     if (!tick_start)
         ticks_init();
 
-    starting_value = (hadal_timer_counter() - tick_start);
+    starting_value = (bedrock_rtc_counter() - tick_start);
     value = (starting_value * tick_numerator_ms);
     assert_debug(value >= starting_value);
     value /= tick_denominator_ms;
     return value;
 }
 
-AMWAPI uint64_t AMWAPIENTRY 
-ticks_ns(void)
+AMWAPI u64 ticks_ns(void)
 {
-    uint64_t starting_value, value;
+    u64 starting_value, value;
 
     if (!tick_start)
         ticks_init();
 
-    starting_value = (hadal_timer_counter() - tick_start);
+    starting_value = (bedrock_rtc_counter() - tick_start);
     value = (starting_value * tick_numerator_ns);
     assert_debug(value >= starting_value);
     value /= tick_denominator_ns;

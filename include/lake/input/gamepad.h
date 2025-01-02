@@ -54,8 +54,8 @@ enum gamepad_hat {
 };
 
 struct gamepad_state {
-    uint8_t buttons[15];
-    float   axes[6];
+    u8  buttons[15];
+    f32 axes[6];
 };
 
 #ifdef __cplusplus

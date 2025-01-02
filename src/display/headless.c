@@ -1,9 +1,7 @@
 #include <lake/hadopelagic.h>
 
-AMWAPI int32_t AMWAPIENTRY 
-hadopelagic_headless_entry_point(
-        struct hadopelagic *hadal)
+AMWAPI s32 hadal_headless_entry_point(hadopelagic *hadal, ipomoeaalba *ia)
 {
-    (void)hadal;
-    return result_success;
+    (void)hadal; (void)ia;
+    return result_error_undefined;
 }

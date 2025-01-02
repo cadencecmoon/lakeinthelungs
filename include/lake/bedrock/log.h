@@ -30,24 +30,17 @@ enum log_level {
     #endif
 #endif
 
-#ifndef AMW_NO_PROTOTYPES
-
 /** Logs a message to the standard console output. TODO Files not supported rn. */
-AMWAPI void AMWAPIENTRY log_message(
-        enum log_level level, 
-        const char *filename, 
-        int32_t line, 
-        const char *fmt, 
-        ...) AMW_PRINTF_FORMAT(4,5);
+AMWAPI void log_message(s32 log_level, const char *filename, s32 line, const char *fmt, ...) AMW_PRINTF_FORMAT(4,5);
 
 /** Sets a minimal log severity level. */
-AMWAPI void AMWAPIENTRY log_set_level(enum log_level level);
+AMWAPI void log_set_level(s32 log_level);
 
 /** If set to false, only the fmt will be logged (without time, file or line info). */
-AMWAPI void AMWAPIENTRY log_set_verbose(bool verbose);
+AMWAPI void log_set_verbose(b32 verbose);
 
 /** Used to disable all log output at runtime. */
-AMWAPI void AMWAPIENTRY log_set_quiet(bool quiet);
+AMWAPI void log_set_quiet(b32 quiet);
 
 #ifndef AMW_LOG_DISABLE_MACROS
 #define log_debug(fmt, ...) log_message(log_level_debug, AMW_LOG_FILE_NAME, __LINE__, fmt, ##__VA_ARGS__)
@@ -62,8 +55,6 @@ AMWAPI void AMWAPIENTRY log_set_quiet(bool quiet);
 #define log_error(fmt, ...)
 #define log_fatal(fmt, ...)
 #endif
-
-#endif /* AMW_NO_PROTOTYPES */
 
 #ifdef __cplusplus
 }

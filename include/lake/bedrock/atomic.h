@@ -15,39 +15,22 @@
 extern "C" {
 #endif
 
-typedef AMW_ATOMIC(bool)                at_bool_t;
+typedef AMW_ATOMIC(b32)     at_b32;  
 
-typedef AMW_ATOMIC(char)                at_char_t;
-typedef AMW_ATOMIC(signed char)         at_schar_t;
-typedef AMW_ATOMIC(unsigned char)       at_uchar_t;
+typedef AMW_ATOMIC(s8)      at_s8;
+typedef AMW_ATOMIC(s16)     at_s16;
+typedef AMW_ATOMIC(s32)     at_s32;
+typedef AMW_ATOMIC(s64)     at_s64;
 
-typedef AMW_ATOMIC(short)               at_short_t;
-typedef AMW_ATOMIC(unsigned short)      at_ushort_t;
+typedef AMW_ATOMIC(u8)      at_u8;
+typedef AMW_ATOMIC(u16)     at_u16;
+typedef AMW_ATOMIC(u32)     at_u32;
+typedef AMW_ATOMIC(u64)     at_u64;
 
-typedef AMW_ATOMIC(int)                 at_int_t;
-typedef AMW_ATOMIC(unsigned int)        at_uint_t;
-
-typedef AMW_ATOMIC(long)                at_long_t;
-typedef AMW_ATOMIC(unsigned long)       at_ulong_t;
-
-typedef AMW_ATOMIC(long long)           at_llong_t;
-typedef AMW_ATOMIC(unsigned long long)  at_ullong_t;
-
-typedef AMW_ATOMIC(size_t)              at_size_t;
-typedef AMW_ATOMIC(ptrdiff_t)           at_ptrdiff_t;
-
-typedef AMW_ATOMIC(intptr_t)            at_intptr_t;
-typedef AMW_ATOMIC(uintptr_t)           at_uintptr_t;
-
-typedef AMW_ATOMIC(uint8_t)             at_uint8_t;
-typedef AMW_ATOMIC(uint16_t)            at_uint16_t;
-typedef AMW_ATOMIC(uint32_t)            at_uint32_t;
-typedef AMW_ATOMIC(uint64_t)            at_uint64_t;
-
-typedef AMW_ATOMIC(int8_t)              at_int8_t;
-typedef AMW_ATOMIC(int16_t)             at_int16_t;
-typedef AMW_ATOMIC(int32_t)             at_int32_t;
-typedef AMW_ATOMIC(int64_t)             at_int64_t;
+typedef AMW_ATOMIC(sptr)    at_sptr;
+typedef AMW_ATOMIC(uptr)    at_uptr;
+typedef AMW_ATOMIC(ssize)   at_ssize;
+typedef AMW_ATOMIC(usize)   at_usize;
 
 /** Relaxed atomic operations.
  *

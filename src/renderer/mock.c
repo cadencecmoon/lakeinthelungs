@@ -1,9 +1,8 @@
-#include <lake/platynova.h>
+#include <lake/cobalt.h>
 
-AMWAPI int32_t AMWAPIENTRY 
-platinum_mock_entry_point(
-        struct platinum *plat)
+AMWAPI s32 cobalt_mock_entry_point(cobalt *co, ipomoeaalba *ia)
 {
-    (void)plat;
-    return result_success;
+    (void)co;
+    (void)ia;
+    return result_error_undefined;
 }

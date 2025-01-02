@@ -14,7 +14,7 @@ extern "C" {
 
 #define AMW_VERSION_MAJOR 0
 #define AMW_VERSION_MINOR 1
-#define AMW_VERSION_REVISION 1
+#define AMW_VERSION_REVISION 2
 
 #define AMW_VERSION_NUM_MAJOR(version) ((version) / 1000000)
 #define AMW_VERSION_NUM_MINOR(version) (((version) / 1000) % 1000)
@@ -308,22 +308,15 @@ extern "C" {
 #elif defined(AMW_CC_ARM_VERSION)
     #define debugtrap() __breakpoint(42)
 #elif defined(AMW_ARCH_X86) || defined(AMW_ARCH_AMD64)
-    AMW_INLINE void debugtrap(void) { __asm__ __volatile__("int $03"); }
+    AMW_INLINE void debugtrap(void) { __asm__ volatile("int $03"); }
 #elif defined(__thumb__) /* arm32 thumb */
-    AMW_INLINE void debugtrap(void) { __asm__ __volatile__(".inst 0xde01"); }
+    AMW_INLINE void debugtrap(void) { __asm__ volatile(".inst 0xde01"); }
 #elif defined(AMW_ARCH_AARCH64)
-    AMW_INLINE void debugtrap(void) { __asm__ __volatile__(".inst 0xd4200000"); }
+    AMW_INLINE void debugtrap(void) { __asm__ volatile(".inst 0xd4200000"); }
 #elif defined(AMW_ARCH_ARM)
-    AMW_INLINE void debugtrap(void) { __asm__ __volatile__(".inst 0xe7f001f0"); }
+    AMW_INLINE void debugtrap(void) { __asm__ volatile(".inst 0xe7f001f0"); }
 #elif defined(__STDC_HOSTED__) && (__STDC_HOSTED__ == 0) && defined(AMW_CC_GNUC_VERSION)
     #define debugtrap() __builtin_trap()
-#else
-    #include <signal.h>
-    #if defined(SIGTRAP)
-        #define debugtrap() raise(SIGTRAP)
-    #else
-        #define debugtrap() raise(SIGABRT)
-    #endif
 #endif
 
 /* static assertion */
@@ -387,7 +380,7 @@ extern "C" {
 #endif
 
 /* DLL export for public API */
-#ifndef AMWAPI
+#if !defined(AMWAPI)
     #ifdef AMW_DLL_EXPORT
         #if defined(AMW_PLATFORM_WINDOWS) || defined(__CYGWIN__)
             #define AMWAPI extern __declspec(dllexport)
@@ -399,20 +392,33 @@ extern "C" {
     #endif
 #endif
 
-/* use the C calling convention */
-#ifndef AMWAPIENTRY
-    #ifdef AMW_PLATFORM_WINDOWS
-        #define AMWAPIENTRY __cdecl
-    #else
-        #define AMWAPIENTRY 
-    #endif
-#endif
+#ifndef AMW_CC_GNUC_VERSION
+#define asm __asm__
+#endif /* AMW_CC_GNUC_VERSION */
 
 #ifndef __cplusplus
     #define false 0
     #define true 1
-    typedef _Bool bool;
 #endif
+typedef int32_t     b32;
+
+typedef int8_t      s8;
+typedef int16_t     s16;
+typedef int32_t     s32;
+typedef int64_t     s64;
+
+typedef uint8_t     u8;
+typedef uint16_t    u16;
+typedef uint32_t    u32;
+typedef uint64_t    u64;
+
+typedef float       f32;
+typedef double      f64;
+
+typedef intptr_t    sptr;
+typedef uintptr_t   uptr;
+typedef ptrdiff_t   ssize;
+typedef size_t      usize;
 
 #define min(x,y)        (((x) < (y)) ? (x) : (y))
 #define max(x,y)        (((x) > (y)) ? (x) : (y))
@@ -420,16 +426,21 @@ extern "C" {
 #define clamp_zo(x)     (clamp(x,0,1))
 #define bitmask(n)      ((1u << (n)) - 1u)
 #define arraysize(a)    (sizeof(a) / sizeof(a[0]))
+#define lengthof(s)     (arraysize(s) - 1)
 #define xorswap(a,b)    { if (a != b) { *a ^= *b; *b ^= *a; *a ^= *b; }}
 #define swap(a,b)       { AMW_TYPEOF(a) temp_ = a; a = b; b = temp_; }
 
-AMW_INLINE uint32_t count_bits32(uint32_t n) {
-    uint32_t count = 0;
+AMW_INLINE u32 count_bits32(u32 n) {
+    u32 count = 0;
     while (n) {
         n &= (n - 1);
         count++;
     }
     return count;
+}
+
+AMW_INLINE b32 is_pow2(ssize x) {
+    return (x != 0) && ((x & (x - 1)) == 0);
 }
 
 enum result_codes {

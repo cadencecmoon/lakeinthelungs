@@ -65,10 +65,6 @@ extern "C" {
         ((type *)(AMW_ASSUME_ALIGNED((expr), __alignof__(type))))
 #endif
 
-AMW_INLINE bool is_pow2(size_t x) {
-    return (x != 0) && ((x & (x - 1)) == 0);
-}
-
 #ifdef __cplusplus
 }
 #endif

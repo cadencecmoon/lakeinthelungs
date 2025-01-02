@@ -156,7 +156,7 @@ extern "C" {
     #ifdef AMW_CC_CLANG_VERSION
         #ifndef __PRFCHWINTRIN_H
             #define __PRFCHWINTRIN_H
-            static __inline__ void __attribute__((__always_inline__, __nodebug__))
+            AMW_INLINE void __attribute__((__always_inline__, __nodebug__))
             _m_prefetch(void *__P) {
                 __builtin_prefetch(__P, 0, 3);
             }

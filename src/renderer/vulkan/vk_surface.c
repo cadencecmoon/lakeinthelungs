@@ -1,85 +1,80 @@
-#include <lake/bedrock/log.h>
+#include <lake/hadopelagic.h>
 
-#include "vk_platynova.h"
-#include "../../hadal/hadopelagic.h"
+#include "vk_cobalt.h"
+
+#ifdef AMW_PLATFORM_WINDOW
+#endif /* AMW_PLATFORM_WINDOW */
+
+#ifdef AMW_PLATFORM_APPLE
+#endif /* AMW_PLATFORM_APPLE */
+
+#ifdef AMW_PLATFORM_ANDROID
+#endif /* AMW_PLATFORM_ANDROID */
 
 #ifdef AMW_NATIVE_WAYLAND
-VkResult create_wayland_surface(
-        PFN_vkCreateWaylandSurfaceKHR proc, 
-        VkInstance instance, 
-        struct wl_display *display,
-        struct wl_surface *wl_surface,
-        const VkAllocationCallbacks *allocator, 
-        VkSurfaceKHR *surface)
+static s32 create_surface_wayland(vulkan_cobalt *vk, struct wl_display *display, struct wl_surface *surface)
 {
-        VkWaylandSurfaceCreateInfoKHR wayland_surface_info = {
-            .sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR,
-            .pNext = NULL,
-            .flags = 0,
-            .display = display,
-            .surface = wl_surface,
-        };
-        return proc(instance, &wayland_surface_info, allocator, surface);
+    VkWaylandSurfaceCreateInfoKHR wayland_surface_info = {
+        .sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR,
+        .pNext = NULL,
+        .flags = 0,
+        .display = display,
+        .surface = surface,
+    };
+    VkResult res = vk->api.vkCreateWaylandSurfaceKHR(vk->instance, &wayland_surface_info, &vk->allocator, &vk->swapchain.surface);
+    if (res != VK_SUCCESS)
+        return result_error_undefined; /* TODO */
+    return result_success;
 }
-#endif
+#endif /* AMW_NATIVE_WAYLAND */
 
-VkResult create_headless_surface(
-        PFN_vkCreateHeadlessSurfaceEXT proc, 
-        VkInstance instance, 
-        const VkAllocationCallbacks *allocator, 
-        VkSurfaceKHR *surface)
-{
-    (void)proc;
-    (void)instance;
-    (void)allocator;
-    (void)surface;
-    return VK_SUCCESS;
-}
-
-VkResult vulkan_create_surface(
-        struct vulkan_instance_api *api, 
-        VkInstance instance, 
-        struct hadal *hadal, 
-        const VkAllocationCallbacks *allocator, 
-        VkSurfaceKHR *surface)
-{
-    assert_debug(api && hadal && surface && instance != VK_NULL_HANDLE);
-
-    *surface = VK_NULL_HANDLE;
-
-    switch (hadal->api.api) {
-#ifdef AMW_PLATFORM_WINDOWS
-    case hadal_backend_win32:
-        break;
-#endif
-#ifdef AMW_PLATFORM_MACOS
-    case hadal_backend_cocoa:
-        break;
-#endif
-#ifdef AMW_PLATFORM_IOS
-    case hadal_backend_ios:
-        break;
-#endif
-#ifdef AMW_NATIVE_ANDROID
-    case hadal_backend_android:
-        break;
-#endif
-#ifdef AMW_NATIVE_WAYLAND
-    case hadal_backend_wayland:
-        return create_wayland_surface(api->vkCreateWaylandSurfaceKHR, instance, hadal->wl.display, hadal->window.wl.surface, allocator, surface);
-#endif
 #ifdef AMW_NATIVE_XCB
-    case hadal_backend_xcb:
+#endif /* AMW_NATIVE_XCB */
+
+#ifdef AMW_NATIVE_DRM
+#endif /* AMW_NATIVE_DRM */
+
+AMWAPI s32 cobalt_vulkan_create_swapchain_surface(cobalt *co, hadopelagic *hadal)
+{
+    vulkan_cobalt *vk = (vulkan_cobalt *)co->renderer;
+
+    if (vk->instance == VK_NULL_HANDLE || !hadal->calls.expose_native_window)
+        return result_error_invalid_engine_context;
+    vk->swapchain.surface = VK_NULL_HANDLE;
+
+    void *display, *window;
+    hadal->calls.expose_native_window(hadal, &display, &window);
+
+    switch (hadal->backend_api) {
+#ifdef AMW_PLATFORM_WINDOW
+    case hadal_backend_api_win32: 
         break;
-#endif
-#ifdef AMW_NATIVE_KMS
-    case hadal_backend_kms:
+#endif /* AMW_PLATFORM_WINDOW */
+#ifdef AMW_PLATFORM_APPLE
+    case hadal_backend_api_cocoa:
+    case hadal_backend_api_ios:
         break;
-#endif
-    case hadal_backend_headless:
-        return create_headless_surface(api->vkCreateHeadlessSurfaceEXT, instance, allocator, surface);
+#endif /* AMW_PLATFORM_APPLE */
+#ifdef AMW_PLATFORM_ANDROID
+    case hadal_backend_api_android:
+        break;
+#endif /* AMW_PLATFORM_ANDROID */
+#ifdef AMW_NATIVE_WAYLAND
+    case hadal_backend_api_wayland:
+        return create_surface_wayland(vk, (struct wl_display *)display, (struct wl_surface *)window);
+#endif /* AMW_NATIVE_WAYLAND */
+#ifdef AMW_NATIVE_XCB
+    case hadal_backend_api_xcb:
+        break;
+#endif /* AMW_NATIVE_XCB */
+#ifdef AMW_NATIVE_DRM
+    case hadal_backend_api_drm:
+        break;
+#endif /* AMW_NATIVE_DRM */
+    case hadal_backend_api_headless:
+        break;
     default:
         break;
     }
-    return VK_ERROR_FEATURE_NOT_PRESENT;
+    return result_error_undefined; /* TODO */
 }

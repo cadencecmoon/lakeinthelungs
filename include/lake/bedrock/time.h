@@ -12,22 +12,18 @@ extern "C" {
 #define AMW_NS_PER_SECOND       1000000000LL
 #define AMW_NS_PER_MS           1000000
 #define AMW_NS_PER_US           1000
-#define AMW_SECONDS_TO_NS(S)    (((uint64_t)(S)) * AMW_NS_PER_SECOND)
+#define AMW_SECONDS_TO_NS(S)    (((u64)(S)) * AMW_NS_PER_SECOND)
 #define AMW_NS_TO_SECONDS(NS)   ((NS) / AMW_NS_PER_SECOND)
-#define AMW_MS_TO_NS(MS)        (((uint64_t)(MS)) * AMW_NS_PER_MS)
+#define AMW_MS_TO_NS(MS)        (((u64)(MS)) * AMW_NS_PER_MS)
 #define AMW_NS_TO_MS(NS)        ((NS) / AMW_NS_PER_MS)
-#define AMW_US_TO_NS(US)        (((uint64_t)(US)) * AMW_NS_PER_US)
+#define AMW_US_TO_NS(US)        (((u64)(US)) * AMW_NS_PER_US)
 #define AMW_NS_TO_US(NS)        ((NS) / AMW_NS_PER_US)
 
-#ifndef AMW_NO_PROTOTYPES
-
 /** Get the time passed since the game initialized in milliseconds. */
-AMWAPI uint64_t AMWAPIENTRY ticks_ms(void);
+AMWAPI u64 ticks_ms(void);
 
 /** Get the time passed since the game initialized in nanoseconds. */
-AMWAPI uint64_t AMWAPIENTRY ticks_ns(void);
-
-#endif /* AMW_NO_PROTOTYPES */
+AMWAPI u64 ticks_ns(void);
 
 #ifdef __cplusplus
 }

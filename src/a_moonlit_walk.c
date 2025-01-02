@@ -4,68 +4,72 @@
 
 #include <stdlib.h> /* malloc, free */
 
-static void AMWAPIENTRY a_moonlit_walk_cleanup__(struct a_moonlit_walk *AMW)
+static void a_moonlit_walk_cleanup__(
+    a_moonlit_walk *AMW)
 {
-    platinum_fini(&AMW->plat);
-    hadopelagic_fini(&AMW->hadal);
+    cobalt_fini(&AMW->co);
+    hadal_fini(&AMW->hadal);
     iafini(&AMW->ia);
-    iazerop(AMW);
 }
 
-static void AMWAPIENTRY a_moonlit_walk_main__(
-        struct riven *riven,
-        thread_t *threads,
-        size_t thread_count,
-        void *argument)
+static void a_moonlit_walk_main__(
+    rivens_rift *riven,
+    thread_id   *threads,
+    ssize        thread_count,
+    void        *argument)
 {
-    int32_t i, frame_idx = 0;
-    uint32_t time_last = 0, time_now = hadal_timer_counter();
-    double dt_frequency = 1000.0/(double)hadal_timer_frequency(); /* in ms */
-    double dt = 0;
+    s32 i, frame_idx = 0;
+    u32 time_last = 0, time_now = bedrock_rtc_counter();
+    f64 dt_frequency = 1000.0/(f64)bedrock_rtc_frequency(); /* in ms */
+    f64 dt = 0;
 
-    struct a_moonlit_walk *AMW = (struct a_moonlit_walk *)argument;
+    a_moonlit_walk *AMW = (a_moonlit_walk *)argument;
 
     AMW->riven = riven;
     AMW->threads = threads;
     AMW->thread_count = thread_count;
 
-    i = hadopelagic_init(
-        AMW->hints.entry_points.hadopelagic,
+    i = hadal_init(
+        AMW->hints->entry_points.hadal,
         &AMW->hadal,
         &AMW->ia,
-        AMW->hints.window.width, 
-        AMW->hints.window.height,
-        AMW->hints.window.title
+        AMW->hints->window_width, 
+        AMW->hints->window_height,
+        AMW->hints->window_title
     );
     if (i != result_success) {
         log_fatal("Can't initialize the display backend.");
         a_moonlit_walk_cleanup__(AMW);
         return; 
     }
-    hadopelagic_window_visible(&AMW->hadal, true);
+    hadal_window_visible(&AMW->hadal, true);
 
-    i = platinum_init(AMW->hints.entry_points.platinum, &AMW->plat, &AMW->ia, &AMW->hadal, AMW->hints.app_name, AMW->hints.version, thread_count);
+    i = cobalt_init(
+        AMW->hints->entry_points.co, 
+        &AMW->co, 
+        &AMW->ia, 
+        &AMW->hadal, 
+        riven, 
+        AMW->hints->app_name, 
+        AMW->hints->version, 
+        threads,
+        thread_count
+    );
     if (i != result_success) {
-        log_fatal("Can't initialize the rendering backend.");
+        log_fatal("Can't initialize the renderer.");
         a_moonlit_walk_cleanup__(AMW);
         return;
     }
-    i = platinum_construct_novas(&AMW->plat, riven, -1, 1, true);
-    if (i != result_success) {
-        log_fatal("Creating rendering devices failed. No rendering is possible.");
-        a_moonlit_walk_cleanup__(AMW);
-        return;
-    }
 
-    struct amw_workload work[AMW_MAX_WORKLOAD];
+    amw_workload work[AMW_MAX_WORKLOAD];
     for (i = 0; i < AMW_MAX_WORKLOAD; i++) {
         work[i].idx = i;
         work[i].dt = 0.0;
         work[i].AMW = AMW;
-        work[i].previous = &work[(i - 1 + AMW_MAX_WORKLOAD) % AMW_MAX_WORKLOAD];
+        work[i].last_work = &work[(i - 1 + AMW_MAX_WORKLOAD) % AMW_MAX_WORKLOAD];
     }
 
-    struct riven_tear tears[3];
+    rivens_tear tears[3];
     for (i = 0; i < 3; i++) {
         tears[i].argument = NULL;
     }
@@ -78,17 +82,17 @@ static void AMWAPIENTRY a_moonlit_walk_main__(
     tears[AMW_GPUEXEC_TEAR_IDX].procedure = (PFN_riven_tear)a_moonlit_walk_gpuexec_tear__;
     tears[AMW_GPUEXEC_TEAR_IDX].name = "a_moonlit_walk_gpuexec_tear__";
 
-    struct amw_workload *simulation_workload = &work[frame_idx % AMW_MAX_WORKLOAD];
-    struct amw_workload *rendering_workload = NULL;
-    struct amw_workload *gpuexec_workload = NULL;
+    amw_workload *simulation_workload = &work[frame_idx % AMW_MAX_WORKLOAD];
+    amw_workload *rendering_workload = NULL;
+    amw_workload *gpuexec_workload = NULL;
 
     /* TODO run X frames and exit */
-    int32_t close_counter = 128;
+    s32 close_counter = 128;
 
     log_debug("A MOONLIT WALK - GAMELOOP - - - BEGIN");
     do {
         time_last = time_now;
-        time_now = hadal_timer_counter();
+        time_now = bedrock_rtc_counter();
         dt = (double)((time_now - time_last) * dt_frequency); /* deltatime in ms */
 
         /* GAME WORLD SIMULATION */
@@ -113,6 +117,7 @@ static void AMWAPIENTRY a_moonlit_walk_main__(
         /* execute the mainloop tears */
         riven_split_and_unchain(riven, tears, 3);
 
+        /* increment the frame counter */
         gpuexec_workload = rendering_workload;
         rendering_workload = simulation_workload;
         simulation_workload = (at_read_relaxed(&AMW->flags) & amw_flag_finalize_gameloop) 
@@ -128,70 +133,65 @@ static void AMWAPIENTRY a_moonlit_walk_main__(
 
     a_moonlit_walk_cleanup__(AMW);
 
-    log_info("%s was running for a total of:\n"
-             "    %llu min, %02llu sec, %03lu ms\n"
-             "    %u frames", ((struct amw_hints *)argument)->app_name,
+    log_info("%s was running for a total of: %llu:%02llu.%03lu min, %u frames", AMW->hints->app_name,
         (ticks_ns()/AMW_NS_PER_SECOND)/60, (ticks_ns()/AMW_NS_PER_SECOND)%60, ticks_ms()%AMW_MS_PER_SECOND, frame_idx-1);
 }
 
-AMWAPI int32_t AMWAPIENTRY 
-a_moonlit_walk(int32_t (*main__)(struct amw_hints *, int32_t, char **), int32_t argc, char **argv)
+AMWAPI s32 a_moonlit_walk__(
+    s32 (*main__)(amw_hints *, s32, char **), 
+    s32 argc, char **argv)
 {
-    int res = 0;
-    size_t riven_bytes;
+    s32 res = 0;
+    usize riven_bytes;
 
-    struct a_moonlit_walk AMW;
+    a_moonlit_walk AMW;
     iazero(AMW);
 
+    amw_hints hints = {
+        .app_name = "A Moonlit Walk Engine",
+        .version = AMW_VERSION_NUM(AMW_VERSION_MAJOR, AMW_VERSION_MINOR, AMW_VERSION_REVISION),
+        .window_width = 1200,
+        .window_height = 800,
+        .window_title = hints.app_name,
+        .riven_thread_count = 0,
+        .riven_fiber_count = 128,
+        .riven_stack_size = 64 * 1024,
+        .riven_log_2_tears = 12,
+        .cobalt_max_devices = 1, /* if 0, use all available GPUs */
+        .cobalt_preferred_main_device = -1, /* select the most appropriate GPU as the main device */
+        .entry_points.hadal = hadal_entry_point,
+        .entry_points.co = cobalt_entry_point,
+        .entry_points.silv = silver_entry_point,
+        .callbacks.init = NULL,
+        .callbacks.simulation = NULL,
+        .callbacks.rendering = NULL,
+        .callbacks.gpuexec = NULL,
+        .callbacks.cleanup = NULL,
+    };
+    bedrock_cpu_count(&hints.riven_thread_count, NULL, NULL);
+
     /* parse arguments, configure the engine */
-    res = main__(&AMW.hints, argc, argv);
+    res = main__(&hints, argc, argv);
     if (res != result_success) /* don't continue ? */
         return res;
-
-    { /* provide defaults and validate state if necessary */
-        if (AMW.hints.app_name == NULL)         AMW.hints.app_name = "undefined";
-        if (AMW.hints.version == 0)             AMW.hints.version = AMW_VERSION_NUM(AMW_VERSION_MAJOR, AMW_VERSION_MINOR, AMW_VERSION_REVISION);
-
-        if (AMW.hints.window.width <= 0)        AMW.hints.window.width = 1200;
-        if (AMW.hints.window.height <= 0)       AMW.hints.window.height = 800;
-        if (AMW.hints.window.title == NULL)     AMW.hints.window.title = "A Moonlit Walk Engine";
-
-        if (AMW.hints.riven.thread_count == 0)  hadal_cpu_count(&AMW.hints.riven.thread_count, NULL, NULL);
-        if (AMW.hints.riven.fiber_count == 0)   AMW.hints.riven.fiber_count = 128;
-        if (AMW.hints.riven.stack_size == 0)    AMW.hints.riven.stack_size = 64 * 1024;
-        if (AMW.hints.riven.log_2_tears == 0)   AMW.hints.riven.log_2_tears = 12;
-
-        if (AMW.hints.entry_points.hadopelagic == NULL) AMW.hints.entry_points.hadopelagic = hadopelagic_entry_point;
-        if (AMW.hints.entry_points.platinum == NULL)    AMW.hints.entry_points.platinum = platinum_entry_point;
-        if (AMW.hints.entry_points.silver == NULL)      AMW.hints.entry_points.silver = silver_entry_point;
-
-        if (!AMW.hints.callbacks.init ||
-            !AMW.hints.callbacks.simulation ||
-            !AMW.hints.callbacks.rendering ||
-            !AMW.hints.callbacks.gpuexec ||
-            !AMW.hints.callbacks.cleanup)
-        {
-            log_fatal("The application should setup all callbacks (init, simulation, rendering, gpuexec, cleanup).");
-            return result_error_undefined; // TODO
-        }
-    }
+    AMW.hints = &hints;
 
     riven_bytes = riven_unveil_rift(
-        NULL,                       /* Null to get the required memory buffer size. */
-        AMW.hints.riven.stack_size,     /* Size of stack per fiber in bytes. */
-        AMW.hints.riven.fiber_count,    /* How many fibers to instance. */
-        AMW.hints.riven.log_2_tears,    /* Job queue will be (1u << log2_tears) entries large. */
-        AMW.hints.riven.thread_count,   /* How many CPU threads to run, including the main thread. */
-        a_moonlit_walk_main__,      /* Main riven tear, serves as the entry point. */
-        &AMW);                    /* Argument holding hints for other systems' configuration */
+        NULL,                           /* Null to get the required memory buffer size. */
+        AMW.hints->riven_stack_size,    /* Size of stack per fiber in bytes. */
+        AMW.hints->riven_fiber_count,   /* How many fibers to instance. */
+        AMW.hints->riven_log_2_tears,   /* Job queue will be (1u << log2_tears) entries large. */
+        AMW.hints->riven_thread_count,  /* How many CPU threads to run, including the main thread. */
+        a_moonlit_walk_main__,          /* Main riven tear, serves as the entry point. */
+        &AMW);                          /* The engine context as the argument. */
     void *riven_memory = malloc(riven_bytes);
 
     riven_unveil_rift(
         riven_memory,
-        AMW.hints.riven.stack_size,
-        AMW.hints.riven.fiber_count,
-        AMW.hints.riven.log_2_tears,
-        AMW.hints.riven.thread_count,
+        AMW.hints->riven_stack_size,
+        AMW.hints->riven_fiber_count,
+        AMW.hints->riven_log_2_tears,
+        AMW.hints->riven_thread_count,
         a_moonlit_walk_main__,
         &AMW);
     free(riven_memory);

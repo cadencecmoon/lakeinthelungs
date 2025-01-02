@@ -1,5 +1,5 @@
 engine += files(
-    'hadopelagic.c',
+    'hadal.c',
     'headless.c',
 )
 

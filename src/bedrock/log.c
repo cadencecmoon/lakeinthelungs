@@ -4,10 +4,10 @@
 #include <stdio.h>
 #include <time.h>
 
-static at_int32_t level = log_level_debug;
-static at_bool_t quiet = false;
-static at_bool_t verbose = false;
-static at_flag_t spinlock = AMW_ATOMIC_FLAG_INIT;
+static at_s32 level = log_level_debug;
+static at_b32 quiet = false;
+static at_b32 verbose = false;
+static at_flag spinlock = AMW_ATOMIC_FLAG_INIT;
 
 static const char *level_strings[] = {
     "D",
@@ -42,8 +42,7 @@ struct logdata {
     int32_t     level;
 };
 
-AMWAPI void AMWAPIENTRY 
-log_message(enum log_level level, const char *filename, int32_t line, const char *fmt, ...)
+AMWAPI void log_message(s32 level, const char *filename, s32 line, const char *fmt, ...)
 {
     if (at_read_relaxed(&quiet) || (level < at_read_relaxed(&level)))
         return;
@@ -80,21 +79,18 @@ log_message(enum log_level level, const char *filename, int32_t line, const char
     va_end(log.ap);
 }
 
-AMWAPI void AMWAPIENTRY 
-log_set_level(enum log_level set_level)
+AMWAPI void log_set_level(s32 set_log_level)
 {
-    assert_debug(set_level <= log_level_fatal && set_level >= 0);
-    at_store_explicit(&level, set_level, memory_model_acq_rel);
+    assert_debug(set_log_level <= log_level_fatal && set_log_level >= 0);
+    at_store_explicit(&level, set_log_level, memory_model_acq_rel);
 }
 
-AMWAPI void AMWAPIENTRY 
-log_set_verbose(bool set_verbose)
+AMWAPI void log_set_verbose(b32 set_verbose)
 {
     at_store_explicit(&verbose, set_verbose, memory_model_acq_rel);
 }
 
-AMWAPI void AMWAPIENTRY 
-log_set_quiet(bool set_quiet)
+AMWAPI void log_set_quiet(b32 set_quiet)
 {
     at_store_explicit(&quiet, set_quiet, memory_model_acq_rel);
 }

@@ -1,6 +1,6 @@
 #include <lake/bedrock/parser.h>
 #include <lake/bedrock/log.h>
-#include <lake/hadopelagic.h>
+#include <lake/bedrock/os.h>
 
 #include <string.h>
 #include <fcntl.h>
@@ -8,14 +8,13 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-static int32_t cpu_threads, cpu_cores, cpu_packages = 0;
+static s32 cpu_threads, cpu_cores, cpu_packages = 0;
 
-AMWAPI void AMWAPIENTRY 
-hadal_cpu_count(uint32_t *threads, uint32_t *cores, uint32_t *packages)
+AMWAPI void bedrock_cpu_count(u32 *threads, u32 *cores, u32 *packages)
 {
     if (cpu_packages != 0) goto get_count;
 
-    int32_t fd, len, pos, end;
+    s32 fd, len, pos, end;
     char buf[4096];
     char num[100];
 
@@ -36,10 +35,10 @@ hadal_cpu_count(uint32_t *threads, uint32_t *cores, uint32_t *packages)
                 if (pos < len && end < len) {
                     strncpy(num, buf + pos, sizeof(num));
                     num[100-1] = 0; /* because the compiler screams at me [-Wstringop-truncation] */
-                    assert_debug((end - pos) > 0 && (end - pos) < (int32_t)sizeof(num));
+                    assert_debug((end - pos) > 0 && (end - pos) < (s32)sizeof(num));
                     num[end - pos] = '\0';
 
-                    int32_t processor = parser_atoi(num);
+                    s32 processor = parser_atoi(num);
                     if ((processor) > cpu_cores) {
                         cpu_cores = processor;
                     }
@@ -54,10 +53,10 @@ hadal_cpu_count(uint32_t *threads, uint32_t *cores, uint32_t *packages)
                 if (pos < len && end < len) {
                     strncpy(num, buf + pos, sizeof(num));
                     num[100-1] = 0; /* because the compiler screams at me [-Wstringop-truncation] */
-                    assert_debug((end - pos) > 0 && (end - pos) < (int32_t)sizeof(num));
+                    assert_debug((end - pos) > 0 && (end - pos) < (s32)sizeof(num));
                     num[end - pos] = '\0'; /* because it keeps fucking screaming */
 
-                    int32_t core_id = parser_atoi(num);
+                    s32 core_id = parser_atoi(num);
                     if ((core_id) > cpu_threads) {
                         cpu_threads = core_id;
                     }
@@ -75,7 +74,7 @@ hadal_cpu_count(uint32_t *threads, uint32_t *cores, uint32_t *packages)
     }
 
 get_count:
-    if (threads)  *threads = (uint32_t)cpu_threads;
-    if (cores)    *cores = (uint32_t)cpu_cores;
-    if (packages) *packages = (uint32_t)cpu_packages;
+    if (threads)  *threads = (u32)cpu_threads;
+    if (cores)    *cores = (u32)cpu_cores;
+    if (packages) *packages = (u32)cpu_packages;
 }

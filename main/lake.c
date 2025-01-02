@@ -3,9 +3,9 @@
 
 int32_t lake_in_the_lungs_init__(
         struct a_moonlit_walk *AMW, 
-        struct amw_workload *work, 
-        uint32_t workload_count, 
-        void *context) 
+        struct amw_workload   *work, 
+        uint32_t               workload_count, 
+        void                  *context) 
 {
     (void)AMW;
     (void)work;
@@ -16,8 +16,8 @@ int32_t lake_in_the_lungs_init__(
 
 int32_t lake_in_the_lungs_simulation__(
         struct a_moonlit_walk *AMW, 
-        struct amw_workload *work, 
-        void *context)
+        struct amw_workload   *work, 
+        void                  *context)
 {
     (void)AMW;
     (void)work;
@@ -27,8 +27,8 @@ int32_t lake_in_the_lungs_simulation__(
 
 int32_t lake_in_the_lungs_rendering__(
         struct a_moonlit_walk *AMW, 
-        struct amw_workload *work, 
-        void *context)
+        struct amw_workload   *work, 
+        void                  *context)
 {
     (void)AMW;
     (void)work;
@@ -38,8 +38,8 @@ int32_t lake_in_the_lungs_rendering__(
 
 int32_t lake_in_the_lungs_gpuexec__(
         struct a_moonlit_walk *AMW, 
-        struct amw_workload *work, 
-        void *context)
+        struct amw_workload   *work, 
+        void                  *context)
 {
     (void)AMW;
     (void)work;
@@ -49,7 +49,7 @@ int32_t lake_in_the_lungs_gpuexec__(
 
 void lake_in_the_lungs_cleanup__(
         struct a_moonlit_walk *AMW, 
-        void *context)
+        void                  *context)
 {
     (void)AMW;
     (void)context;
@@ -59,14 +59,9 @@ int amw_main(struct amw_hints *hints, int argc, char **argv)
 {
     hints->app_name = "Jezioro w Plucach";
     hints->version = AMW_VERSION_NUM(AMW_VERSION_MAJOR, AMW_VERSION_MINOR, AMW_VERSION_REVISION);
-    hints->window.title = "Lake in the Lungs";
-    hints->window.width = 1200;
-    hints->window.height = 800;
-
-    hints->riven.thread_count = 0;
-    hints->riven.fiber_count = 0;
-    hints->riven.log_2_tears = 0;
-    hints->riven.stack_size = 0;
+    hints->window_title = "Lake in the Lungs";
+    hints->window_width = 1200;
+    hints->window_height = 800;
 
     hints->callbacks.init = lake_in_the_lungs_init__;
     hints->callbacks.simulation = lake_in_the_lungs_simulation__;

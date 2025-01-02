@@ -1,38 +1,35 @@
 #include <lake/bedrock/log.h>
-#include <lake/hadopelagic.h>
+#include <lake/bedrock/os.h>
 
 #include <dlfcn.h>
 
-AMWAPI void * AMWAPIENTRY 
-hadal_load_dll(const char *libname)
+AMWAPI void *bedrock_load_dll(const char *libname)
 {
-    void *handle = dlopen(libname, RTLD_NOW | RTLD_LOCAL);
-    if (!handle) {
-        log_error("dlopen '%s' failed: %s", 
-                libname ? libname : "null", 
-                libname ? dlerror() : "a NULL libname was passed to hadal_load_dll()");
+    if (!libname)
+        return NULL;
+
+    void *module = dlopen(libname, RTLD_NOW | RTLD_LOCAL);
+    if (!module) {
+        log_error("dlopen '%s' failed: %s", libname, dlerror());
     }
-    return handle;
+    return module;
 }
 
-AMWAPI void AMWAPIENTRY 
-hadal_close_dll(void *handle)
+AMWAPI void bedrock_close_dll(void *module)
 {
-    if (handle)
-        dlclose(handle);
+    if (module)
+        dlclose(module);
 }
 
-AMWAPI void * AMWAPIENTRY 
-hadal_get_proc_address(void *handle, const char *procname)
+AMWAPI void *bedrock_get_proc_address(void *module, const char *procedure)
 {
-    assert_debug(handle && procname);
+    if (!module || !procedure)
+        return NULL;
 
     const char *err;
-    void *addr = dlsym(handle, procname);
+    void *addr = dlsym(module, procedure);
     if ((err = dlerror()) != NULL) {
-        log_error("hadal_get_proc_address: dlsym '%s' failed: %s", 
-                procname ? procname : "null", 
-                procname ? err : "a NULL procname was passed to hadal_get_proc_address()");
+        log_error("dlsym '%s' failed: %s", procedure, err);
     }
     return addr;
 }

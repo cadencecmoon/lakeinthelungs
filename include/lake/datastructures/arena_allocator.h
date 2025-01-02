@@ -19,27 +19,29 @@ extern "C" {
  * For now it's fine, it will take me some time to figure out stuff. */
 
 /* FIXME use the tagged heap as a memory backend instead. */
+typedef struct region region;
+
 struct region {
-    AMW_ATOMIC(struct region *) next; /* next region */
-    at_size_t count;      /* 1 = 8 bytes (64 bits) */
-    at_size_t capacity;   /* 1 = 1 byte  (8 bits) */
-    uintptr_t data[];
+    AMW_ATOMIC(region *) next; /* next region */
+    at_usize count;      /* 1 = 8 bytes (64 bits) */
+    at_usize capacity;   /* 1 = 1 byte  (8 bits) */
+    uptr data[];
 };
 
-struct arena_allocator {
-    struct region *begin;
-    struct region *end;
-};
+typedef struct arena_allocator {
+    region *begin;
+    region *end;
+} arena_allocator;
 
 /* TODO use tagged heap as a backend */
-AMW_INLINE struct region *region_new(size_t capacity) 
+AMW_INLINE region *region_new(usize capacity) 
 {
-    size_t bytes = sizeof(struct region) + sizeof(uintptr_t) * capacity;
-    struct region *r = (struct region *)malloc(bytes);
+    usize bytes = sizeof(region) + sizeof(uptr) * capacity;
+    region *r = (region *)malloc(bytes);
     assert_debug(r != NULL);
 
 #ifdef AMW_DEBUG
-    log_debug("Allocated a memory region of size %lu + %lu bytes", sizeof(struct region), capacity);
+    log_debug("Allocated a memory region of size %lu + %lu bytes", sizeof(region), capacity);
 #endif
 
     at_store_relaxed(&r->next, NULL);
@@ -49,34 +51,34 @@ AMW_INLINE struct region *region_new(size_t capacity)
 }
 
 /* TODO use tagged heap as a backend */
-AMW_INLINE void region_free(struct region *r) 
+AMW_INLINE void region_free(region *r) 
 {
 #ifdef AMW_DEBUG
-    log_debug("Freeing a memory region of size %lu + %lu bytes", sizeof(struct region), at_read_relaxed(&r->capacity));
+    log_debug("Freeing a memory region of size %lu + %lu bytes", sizeof(region), at_read_relaxed(&r->capacity));
 #endif
     free(r);
 }
 
 /** The arena allocator is implied to be empty, probably allocated on the stack and not zeroed out yet.
  *  Preallocates a memory region with of a size atleast given bytes. */
-AMW_INLINE void arena_init(struct arena_allocator *a, size_t bytes) 
+AMW_INLINE void arena_init(arena_allocator *a, usize bytes) 
 {
     assert_debug(a);
 
     if (bytes < 4096) 
         bytes = 4096;
 
-    struct region *r = region_new(bytes);
+    region *r = region_new(bytes);
     a->begin = a->end = r;
 }
 
 /** If the arena has NULL begin/end regions, a new region of a minimum 4096 bytes size will be created. */
-AMW_INLINE void *arena_alloc(struct arena_allocator *a, size_t bytes) 
+AMW_INLINE void *arena_alloc(arena_allocator *a, size_t bytes) 
 {
-    size_t size = (bytes + sizeof(uintptr_t) - 1) / sizeof(uintptr_t);
+    usize size = (bytes + sizeof(uptr) - 1) / sizeof(uptr);
     if (a->end == NULL) {
         assert_debug(a->begin == NULL);
-        size_t capacity = 4096;
+        usize capacity = 4096;
         if (capacity < size) capacity = size;
         a->begin = a->end = region_new(capacity);
     }
@@ -86,7 +88,7 @@ AMW_INLINE void *arena_alloc(struct arena_allocator *a, size_t bytes)
 
     if (at_read_explicit(&a->end->count, memory_model_acquire) + size > at_read_relaxed(&a->end->capacity)) {
         assert_debug(at_read_relaxed(&a->end->next) != NULL);
-        size_t capacity = 4096;
+        usize capacity = 4096;
         if (capacity < size) capacity = size;
         at_store_explicit(&a->end->next, region_new(capacity), memory_model_seq_cst);
     }
@@ -97,38 +99,38 @@ AMW_INLINE void *arena_alloc(struct arena_allocator *a, size_t bytes)
 }
 
 /** Copies over data to newly allocated memory in the given arena. */
-AMW_INLINE void *arena_memdup(struct arena_allocator *a, void *data, size_t bytes) 
+AMW_INLINE void *arena_memdup(arena_allocator *a, void *data, usize bytes) 
 {
     return memcpy(arena_alloc(a, bytes), data, bytes);
 }
 
-AMW_INLINE char *arena_strndup(struct arena_allocator *a, const char *str, size_t n) 
+AMW_INLINE char *arena_strndup(arena_allocator *a, const char *str, usize n) 
 {
     char *dup;
-    size_t len;
+    usize len;
 
     if (str == NULL) return NULL;
 
-    len = parse_strnlen(str, n);
+    len = parser_strnlen(str, n);
     dup = (char *)arena_alloc(a, len + 1);
-    memcpy(dup, str, (size_t)(len));
+    memcpy(dup, str, (usize)(len));
     dup[len] = '\0';
     return dup;
 }
 
 /** Resets the memory regions of an arena. */
-AMW_INLINE void arena_reset(struct arena_allocator *a) 
+AMW_INLINE void arena_reset(arena_allocator *a) 
 {
-    for (struct region *r = a->begin; r != NULL; r = at_read_explicit(&r->next, memory_model_acq_rel))
+    for (region *r = a->begin; r != NULL; r = at_read_explicit(&r->next, memory_model_acq_rel))
         at_store_explicit(&r->count, 0, memory_model_acq_rel);
     a->end = a->begin;
 }
 
-AMW_INLINE void arena_fini(struct arena_allocator *a) 
+AMW_INLINE void arena_fini(arena_allocator *a) 
 {
-    struct region *r0 = a->begin;
+    region *r0 = a->begin;
     while (r0) {
-        struct region *r1 = r0;
+        region *r1 = r0;
         r0 = at_read_relaxed(&r0->next);
         region_free(r1);
     }

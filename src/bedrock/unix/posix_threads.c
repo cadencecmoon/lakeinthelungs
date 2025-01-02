@@ -1,4 +1,5 @@
 #include <lake/bedrock/log.h>
+#include <lake/bedrock/os.h>
 #include <lake/riven.h>
 
 #include <pthread.h>
@@ -6,8 +7,7 @@
 #include <sys/types.h>
 #include <sys/cdefs.h>
 
-AMWAPI void AMWAPIENTRY 
-thread_create(thread_t *thread, void *(*procedure)(void *), void *argument)
+AMWAPI void bedrock_thread_create(thread_id *thread, void *(*procedure)(void *), void *argument)
 {
     pthread_attr_t attr;
     pthread_attr_init(&attr);
@@ -25,8 +25,7 @@ thread_create(thread_t *thread, void *(*procedure)(void *), void *argument)
     pthread_attr_destroy(&attr);
 }
 
-AMWAPI void AMWAPIENTRY 
-thread_destroy(thread_t thread)
+AMWAPI void bedrock_thread_destroy(thread_id thread)
 {
     assert_debug(!pthread_equal((pthread_t)thread, pthread_self()));
 
@@ -40,8 +39,7 @@ thread_destroy(thread_t thread)
     }
 }
 
-AMWAPI void AMWAPIENTRY 
-thread_join(thread_t thread)
+AMWAPI void bedrock_thread_join(thread_id thread)
 {
     assert_debug(!pthread_equal((pthread_t)thread, pthread_self()));
 
@@ -51,15 +49,14 @@ thread_join(thread_t thread)
     }
 }
 
-AMWAPI size_t AMWAPIENTRY 
-thread_index(thread_t *threads, size_t thread_count)
+AMWAPI ssize bedrock_thread_index(thread_id *threads, ssize thread_count)
 {
     if (!threads || thread_count <= 0)
         return 0;
 
     pthread_t self = pthread_self();
     for (;;) {
-        for (size_t i = 0; i < thread_count; i++) {
+        for (ssize i = 0; i < thread_count; i++) {
             if (pthread_equal((pthread_t)threads[i], self)) {
                 return i;
             }
@@ -69,27 +66,30 @@ thread_index(thread_t *threads, size_t thread_count)
     }
 }
 
-AMWAPI thread_t AMWAPIENTRY 
-thread_current(void)
+AMWAPI thread_id bedrock_thread_current(void)
 {
-    return (thread_t)pthread_self();
+    return (thread_id)pthread_self();
 }
 
-AMWAPI void AMWAPIENTRY
-thread_affinity(uint8_t *stack_memory, thread_t *threads, size_t thread_count, size_t start_index)
+AMWAPI void bedrock_thread_affinity(u8 *temp_stack_memory, thread_id *threads, ssize thread_count, ssize begin_cpu_index)
 {
-    assert_debug(stack_memory && threads);
-    assert_debug(thread_count > 0 && thread_count > start_index);
+    assert_debug(temp_stack_memory && threads);
 
-    cpu_set_t *cpusets = (cpu_set_t *)stack_memory;
+    cpu_set_t *cpusets = (cpu_set_t *)temp_stack_memory;
+    u32 cpu_count = 0;
 
-    for (size_t i = start_index; i < thread_count; i++) {
+    bedrock_cpu_count(&cpu_count, NULL, NULL);
+
+    ssize i = 0; 
+    ssize j = begin_cpu_index;
+    while (i < thread_count && j < cpu_count) {
         CPU_ZERO(&cpusets[i]);
-        CPU_SET(i, &cpusets[i]);
+        CPU_SET(j, &cpusets[i]);
 
         if (pthread_setaffinity_np(threads[i], sizeof(cpu_set_t), &cpusets[i]) != 0) {
-            log_error("pthread_setaffinity_np failed for CPU %lu", i);
+            log_error("pthread_setaffinity_np failed for CPU %lu and system thread %lu", j, i);
             return;
         }
+        i++; j++;
     }
 }

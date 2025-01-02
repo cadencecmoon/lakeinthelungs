@@ -1,5 +1,5 @@
 #include <lake/bedrock/time.h>
-#include <lake/hadopelagic.h>
+#include <lake/bedrock/os.h>
 
 #include <sys/time.h>
 #ifdef AMW_HAS_CLOCK_GETTIME
@@ -10,8 +10,8 @@
 #include <mach/mach_time.h>
 #endif
 
-static bool checked_monotonic = false;
-static bool has_monotonic = false;
+static b32 checked_monotonic = false;
+static b32 has_monotonic = false;
 
 #if !defined(AMW_HAS_CLOCK_GETTIME) && defined(AMW_PLATFORM_APPLE)
 static mach_timebase_info_data_t mach_base_info;
@@ -30,10 +30,9 @@ static void check_monotonic(void)
     checked_monotonic = true;
 }
 
-AMWAPI uint64_t AMWAPIENTRY 
-hadal_timer_counter(void)
+AMWAPI u64 bedrock_rtc_counter(void)
 {
-    uint64_t ticks = 0;
+    u64 ticks = 0;
 
     if (!checked_monotonic)
         check_monotonic();
@@ -60,8 +59,7 @@ hadal_timer_counter(void)
     return ticks;
 }
 
-AMWAPI uint64_t AMWAPIENTRY 
-hadal_timer_frequency(void)
+AMWAPI u64 bedrock_rtc_frequency(void)
 {
     if (!checked_monotonic)
         check_monotonic();
@@ -70,7 +68,7 @@ hadal_timer_frequency(void)
 #ifdef AMW_HAS_CLOCK_GETTIME
         return AMW_NS_PER_SECOND;
 #elif defined(AMW_PLATFORM_APPLE)
-        uint64_t freq = mach_base_info.denom;
+        u64 freq = mach_base_info.denom;
         freq *= AMW_NS_PER_SECOND;
         freq /= mach_base_info.numer;
         return freq;

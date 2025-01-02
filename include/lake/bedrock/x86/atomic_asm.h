@@ -9,11 +9,11 @@
 extern "C" {
 #endif
 
-#define compiler_barrier() __asm__ __volatile__(" " : : : "memory")
+#define compiler_barrier() __asm__ volatile(" " : : : "memory")
 #ifdef AMW_ARCH_AMD64
-    #define cpu_barrier()  __asm__ __volatile__("mfence;" : : : "memory")
+    #define cpu_barrier()  __asm__ volatile("mfence;" : : : "memory")
 #else
-    #define cpu_barrier()  __asm__ __volatile__("lock ; addl $0, (%%esp)" : : : "memory", "cc")
+    #define cpu_barrier()  __asm__ volatile("lock ; addl $0, (%%esp)" : : : "memory", "cc")
 #endif
 
 /* The 'volatile' keyword prevents the compiler rom keeping the atomic
@@ -90,24 +90,24 @@ AMW_INLINE void at_signal_fence(enum memory_model model) {
     ((void)*(obj), _AMW_IS_LOCKLESS_ATOMIC__(*(obj)) ? 2 : 0)
 
 #if defined(AMW_ARCH_AMD64) 
-    #define atomic_exchange__(dst, src, model)                  \
-        ({                                                      \
-            AMW_TYPEOF(dst) dst___ = (dst);                     \
-            AMW_TYPEOF(*(dst)) src___ = (src);                  \
-                                                                \
-            if ((model) > memory_model_consume) {               \
-                __asm__ __volatile__("xchg %1, %0 ; "           \
-                                     "# atomic_exchange__"      \
-                                     : "+r" (src___), /* 0 */   \
-                                       "+m" (*dst___) /* 1 */   \
-                                     : : "memory");             \
-            } else {                                            \
-                __asm__ __volatile__("xchg %1, %0 ; "           \
-                                     "# atomic_exchange__"      \
-                                     : "+r" (src___),   /* 0 */ \
-                                       "+m" (*dst___)); /* 1 */ \
-            }                                                   \
-            src___;                                             \
+    #define atomic_exchange__(dst, src, model)              \
+        ({                                                  \
+            AMW_TYPEOF(dst) dst___ = (dst);                 \
+            AMW_TYPEOF(*(dst)) src___ = (src);              \
+                                                            \
+            if ((model) > memory_model_consume) {           \
+                __asm__ volatile("xchg %1, %0 ; "           \
+                                 "# atomic_exchange__"      \
+                               : "+r" (src___), /* 0 */     \
+                                 "+m" (*dst___) /* 1 */     \
+                               : : "memory");               \
+            } else {                                        \
+                __asm__ volatile("xchg %1, %0 ; "           \
+                                 "# atomic_exchange__"      \
+                                 : "+r" (src___),   /* 0 */ \
+                                 "+m" (*dst___)); /* 1 */   \
+            }                                               \
+            src___;                                         \
         })
 #else /* 32-bit */
     /** The 8-byte atomic exchange uses cmpxchg8b with the SRC (ax:dx) as
@@ -119,59 +119,59 @@ AMW_INLINE void at_signal_fence(enum memory_model model) {
          *  and restore it. Furthermore, 'dst' may be addressed via ebx,
          *  so the address must be passed via a register so that it remains 
          *  valid also after changing ebx. */
-        #define atomic_exchange_8__(dst, src, clob)             \
-            uint32_t temp___;                                   \
-            __asm__ __volatile__("      movl %%ebx, %2 ;    "   \
-                                 "      movl %%eax, %%ebx ; "   \
-                                 "      movl %%edx, %%ecx ; "   \
-                                 "1:                        "   \
-                                 "lock; cmpchg8b (%0) ;     "   \
-                                 "      jne 1b ;            "   \
-                                 "      movl %2, %%ebx ;    "   \
-                                 "# atomic_exchange_8__     "   \
-                                 : "+r" (dst),     /* 0 */      \
-                                   "+A" (src),     /* 1 */      \
-                                   "=mr" (temp___) /* 2 */      \
-                                 : : "ecx", clob, "cc")
+        #define atomic_exchange_8__(dst, src, clob)         \
+            u32 temp___;                                    \
+            __asm__ volatile("      movl %%ebx, %2 ;    "   \
+                             "      movl %%eax, %%ebx ; "   \
+                             "      movl %%edx, %%ecx ; "   \
+                             "1:                        "   \
+                             "lock; cmpchg8b (%0) ;     "   \
+                             "      jne 1b ;            "   \
+                             "      movl %2, %%ebx ;    "   \
+                             "# atomic_exchange_8__     "   \
+                           : "+r" (dst),     /* 0 */        \
+                             "+A" (src),     /* 1 */        \
+                             "=mr" (temp___) /* 2 */        \
+                           : : "ecx", clob, "cc")
     #else
-        #define atomic_exchange_8__(dst, src, clob)             \
-            __asm__ __volatile__("      movl %%eax, %%ebx ; "   \
-                                 "      movl %%edx, %%ecx ; "   \
-                                 "1:                        "   \
-                                 "lock; cmpchg8b %0 ;       "   \
-                                 "      jne 1b ;            "   \
-                                 "# atomic_exchange_8__     "   \
-                                 : "+m" (*dst),    /* 0 */      \
-                                   "+A" (src),     /* 1 */      \
-                                 : : "ebx", "ecx", clob, "cc")
+        #define atomic_exchange_8__(dst, src, clob)         \
+            __asm__ volatile("      movl %%eax, %%ebx ; "   \
+                             "      movl %%edx, %%ecx ; "   \
+                             "1:                        "   \
+                             "lock; cmpchg8b %0 ;       "   \
+                             "      jne 1b ;            "   \
+                             "# atomic_exchange_8__     "   \
+                           : "+m" (*dst),    /* 0 */        \
+                             "+A" (src),     /* 1 */        \
+                           : : "ebx", "ecx", clob, "cc")
     #endif
 
-    #define atomic_exchange__(dst, src, model)                      \
-        ({                                                          \
-            AMW_TYPEOF(dst) dst___ = (dst);                         \
-            AMW_TYPEOF(*(dst)) src___ = (src);                      \
-                                                                    \
-            if ((model) > memory_model_consume) {                   \
-                if (sizeof(*(dst)) == 8) {                          \
-                                                                    \
-                } else {                                            \
-                    __asm__ __volatile__("xchg %1, %0 ;      "      \
-                                         "# atomic_exchange__"      \
-                                         : "+r" (src___), /* 0 */   \
-                                           "+m" (*dst___) /* 1 */   \
-                                         : : "memory");             \
-                }                                                   \
-            } else {                                                \
-                if (sizeof(*(dst)) == 8) {                          \
-                    atomic_exchange_8__(dst___, src___, "cc");      \
-                } else {                                            \
-                    __asm__ __volatile__("xchg %1, %0 ;      "      \
-                                         "# atomic_exchange__"      \
-                                         : "+r" (src___),   /* 0 */ \
-                                           "+m" (*dst___)); /* 1 */ \
-                }                                                   \
-            }                                                       \
-            src___;                                                 \
+    #define atomic_exchange__(dst, src, model)                  \
+        ({                                                      \
+            AMW_TYPEOF(dst) dst___ = (dst);                     \
+            AMW_TYPEOF(*(dst)) src___ = (src);                  \
+                                                                \
+            if ((model) > memory_model_consume) {               \
+                if (sizeof(*(dst)) == 8) {                      \
+                                                                \
+                } else {                                        \
+                    __asm__ volatile("xchg %1, %0 ;      "      \
+                                     "# atomic_exchange__"      \
+                                   : "+r" (src___), /* 0 */     \
+                                     "+m" (*dst___) /* 1 */     \
+                                   : : "memory");               \
+                }                                               \
+            } else {                                            \
+                if (sizeof(*(dst)) == 8) {                      \
+                    atomic_exchange_8__(dst___, src___, "cc");  \
+                } else {                                        \
+                    __asm__ volatile("xchg %1, %0 ;      "      \
+                                     "# atomic_exchange__"      \
+                                   : "+r" (src___),   /* 0 */   \
+                                     "+m" (*dst___)); /* 1 */   \
+                }                                               \
+            }                                                   \
+            src___;                                             \
         })
 #endif
 
@@ -181,51 +181,51 @@ AMW_INLINE void at_signal_fence(enum memory_model model) {
  *  memory_model_release, and
  *  memory_model_seq_cst. */
 #if defined(AMW_ARCH_AMD64)
-    #define at_store_explicit(dst, src, model)              \
-        ({                                                  \
-            AMW_TYPEOF(dst) dst__ = (dst);                  \
-            AMW_TYPEOF(*(dst)) src__ = (src);               \
-                                                            \
-            if ((model) != memory_model_seq_cst) {          \
-                at_compiler_barrier(model);                 \
-                *dst__ = src__;                             \
-            } else {                                        \
-                atomic_exchange__(dst__, src__, model);     \
-            }                                               \
-            (void)0;                                        \
+    #define at_store_explicit(dst, src, model)          \
+        ({                                              \
+            AMW_TYPEOF(dst) dst__ = (dst);              \
+            AMW_TYPEOF(*(dst)) src__ = (src);           \
+                                                        \
+            if ((model) != memory_model_seq_cst) {      \
+                at_compiler_barrier(model);             \
+                *dst__ = src__;                         \
+            } else {                                    \
+                atomic_exchange__(dst__, src__, model); \
+            }                                           \
+            (void)0;                                    \
         })
 #else /* 32-bit */
     #if defined(AMW_ARCH_X86_SSE)
         /** SSE registers are 128-bit wide, and moving the lowest 64-bits of an SSE 
          *  register to properly aligned memory is atomic. See AMW_ATOMIC(type) docs. */
-        #define atomic_store_8__(dst, src)                  \
-            __asm__ __volatile__("movq %1, %0 ;"            \
-                                 "# atomic_store_8__"       \
-                                 : "=m" (*dst) /* 0 */      \
-                                 : "x" (src)) /* 1, SSE */
+        #define atomic_store_8__(dst, src)              \
+            __asm__ volatile("movq %1, %0 ;"            \
+                             "# atomic_store_8__"       \
+                           : "=m" (*dst) /* 0 */        \
+                           : "x" (src)) /* 1, SSE */
     #else
         /** Locked 64-bit exchange is available on i586 CPUs, not sure of older ones. */
         #define atomic_store_8__(dst, src) \
             atomic_exchange_8__(dst, src, "cc")
     #endif
 
-    #define at_store_explicit(dst, src, model)              \
-        ({                                                  \
-            AMW_TYPEOF(dst) dst__ = (dst);                  \
-            AMW_TYPEOF(*(dst)) src__ = (src);               \
-                                                            \
-            if ((model) != memory_model_seq_cst) {          \
-                at_compiler_barrier(model);                 \
-                if (sizeof(*(dst)) == 8) {                  \
-                    atomic_store_8__(dst__, src__);         \
-                } else {                                    \
-                    *dst__ = src__;                         \
-                }                                           \
-                *dst__ = src__;                             \
-            } else {                                        \
-                atomic_exchange__(dst__, src__, model);     \
-            }                                               \
-            (void)0;                                        \
+    #define at_store_explicit(dst, src, model)          \
+        ({                                              \
+            AMW_TYPEOF(dst) dst__ = (dst);              \
+            AMW_TYPEOF(*(dst)) src__ = (src);           \
+                                                        \
+            if ((model) != memory_model_seq_cst) {      \
+                at_compiler_barrier(model);             \
+                if (sizeof(*(dst)) == 8) {              \
+                    atomic_store_8__(dst__, src__);     \
+                } else {                                \
+                    *dst__ = src__;                     \
+                }                                       \
+                *dst__ = src__;                         \
+            } else {                                    \
+                atomic_exchange__(dst__, src__, model); \
+            }                                           \
+            (void)0;                                    \
         })
 #endif
 
@@ -239,26 +239,25 @@ AMW_INLINE void at_signal_fence(enum memory_model model) {
  *  memory_model_acquire, and
  *  memory_model_seq_cst. */
 #if defined(AMW_ARCH_AMD64)
-    #define at_read_explicit(src, model)       \
-        ({                                     \
-            AMW_TYPEOF(src) src__ = (src);     \
-                                               \
-            at_compiler_barrier(model);        \
-            *src__;                            \
+    #define at_read_explicit(src, model)    \
+        ({                                  \
+            AMW_TYPEOF(src) src__ = (src);  \
+                                            \
+            at_compiler_barrier(model);     \
+            *src__;                         \
         })
 #else /* 32-bit */
     #if defined(AMW_ARCH_X86_SSE)
         /** SSE registers are 128-bit wide, and moving the lowest 64-bits of an SSE 
          *  register to properly aligned memory is atomic. See AMW_ATOMIC(type) docs. */
-        #define atomic_read_8__(src, dst)               \
-            ({                                          \
-                AMW_TYPEOF(*(dst)) res___;              \
-                                                        \
-                __asm__("movq %1, %0 ;    "             \
-                        "# atomic_read_8__"             \
-                        : "=x" (res___) /* 0, SSE */    \
-                        : "m" (*src)); /* 1 */          \
-                *(dst) = res__;                         \
+        #define atomic_read_8__(src, dst)           \
+            ({                                      \
+                AMW_TYPEOF(*(dst)) res___;          \
+                __asm__ ("movq %1, %0 ;    "        \
+                         "# atomic_read_8__"        \
+                       : "=x" (res___) /* 0, SSE */ \
+                       : "m" (*src)); /* 1 */       \
+                *(dst) = res__;                     \
             })
     #else
         /** Must use locked cmpxchg8b if compiled w/o SSE support. Compare *dst to a 
@@ -267,14 +266,13 @@ AMW_INLINE void at_signal_fence(enum memory_model model) {
         #define atomic_read_8__(src, dst)               \
             ({                                          \
                 AMW_TYPEOF(*(dst)) res___;              \
-                                                        \
-                __asm__("      movl %%ebx, %%eax ; "    \
-                        "      movl %%ecx, %%edx ; "    \
-                        "lock; cmpxchg8b %1 ;      "    \
-                        "# atomic_read_8__         "    \
-                        : "=&A" (res___), /* 0 */       \
-                          "+m" (*src) /* 1 */           \
-                        : : "cc");                      \
+                __asm__ ("      movl %%ebx, %%eax ; "   \
+                         "      movl %%ecx, %%edx ; "   \
+                         "lock; cmpxchg8b %1 ;      "   \
+                         "# atomic_read_8__         "   \
+                       : "=&A" (res___), /* 0 */        \
+                         "+m" (*src) /* 1 */            \
+                       : : "cc");                       \
                 *(dst) = res___;                        \
             })
     #endif
@@ -306,14 +304,14 @@ AMW_INLINE void at_signal_fence(enum memory_model model) {
  *  It's left for compatibility with other platforms. */
 #if defined(AMW_ARCH_AMD64)
     #define atomic_compare_exchange__(dst, exp, src, res, clob) \
-        __asm__ __volatile__("lock; cmpxchg %3, %1 ;      " \
-                             "      sete    %0            " \
-                             "# atomic_compare_exchange__ " \
-                             : "=q" (res),  /* 0 */         \
-                               "+m" (*dst), /* 1 */         \
-                               "+a" (exp)   /* 2 */         \
-                             : "r" (src)    /* 3 */         \
-                             : clob, "cc")
+        __asm__ volatile("lock; cmpxchg %3, %1 ;      "         \
+                         "      sete    %0            "         \
+                         "# atomic_compare_exchange__ "         \
+                       : "=q" (res),  /* 0 */                   \
+                         "+m" (*dst), /* 1 */                   \
+                         "+a" (exp)   /* 2 */                   \
+                       : "r" (src)    /* 3 */                   \
+                       : clob, "cc")
     
     #define at_compare_exchange_strong_explicit(dst, exp, src, model, model_fail)   \
         ({                                                                          \
@@ -321,7 +319,7 @@ AMW_INLINE void at_signal_fence(enum memory_model model) {
             AMW_TYPEOF(dst) expp__ = (exp);                                         \
             AMW_TYPEOF(*(dst)) src__ = (src);                                       \
             AMW_TYPEOF(*(dst)) exp__ = *expp__;                                     \
-            uint8_t res__;                                                          \
+            u8 res__;                                                               \
             (void)model_fail;                                                       \
                                                                                     \
             if ((model) > memory_model_consume) {                                   \
@@ -332,7 +330,7 @@ AMW_INLINE void at_signal_fence(enum memory_model model) {
             if (!res__) {                                                           \
                 *expp__ = exp__;                                                    \
             }                                                                       \
-            (bool)res__;                                                            \
+            (b32)res__;                                                             \
         })
 #else /* 32-bit */
     #if defined(__PIC__)
@@ -341,38 +339,38 @@ AMW_INLINE void at_signal_fence(enum memory_model model) {
          *  the address must be passed via a register so that it remains valid
          *  also after changing ebx. */
         #define atomic_compare_exchange_8__(dst, exp, src, res, clob)   \
-            __asm__ __volatile__("      xchgl %%ebx,%3 ;       "        \
-                                 "lock; cmpxchg8b (%1) ;       "        \
-                                 "      xchgl %3,%%ebx ;       "        \
-                                 "      sete %0                "        \
-                                 "# atomic_compare_exchange_8__"        \
-                                 : "=q" (res),                 /* 0 */  \
-                                   "+r" (dst),                 /* 1 */  \
-                                   "+A" (exp)                  /* 2 */  \
-                                 : "r" ((uint32_t)src),        /* 3 */  \
-                                   "c" ((uint32_t)((uint64_t)src >> 32)) /* 4 */ \
-                                 : clob, "cc")
+            __asm__ volatile("      xchgl %%ebx,%3 ;       "            \
+                            "lock; cmpxchg8b (%1) ;       "             \
+                            "      xchgl %3,%%ebx ;       "             \
+                            "      sete %0                "             \
+                            "# atomic_compare_exchange_8__"             \
+                          : "=q" (res),                 /* 0 */         \
+                            "+r" (dst),                 /* 1 */         \
+                            "+A" (exp)                  /* 2 */         \
+                          : "r" ((u32)src),             /* 3 */         \
+                            "c" ((u32)((u64)src >> 32)) /* 4 */         \
+                          : clob, "cc")
     #else
         #define atomic_compare_exchange_8__(dst, exp, src, res, clob)   \
-            __asm__ __volatile__("lock; cmpxchg8b %1 ;         "        \
-                                 "      sete %0                "        \
-                                 "# atomic_compare_exchange_8__"        \
-                                 : "=q" (res),                 /* 0 */  \
-                                   "+m" (*dst),                /* 1 */  \
-                                   "+A" (exp)                  /* 2 */  \
-                                 : "b" ((uint32_t)src),        /* 3 */  \
-                                   "c" ((uint32_t)((uint64_t)src >> 32)) /* 4 */ \
-                                 : clob, "cc")
+            __asm__ volatile("lock; cmpxchg8b %1 ;         "            \
+                             "      sete %0                "            \
+                             "# atomic_compare_exchange_8__"            \
+                           : "=q" (res),                 /* 0 */        \
+                             "+m" (*dst),                /* 1 */        \
+                             "+A" (exp)                  /* 2 */        \
+                           : "b" ((u32)src),             /* 3 */        \
+                             "c" ((u32)((u64)src >> 32)) /* 4 */        \
+                           : clob, "cc")
     #endif
     #define atomic_compare_exchange__(dst, exp, src, res, clob) \
-        __asm__ __volatile__("lock; cmpxchg %3,%1 ;      "      \
-                             "      sete    %0           "      \
-                             "# atomic_compare_exchange__"      \
-                             : "=q" (res),  /* 0 */             \
-                               "+m" (*dst), /* 1 */             \
-                               "+a" (exp)   /* 2 */             \
-                             : "r" (src)    /* 3 */             \
-                             : clob, "cc")
+        __asm__ volatile("lock; cmpxchg %3,%1 ;      "          \
+                         "      sete    %0           "          \
+                         "# atomic_compare_exchange__"          \
+                       : "=q" (res),  /* 0 */                   \
+                         "+m" (*dst), /* 1 */                   \
+                         "+a" (exp)   /* 2 */                   \
+                       : "r" (src)    /* 3 */                   \
+                       : clob, "cc")
 
     #define at_compare_exchange_strong_explicit(dst, exp, src, model, model_fail)       \
         ({                                                                              \
@@ -380,7 +378,7 @@ AMW_INLINE void at_signal_fence(enum memory_model model) {
             AMW_TYPEOF(dst) expp__ = (exp);                                             \
             AMW_TYPEOF(*(dst)) src__ = (src);                                           \
             AMW_TYPEOF(*(dst)) exp__ = *expp__;                                         \
-            uint8_t res__;                                                              \
+            u8 res__;                                                                   \
             (void)model_fail;                                                           \
                                                                                         \
             if ((model) > memory_model_consume) {                                       \
@@ -399,7 +397,7 @@ AMW_INLINE void at_signal_fence(enum memory_model model) {
             if (!res__) {                                                               \
                 *expp__ = exp__;                                                        \
             }                                                                           \
-            (bool)res__;                                                                \
+            (b32)res__;                                                                 \
         })
 #endif
 
@@ -434,12 +432,12 @@ AMW_INLINE void at_signal_fence(enum memory_model model) {
         val__;                                                              \
     })
 
-#define atomic_add_64__(rmw, arg, clob) \
-    __asm__ __volatile__("lock; xadd %0, %1 ; " \
-                         "# atomic_add_64__   " \
-                         : "+r" (arg), /* 0 */  \
-                           "+m" (*rmw) /* 1 */  \
-                         : : clob, "cc")
+#define atomic_add_64__(rmw, arg, clob)     \
+    __asm__ volatile("lock; xadd %0, %1 ; " \
+                     "# atomic_add_64__   " \
+                   : "+r" (arg), /* 0 */    \
+                     "+m" (*rmw) /* 1 */    \
+                   : : clob, "cc")
 
 #define atomic_add__(rmw, arg, model)                   \
     ({                                                  \
@@ -491,11 +489,11 @@ AMW_INLINE void at_signal_fence(enum memory_model model) {
 #define at_fetch_and(rmw, arg) \
     at_fetch_and_explicit(rmw, arg, memory_model_seq_cst)
 
-typedef AMW_ATOMIC(int) at_flag_t;
+typedef AMW_ATOMIC(b32) at_flag;
 #define AMW_ATOMIC_FLAG_INIT { false }
 
 #define at_test_and_set_explicit(flag, model) \
-    ((bool)atomic_exchange__(flag, 1, model))
+    ((b32)atomic_exchange__(flag, 1, model))
 #define at_test_and_set(flag) \
     at_test_and_set_explicit(flag, memory_model_seq_cst)
 

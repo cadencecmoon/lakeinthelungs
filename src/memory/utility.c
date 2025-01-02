@@ -1,10 +1,9 @@
 #include <lake/ipomoeaalba.h>
 
-AMWAPI void * AMWAPIENTRY 
-iamemset(void *dest, int32_t c, size_t n)
+AMWAPI void *iamemset(void *dest, s32 c, ssize n)
 {
-    uint8_t *s = dest;
-    size_t k;
+    u8 *s = dest;
+    ssize k;
 
     /* Fill head and tail with minimal branching. Each conditional 
      * ensures that all the subsequently used offsets are well-defined 
@@ -27,16 +26,16 @@ iamemset(void *dest, int32_t c, size_t n)
      * a multiple of 4. The previous code already took care of any head/tail 
      * that get cut off by the alignment. */
 
-    k = -(uintptr_t)s & 3;
+    k = -(uptr)s & 3;
     s += k;
     n -= k;
     n &= -4;
 
 #ifdef AMW_CC_GNUC_VERSION
-    typedef uint32_t __attribute__((__may_alias__)) ma_u32;
-    typedef uint64_t __attribute__((__may_alias__)) ma_u64;
+    typedef u32 __attribute__((__may_alias__)) ma_u32;
+    typedef u64 __attribute__((__may_alias__)) ma_u64;
 
-    ma_u32 c32 = ((ma_u32) - 1) / 255 * (uint8_t)c;
+    ma_u32 c32 = ((ma_u32) - 1) / 255 * (u8)c;
 
     /* In preparation to copy 32 bits at a time, aligned on an 8-byte boundary,
      * fill head/tail up to 28 bytes each. As in the initial byte-based head/tail 
@@ -63,7 +62,7 @@ iamemset(void *dest, int32_t c, size_t n)
      * and avoid writing the same bytes twice as mush as is practical 
      * without introducing additional branching. */
 
-    k = 24 + ((uintptr_t)s & 4);
+    k = 24 + ((uptr)s & 4);
     s += k;
     n -= k;
 
@@ -84,21 +83,18 @@ iamemset(void *dest, int32_t c, size_t n)
     return dest;
 }
 
-AMWAPI int32_t AMWAPIENTRY 
-iainit(struct ipomoeaalba *ia)
+AMWAPI s32 iainit(ipomoeaalba *ia)
 {
     (void)ia;
     return result_success;
 }
 
-AMWAPI void AMWAPIENTRY 
-iafini(struct ipomoeaalba *ia)
+AMWAPI void iafini(ipomoeaalba *ia)
 {
     (void)ia;
 }
 
-AMWAPI void * AMWAPIENTRY 
-iaalloc(struct ipomoeaalba *ia, size_t size, size_t alignment, uint64_t tag)
+AMWAPI void *iaalloc(ipomoeaalba *ia, ssize size, ssize alignment, u64 tag)
 {
     (void)ia;
     (void)size;
@@ -107,8 +103,7 @@ iaalloc(struct ipomoeaalba *ia, size_t size, size_t alignment, uint64_t tag)
     return NULL;
 }
 
-AMWAPI void * AMWAPIENTRY 
-iarealloc(struct ipomoeaalba *ia, void *allocation, size_t size, size_t alignment, uint64_t tag)
+AMWAPI void *iarealloc(ipomoeaalba *ia, void *allocation, ssize size, ssize alignment, u64 tag)
 {
     (void)ia;
     (void)allocation;
@@ -118,8 +113,7 @@ iarealloc(struct ipomoeaalba *ia, void *allocation, size_t size, size_t alignmen
     return NULL;
 }
 
-AMWAPI void AMWAPIENTRY 
-iafree(struct ipomoeaalba *ia, uint64_t tag)
+AMWAPI void iafree(ipomoeaalba *ia, u64 tag)
 {
     (void)ia;
     (void)tag;
