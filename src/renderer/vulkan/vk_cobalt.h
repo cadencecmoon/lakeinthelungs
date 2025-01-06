@@ -33,7 +33,7 @@
 /** Collects bits for checking used vulkan extensions. The bits are set only during initialization, 
  *  and then are read-only after. If an extension was promoted to core, the corresponding bit will be 
  *  set to indicate that this feature is available on a device. Instance extensions are represented
- *  as a uint32_t value, device extensions are represented as uint32_t values too. */
+ *  as a uint32_t value, device extensions are represented as (for now) uint32_t values too. */
 enum vulkan_extensions {
     /* instance extensions */
     vulkan_extension_surface_bit                        = (1u << 0),  /**< VK_KHR_surface */
@@ -67,130 +67,90 @@ enum vulkan_extensions {
      vulkan_extension_acceleration_structure_bit | \
      vulkan_extension_ray_query_bit)
 
-/** Holds Vulkan objects that are related to the swapchain. This includes the swapchain handle 
- *  itself, our window surface and image views for images in the swapchain. The swapchain depends
- *  on the device, but we only need one, thus the main device will be responsible for controlling
- *  the swapchain. It's changed substantially whenever the window framebuffer resolution changes. */
-typedef struct vulkan_swapchain {
-    VkSwapchainKHR          sc;
-    VkSurfaceKHR            surface;
-    VkFormat                format;
-    VkExtent2D              extent;
+typedef struct vulkan_instance_api {
+    void                                                   *module;
+    PFN_vkGetInstanceProcAddr                               vkGetInstanceProcAddr;
+    PFN_vkGetDeviceProcAddr                                 vkGetDeviceProcAddr;
 
-    VkSurfaceFormatKHR     *surface_formats;
-    VkPresentModeKHR       *present_modes;
-    VkImage                *images;
-    VkImageView            *image_views;
-    arena_allocator         arena;
+    /* global procedures */
+    PFN_vkCreateInstance                                    vkCreateInstance;
+    PFN_vkEnumerateInstanceExtensionProperties              vkEnumerateInstanceExtensionProperties;
+    PFN_vkEnumerateInstanceLayerProperties                  vkEnumerateInstanceLayerProperties;
+    PFN_vkEnumerateInstanceVersion                          vkEnumerateInstanceVersion;
 
-    u32                     surface_format_count;
-    u32                     present_mode_count;
-    u32                     image_count;
-} vulkan_swapchain;
-
-/** Holds the shared state of the Vulkan backend. This includes a VkInstance, instance-dependent API
- *  procedures, the swapchain and debug messengers or other non-device specific callbacks. */
-typedef struct vulkan_cobalt {
-    /** This object makes Vulkan functions available to us. It's used for driver 
-     *  calls, that are independent of any particular VkDevice. */
-    VkInstance                  instance;
-
-    VkAllocationCallbacks       allocator;  /** Our own allocation functions that use ipomoeaalba internally. */
-
-#if !defined(AMW_NDEBUG) && defined(VK_EXT_debug_utils)
-    /** Used to log messages given to us from the validation layers. */
-    VkDebugUtilsMessengerEXT    messenger;
-#endif
-
-    /* we support only one window, thus one swapchain is enough */
-    vulkan_swapchain            swapchain;
-    u32                         extensions;
-
-    struct {
-        void                                                   *module;
-        PFN_vkGetInstanceProcAddr                               vkGetInstanceProcAddr;
-        PFN_vkGetDeviceProcAddr                                 vkGetDeviceProcAddr;
-
-        /* global procedures */
-        PFN_vkCreateInstance                                    vkCreateInstance;
-        PFN_vkEnumerateInstanceExtensionProperties              vkEnumerateInstanceExtensionProperties;
-        PFN_vkEnumerateInstanceLayerProperties                  vkEnumerateInstanceLayerProperties;
-        PFN_vkEnumerateInstanceVersion                          vkEnumerateInstanceVersion;
-
-        /* instance procedures */
-        PFN_vkCreateDevice                                      vkCreateDevice;
-        PFN_vkDestroyInstance                                   vkDestroyInstance;
-        PFN_vkEnumerateDeviceExtensionProperties                vkEnumerateDeviceExtensionProperties;
-        PFN_vkEnumeratePhysicalDevices                          vkEnumeratePhysicalDevices;
-        PFN_vkEnumeratePhysicalDeviceGroups                     vkEnumeratePhysicalDeviceGroups;
-        PFN_vkGetPhysicalDeviceFeatures                         vkGetPhysicalDeviceFeatures;
-        PFN_vkGetPhysicalDeviceFeatures2                        vkGetPhysicalDeviceFeatures2;
-        PFN_vkGetPhysicalDeviceFormatProperties                 vkGetPhysicalDeviceFormatProperties;
-        PFN_vkGetPhysicalDeviceFormatProperties2                vkGetPhysicalDeviceFormatProperties2;
-        PFN_vkGetPhysicalDeviceImageFormatProperties            vkGetPhysicalDeviceImageFormatProperties;
-        PFN_vkGetPhysicalDeviceImageFormatProperties2           vkGetPhysicalDeviceImageFormatProperties2;
-        PFN_vkGetPhysicalDeviceMemoryProperties                 vkGetPhysicalDeviceMemoryProperties;
-        PFN_vkGetPhysicalDeviceMemoryProperties2                vkGetPhysicalDeviceMemoryProperties2;
-        PFN_vkGetPhysicalDeviceProperties                       vkGetPhysicalDeviceProperties;
-        PFN_vkGetPhysicalDeviceProperties2                      vkGetPhysicalDeviceProperties2;
-        PFN_vkGetPhysicalDeviceQueueFamilyProperties            vkGetPhysicalDeviceQueueFamilyProperties;
-        PFN_vkGetPhysicalDeviceQueueFamilyProperties2           vkGetPhysicalDeviceQueueFamilyProperties2;
-        PFN_vkGetPhysicalDeviceSparseImageFormatProperties      vkGetPhysicalDeviceSparseImageFormatProperties;
-        PFN_vkGetPhysicalDeviceSparseImageFormatProperties2     vkGetPhysicalDeviceSparseImageFormatProperties2;
-        PFN_vkGetPhysicalDeviceToolProperties                   vkGetPhysicalDeviceToolProperties;
+    /* instance procedures */
+    PFN_vkCreateDevice                                      vkCreateDevice;
+    PFN_vkDestroyInstance                                   vkDestroyInstance;
+    PFN_vkEnumerateDeviceExtensionProperties                vkEnumerateDeviceExtensionProperties;
+    PFN_vkEnumeratePhysicalDevices                          vkEnumeratePhysicalDevices;
+    PFN_vkEnumeratePhysicalDeviceGroups                     vkEnumeratePhysicalDeviceGroups;
+    PFN_vkGetPhysicalDeviceFeatures                         vkGetPhysicalDeviceFeatures;
+    PFN_vkGetPhysicalDeviceFeatures2                        vkGetPhysicalDeviceFeatures2;
+    PFN_vkGetPhysicalDeviceFormatProperties                 vkGetPhysicalDeviceFormatProperties;
+    PFN_vkGetPhysicalDeviceFormatProperties2                vkGetPhysicalDeviceFormatProperties2;
+    PFN_vkGetPhysicalDeviceImageFormatProperties            vkGetPhysicalDeviceImageFormatProperties;
+    PFN_vkGetPhysicalDeviceImageFormatProperties2           vkGetPhysicalDeviceImageFormatProperties2;
+    PFN_vkGetPhysicalDeviceMemoryProperties                 vkGetPhysicalDeviceMemoryProperties;
+    PFN_vkGetPhysicalDeviceMemoryProperties2                vkGetPhysicalDeviceMemoryProperties2;
+    PFN_vkGetPhysicalDeviceProperties                       vkGetPhysicalDeviceProperties;
+    PFN_vkGetPhysicalDeviceProperties2                      vkGetPhysicalDeviceProperties2;
+    PFN_vkGetPhysicalDeviceQueueFamilyProperties            vkGetPhysicalDeviceQueueFamilyProperties;
+    PFN_vkGetPhysicalDeviceQueueFamilyProperties2           vkGetPhysicalDeviceQueueFamilyProperties2;
+    PFN_vkGetPhysicalDeviceSparseImageFormatProperties      vkGetPhysicalDeviceSparseImageFormatProperties;
+    PFN_vkGetPhysicalDeviceSparseImageFormatProperties2     vkGetPhysicalDeviceSparseImageFormatProperties2;
+    PFN_vkGetPhysicalDeviceToolProperties                   vkGetPhysicalDeviceToolProperties;
 
 #if defined(VK_KHR_surface)
-        PFN_vkDestroySurfaceKHR                                 vkDestroySurfaceKHR;
-        PFN_vkGetPhysicalDeviceSurfaceSupportKHR                vkGetPhysicalDeviceSurfaceSupportKHR;
-        PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR           vkGetPhysicalDeviceSurfaceCapabilitiesKHR;
-        PFN_vkGetPhysicalDeviceSurfaceFormatsKHR                vkGetPhysicalDeviceSurfaceFormatsKHR;
-        PFN_vkGetPhysicalDeviceSurfacePresentModesKHR           vkGetPhysicalDeviceSurfacePresentModesKHR;
+    PFN_vkDestroySurfaceKHR                                 vkDestroySurfaceKHR;
+    PFN_vkGetPhysicalDeviceSurfaceSupportKHR                vkGetPhysicalDeviceSurfaceSupportKHR;
+    PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR           vkGetPhysicalDeviceSurfaceCapabilitiesKHR;
+    PFN_vkGetPhysicalDeviceSurfaceFormatsKHR                vkGetPhysicalDeviceSurfaceFormatsKHR;
+    PFN_vkGetPhysicalDeviceSurfacePresentModesKHR           vkGetPhysicalDeviceSurfacePresentModesKHR;
 #endif /* VK_KHR_surface */
 #if defined(VK_KHR_win32_surface)
-        PFN_vkCreateWin32SurfaceKHR                             vkCreateWin32SurfaceKHR;
-        PFN_vkGetPhysicalDeviceWin32PresentationSupportKHR      vkGetPhysicalDeviceWin32PresentationSupportKHR;
+    PFN_vkCreateWin32SurfaceKHR                             vkCreateWin32SurfaceKHR;
+    PFN_vkGetPhysicalDeviceWin32PresentationSupportKHR      vkGetPhysicalDeviceWin32PresentationSupportKHR;
 #endif /* VK_KHR_win32_surface */
 #if defined(VK_EXT_metal_surface)
-        PFN_vkCreateMetalSurfaceEXT                             vkCreateMetalSurfaceEXT;
+    PFN_vkCreateMetalSurfaceEXT                             vkCreateMetalSurfaceEXT;
 #endif /* VK_EXT_metal_surface */
 #if defined(VK_KHR_wayland_surface)
-        PFN_vkCreateWaylandSurfaceKHR                           vkCreateWaylandSurfaceKHR;
-        PFN_vkGetPhysicalDeviceWaylandPresentationSupportKHR    vkGetPhysicalDeviceWaylandPresentationSupportKHR;
+    PFN_vkCreateWaylandSurfaceKHR                           vkCreateWaylandSurfaceKHR;
+    PFN_vkGetPhysicalDeviceWaylandPresentationSupportKHR    vkGetPhysicalDeviceWaylandPresentationSupportKHR;
 #endif /* VK_KHR_wayland_surface */
 #if defined(VK_KHR_xcb_surface)
-        PFN_vkCreateXcbSurfaceKHR                               vkCreateXcbSurfaceKHR;
-        PFN_vkGetPhysicalDeviceXcbPresentationSupportKHR        vkGetPhysicalDeviceXcbPresentationSupportKHR;
+    PFN_vkCreateXcbSurfaceKHR                               vkCreateXcbSurfaceKHR;
+    PFN_vkGetPhysicalDeviceXcbPresentationSupportKHR        vkGetPhysicalDeviceXcbPresentationSupportKHR;
 #endif /* VK_KHR_xcb_surface */
 #if defined(VK_KHR_android_surface)
-        PFN_vkCreateAndroidSurfaceKHR                           vkCreateAndroidSurfaceKHR;
+    PFN_vkCreateAndroidSurfaceKHR                           vkCreateAndroidSurfaceKHR;
 #endif /* VK_KHR_android_surface */
 #if defined(VK_EXT_headless_surface)
-        PFN_vkCreateHeadlessSurfaceEXT                          vkCreateHeadlessSurfaceEXT;
+    PFN_vkCreateHeadlessSurfaceEXT                          vkCreateHeadlessSurfaceEXT;
 #endif /* VK_EXT_headless_surface */
 #if defined(VK_KHR_display)
-        PFN_vkCreateDisplayModeKHR                              vkCreateDisplayModeKHR;
-        PFN_vkCreateDisplayPlaneSurfaceKHR                      vkCreateDisplayPlaneSurfaceKHR;
-        PFN_vkGetDisplayModePropertiesKHR                       vkGetDisplayModePropertiesKHR;
-        PFN_vkGetDisplayPlaneCapabilitiesKHR                    vkGetDisplayPlaneCapabilitiesKHR;
-        PFN_vkGetDisplayPlaneSupportedDisplaysKHR               vkGetDisplayPlaneSupportedDisplaysKHR;
-        PFN_vkGetPhysicalDeviceDisplayPlanePropertiesKHR        vkGetPhysicalDeviceDisplayPlanePropertiesKHR;
-        PFN_vkGetPhysicalDeviceDisplayPropertiesKHR             vkGetPhysicalDeviceDisplayPropertiesKHR;
+    PFN_vkCreateDisplayModeKHR                              vkCreateDisplayModeKHR;
+    PFN_vkCreateDisplayPlaneSurfaceKHR                      vkCreateDisplayPlaneSurfaceKHR;
+    PFN_vkGetDisplayModePropertiesKHR                       vkGetDisplayModePropertiesKHR;
+    PFN_vkGetDisplayPlaneCapabilitiesKHR                    vkGetDisplayPlaneCapabilitiesKHR;
+    PFN_vkGetDisplayPlaneSupportedDisplaysKHR               vkGetDisplayPlaneSupportedDisplaysKHR;
+    PFN_vkGetPhysicalDeviceDisplayPlanePropertiesKHR        vkGetPhysicalDeviceDisplayPlanePropertiesKHR;
+    PFN_vkGetPhysicalDeviceDisplayPropertiesKHR             vkGetPhysicalDeviceDisplayPropertiesKHR;
 #endif /* VK_KHR_display */
 #if defined(VK_EXT_debug_utils) && !defined(AMW_NDEBUG)
-        PFN_vkSetDebugUtilsObjectNameEXT                        vkSetDebugUtilsObjectNameEXT;
-        PFN_vkSetDebugUtilsObjectTagEXT                         vkSetDebugUtilsObjectTagEXT;
-        PFN_vkQueueBeginDebugUtilsLabelEXT                      vkQueueBeginDebugUtilsLabelEXT;
-        PFN_vkQueueEndDebugUtilsLabelEXT                        vkQueueEndDebugUtilsLabelEXT;
-        PFN_vkQueueInsertDebugUtilsLabelEXT                     vkQueueInsertDebugUtilsLabelEXT;
-        PFN_vkCmdBeginDebugUtilsLabelEXT                        vkCmdBeginDebugUtilsLabelEXT;
-        PFN_vkCmdEndDebugUtilsLabelEXT                          vkCmdEndDebugUtilsLabelEXT;
-        PFN_vkCmdInsertDebugUtilsLabelEXT                       vkCmdInsertDebugUtilsLabelEXT;
-        PFN_vkCreateDebugUtilsMessengerEXT                      vkCreateDebugUtilsMessengerEXT;
-        PFN_vkDestroyDebugUtilsMessengerEXT                     vkDestroyDebugUtilsMessengerEXT;
-        PFN_vkSubmitDebugUtilsMessageEXT                        vkSubmitDebugUtilsMessageEXT;
+    PFN_vkSetDebugUtilsObjectNameEXT                        vkSetDebugUtilsObjectNameEXT;
+    PFN_vkSetDebugUtilsObjectTagEXT                         vkSetDebugUtilsObjectTagEXT;
+    PFN_vkQueueBeginDebugUtilsLabelEXT                      vkQueueBeginDebugUtilsLabelEXT;
+    PFN_vkQueueEndDebugUtilsLabelEXT                        vkQueueEndDebugUtilsLabelEXT;
+    PFN_vkQueueInsertDebugUtilsLabelEXT                     vkQueueInsertDebugUtilsLabelEXT;
+    PFN_vkCmdBeginDebugUtilsLabelEXT                        vkCmdBeginDebugUtilsLabelEXT;
+    PFN_vkCmdEndDebugUtilsLabelEXT                          vkCmdEndDebugUtilsLabelEXT;
+    PFN_vkCmdInsertDebugUtilsLabelEXT                       vkCmdInsertDebugUtilsLabelEXT;
+    PFN_vkCreateDebugUtilsMessengerEXT                      vkCreateDebugUtilsMessengerEXT;
+    PFN_vkDestroyDebugUtilsMessengerEXT                     vkDestroyDebugUtilsMessengerEXT;
+    PFN_vkSubmitDebugUtilsMessageEXT                        vkSubmitDebugUtilsMessageEXT;
 #endif /* VK_EXT_debug_utils */
-    } api;
-} vulkan_cobalt;
+} vulkan_instance_api;
 
 /** Collects Vulkan device procedures and extensions. A minimal Vulkan target is version 1.2 with 
  *  dynamic_rendering and dynamic_rendering_local_read extensions. */
@@ -391,10 +351,10 @@ typedef struct vulkan_device_api {
 #endif /* VK_KHR_acceleration_structure */
 } vulkan_device_api;
 
-extern b32 vulkan_open_driver(vulkan_cobalt *vk);
-extern void vulkan_close_driver(vulkan_cobalt *vk);
-extern s32 vulkan_load_instance_api_procedures(vulkan_cobalt *vk);
-extern s32 vulkan_load_device_api_procedures(vulkan_cobalt *vk, vulkan_device_api *api, VkDevice device, u32 device_api_version, u32 device_extensions);
+extern b32 vulkan_open_driver(vulkan_instance_api *vk);
+extern void vulkan_close_driver(vulkan_instance_api *vk);
+extern s32 vulkan_load_instance_api_procedures(vulkan_instance_api *vk, VkInstance instance, u32 instance_extensions);
+extern s32 vulkan_load_device_api_procedures(vulkan_instance_api *vk, vulkan_device_api *api, VkDevice device, u32 device_api_version, u32 device_extensions);
 
 #if !defined(AMW_NDEBUG)
     #define VERIFY_VK(x) { \
@@ -406,6 +366,47 @@ extern s32 vulkan_load_device_api_procedures(vulkan_cobalt *vk, vulkan_device_ap
 #else
     #define VERIFY_VK(x) (void)(x)
 #endif
+
+/** Holds Vulkan objects that are related to the swapchain. This includes the swapchain handle 
+ *  itself, our window surface and image views for images in the swapchain. The swapchain depends
+ *  on the device, but we only need one, thus the main device will be responsible for controlling
+ *  the swapchain. It's changed substantially whenever the window framebuffer resolution changes. */
+typedef struct vulkan_swapchain {
+    VkSwapchainKHR          sc;
+    VkSurfaceKHR            surface;
+    VkFormat                format;
+    VkExtent2D              extent;
+
+    VkSurfaceFormatKHR     *surface_formats;
+    VkPresentModeKHR       *present_modes;
+    VkImage                *images;
+    VkImageView            *image_views;
+    arena_allocator         arena;
+
+    u32                     surface_format_count;
+    u32                     present_mode_count;
+    u32                     image_count;
+} vulkan_swapchain;
+
+/** Holds the shared state of the Vulkan backend. This includes a VkInstance, instance-dependent API
+ *  procedures, the swapchain and debug messengers or other non-device specific callbacks. */
+typedef struct vulkan_backend {
+    /** This object makes Vulkan functions available to us. It's used for driver 
+     *  calls, that are independent of any particular VkDevice. */
+    VkInstance                  instance;
+
+    VkAllocationCallbacks       allocator;  /** Our own allocation functions that use ipomoeaalba internally. */
+
+#if !defined(AMW_NDEBUG) && defined(VK_EXT_debug_utils)
+    /** Used to log messages given to us from the validation layers. */
+    VkDebugUtilsMessengerEXT    messenger;
+#endif
+
+    /* we support only one window, thus one swapchain is enough */
+    vulkan_swapchain            swapchain;
+    u32                         extensions;
+    vulkan_instance_api         api;
+} vulkan_backend;
 
 /** The context of a rendering device, explicitly used within backend cobalt 
  *  calls and representing an individual GPU. */
@@ -494,7 +495,6 @@ AMWAPI s32 cobalt_vulkan_renderer_init(
     cobalt          *co, 
     ipomoeaalba     *ia, 
     hadopelagic     *hadal, 
-    rivens_rift     *riven,
     const char      *application_name, 
     u32              application_version, 
     arena_allocator *temp_arena);
@@ -504,5 +504,18 @@ AMWAPI void cobalt_vulkan_renderer_fini(cobalt *co);
 
 /* vk_surface.c */
 AMWAPI s32 cobalt_vulkan_create_swapchain_surface(cobalt *co, hadopelagic *hadal);
+
+/* vk_device.c */
+AMWAPI s32 cobalt_vulkan_construct_devices(
+    cobalt          *co,
+    rivens_rift     *riven,
+    thread_id       *threads,
+    ssize            thread_count,
+    s32              preferred_main_device_idx,
+    s32              max_device_count,
+    arena_allocator *temp_arena);
+
+/* vk_device.c */
+AMWAPI void cobalt_vulkan_destroy_devices(cobalt *co);
 
 #endif /* _AMW_COBALT_VULKAN_H */

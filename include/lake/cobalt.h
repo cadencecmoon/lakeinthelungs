@@ -42,7 +42,6 @@ typedef s32 (*PFN_cobalt_renderer_init)(
     cobalt          *co, 
     ipomoeaalba     *ia, 
     hadopelagic     *hadal, 
-    rivens_rift     *riven,
     const char      *application_name, 
     u32              application_version, 
     arena_allocator *temp_arena);
@@ -53,11 +52,26 @@ typedef void (*PFN_cobalt_renderer_fini)(cobalt *co);
 /** Using the display backend, create a swapchain surface we can draw to. */
 typedef s32 (*PFN_cobalt_create_swapchain_surface)(cobalt *co, hadopelagic *hadal);
 
+/** Create new rendering devices from physical GPUs for this backend. */
+typedef s32 (*PFN_cobalt_construct_devices)(
+    cobalt          *co,
+    rivens_rift     *riven,
+    thread_id       *threads,
+    ssize            thread_count,
+    s32              preferred_main_device_idx,
+    s32              max_device_count,
+    arena_allocator *temp_arena);
+
+/** Destroy all existing rendering devices for this backend. */
+typedef void (*PFN_cobalt_destroy_devices)(cobalt *co);
+
 /** Internal calls to be implemented by a rendering backend and assigned from the entry point. */
-typedef struct cobalt_calls {
+typedef struct {
     PFN_cobalt_renderer_init            renderer_init;
     PFN_cobalt_renderer_fini            renderer_fini;
     PFN_cobalt_create_swapchain_surface create_swapchain_surface;
+    PFN_cobalt_construct_devices        construct_devices;
+    PFN_cobalt_destroy_devices          destroy_devices;
 } cobalt_calls;
 
 /** Boolean flags describing the state of the rendering context. */
@@ -109,7 +123,9 @@ AMWAPI s32 cobalt_init(
     const char            *application_name,
     u32                    application_version,
     thread_id             *threads,
-    ssize                  thread_count);
+    ssize                  thread_count,
+    s32                    preferred_main_device_idx,
+    s32                    max_device_count);
 
 AMWAPI void cobalt_fini(cobalt *co);
 

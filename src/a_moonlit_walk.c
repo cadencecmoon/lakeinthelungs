@@ -53,7 +53,9 @@ static void a_moonlit_walk_main__(
         AMW->hints->app_name, 
         AMW->hints->version, 
         threads,
-        thread_count
+        thread_count,
+        AMW->hints->cobalt_preferred_main_device,
+        AMW->hints->cobalt_max_devices
     );
     if (i != result_success) {
         log_fatal("Can't initialize the renderer.");
