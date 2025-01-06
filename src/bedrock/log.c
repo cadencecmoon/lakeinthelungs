@@ -4,12 +4,13 @@
 #include <stdio.h>
 #include <time.h>
 
-static at_s32 level = log_level_debug;
+static at_s32 level = log_level_trace;
 static at_b32 quiet = false;
 static at_b32 verbose = false;
 static at_flag spinlock = AMW_ATOMIC_FLAG_INIT;
 
 static const char *level_strings[] = {
+    "T",
     "D",
     "I",
     "W",
@@ -24,7 +25,9 @@ static const char *level_colors[] = {
     "\x1b[0m",
     "\x1b[0m",
     "\x1b[0m",
+    "\x1b[0m",
 #else
+    "\033[38;5;240m", 
     "\033[38;5;215m", //"\033[38;5;209m", 
     "\x1b[0m",
     "\033[38;5;167m", 

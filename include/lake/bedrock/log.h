@@ -14,6 +14,7 @@ extern "C" {
 #endif
 
 enum log_level {
+    log_level_trace,
     log_level_debug,
     log_level_info,
     log_level_warn,
@@ -43,12 +44,14 @@ AMWAPI void log_set_verbose(b32 verbose);
 AMWAPI void log_set_quiet(b32 quiet);
 
 #ifndef AMW_LOG_DISABLE_MACROS
+#define log_trace(fmt, ...) log_message(log_level_trace, AMW_LOG_FILE_NAME, __LINE__, fmt, ##__VA_ARGS__)
 #define log_debug(fmt, ...) log_message(log_level_debug, AMW_LOG_FILE_NAME, __LINE__, fmt, ##__VA_ARGS__)
 #define log_info(fmt, ...)  log_message(log_level_info,  AMW_LOG_FILE_NAME, __LINE__, fmt, ##__VA_ARGS__)
 #define log_warn(fmt, ...)  log_message(log_level_warn,  AMW_LOG_FILE_NAME, __LINE__, fmt, ##__VA_ARGS__)
 #define log_error(fmt, ...) log_message(log_level_error, AMW_LOG_FILE_NAME, __LINE__, fmt, ##__VA_ARGS__)
 #define log_fatal(fmt, ...) log_message(log_level_fatal, AMW_LOG_FILE_NAME, __LINE__, fmt, ##__VA_ARGS__)
 #else
+#define log_trace(fmt, ...)
 #define log_debug(fmt, ...)
 #define log_info(fmt, ...)
 #define log_warn(fmt, ...)
