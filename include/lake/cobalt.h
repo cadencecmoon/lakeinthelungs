@@ -49,9 +49,6 @@ typedef s32 (*PFN_cobalt_renderer_init)(
 /** Finalize the internal rendering backend. */
 typedef void (*PFN_cobalt_renderer_fini)(struct cobalt *cobalt);
 
-/** Using the display backend, create a swapchain surface we can draw to. */
-typedef s32 (*PFN_cobalt_create_swapchain_surface)(struct cobalt *cobalt, struct hadopelagic *hadal);
-
 /** Create new rendering devices from physical GPUs for this backend. */
 typedef s32 (*PFN_cobalt_construct_devices)(
     struct cobalt          *cobalt,
@@ -65,20 +62,40 @@ typedef s32 (*PFN_cobalt_construct_devices)(
 /** Destroy all existing rendering devices for this backend. */
 typedef void (*PFN_cobalt_destroy_devices)(struct cobalt *cobalt);
 
+/** Using the display backend, create a swapchain surface we can draw to. */
+typedef s32 (*PFN_cobalt_create_swapchain_surface)(struct cobalt *cobalt, struct hadopelagic *hadal);
+
+/** An argument holding work for creating/recreating a swapchain. */
+struct cobalt_construct_swapchain_work {
+    struct cobalt      *cobalt;         /**< Holds the swapchain and a device that controls it. */
+    struct hadopelagic *hadal;          /**< The display backend will provide necessary window info. */
+    struct ipomoeaalba *ia;             /**< Needed for initialization of the swapchain arena, can be NULL'ed afterwards */
+    thread_id          *threads;        /**< To query bedrock_thread_index(). */
+    ssize               thread_count;   /**< To compute indices of externally synchronized objects. */
+    b32                 use_vsync;      /**< Whether to enable vertical synchronization. */
+    s32                 result;         /**< A return code, check for errors. */
+};
+
+/** Creates or recreates the swapchain, for a given display backend and main rendering device. */
+RIVENS_TEAR_PFN(PFN_cobalt_construct_swapchain_tear, struct cobalt_construct_swapchain_work *work);
+
 /** Internal calls to be implemented by a rendering backend and assigned from the entry point. */
 struct cobalt_calls {
     PFN_cobalt_renderer_init            renderer_init;
     PFN_cobalt_renderer_fini            renderer_fini;
-    PFN_cobalt_create_swapchain_surface create_swapchain_surface;
     PFN_cobalt_construct_devices        construct_devices;
     PFN_cobalt_destroy_devices          destroy_devices;
+    PFN_cobalt_create_swapchain_surface create_swapchain_surface;
+    PFN_cobalt_construct_swapchain_tear construct_swapchain_tear;
 };
 
 /** Boolean flags describing the state of the rendering context. */
 enum cobalt_flags {
-    cobalt_flag_initialized = (1u << 0),  /**< Set on a valid rendering backend flags value. */
+    cobalt_flag_initialized             = (1u << 0),  /**< Set on a valid rendering backend flags value. */
+    cobalt_flag_vsync_enabled           = (1u << 1),  /**< Whether vertical synchronization is being used. */
+    cobalt_flag_screenshot_supported    = (1u << 2),  /**< Set if the swapchain allows reading and saving the image data. */
 
-    cobalt_flag_reserved_bits = 20,
+    cobalt_flag_reserved_bits           = 20,
 };
 #define cobalt_flag_mask_reserved ((1u << cobalt_flag_reserved_bits) - 1)
 
@@ -92,7 +109,7 @@ enum cobalt_device_flags {
     cobalt_device_flag_main     = (1llu << 1), /**< True for only one device, it's responsible for controlling the rendering and shared internal constructs, like the swapchain. */
 
     /** Checks if the device supports accelerated ray tracing meshes - if not, ray tracing passes may only use software implementations instead. */
-    cobalt_device_flag_accelerated_ray_tracing_support = (1llu << 10),
+    cobalt_device_flag_accelerated_ray_tracing_supported = (1llu << 10),
 
     cobalt_device_flag_reserved_bits = 40,
 }; 
@@ -112,8 +129,6 @@ struct cobalt {
     struct cobalt_calls     calls;
 };
 
-#ifndef AMW_NO_PROTOTYPES
-
 AMWAPI s32 cobalt_init(
     PFN_cobalt_entry_point entry_point__,
     struct cobalt         *cobalt, 
@@ -125,11 +140,19 @@ AMWAPI s32 cobalt_init(
     thread_id             *threads,
     ssize                  thread_count,
     s32                    preferred_main_device_idx,
-    s32                    max_device_count);
+    s32                    max_device_count,
+    b32                    enable_vsync);
 
 AMWAPI void cobalt_fini(struct cobalt *cobalt);
 
-#endif /* AMW_NO_PROTOTYPES */
+AMW_INLINE void cobalt_construct_swapchain_tear__(
+    struct cobalt_construct_swapchain_work *work,
+    struct rivens_tear                     *tear) 
+{
+    tear->procedure = (PFN_riven_tear)work->cobalt->calls.construct_swapchain_tear;
+    tear->argument = work;
+    tear->name = "cobalt:construct_swapchain_tear";
+};
 
 #ifdef __cplusplus
 }

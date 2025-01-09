@@ -328,19 +328,24 @@ static const struct wl_registry_listener registry_listener = {
     .global_remove = handle_registry_global_remove,
 };
 
-static void resize_framebuffer(struct wayland_display *wl, u32 width, u32 height)
+static void resize_framebuffer(struct hadopelagic *hadal, u32 width, u32 height)
 {
+    struct wayland_display *wl = (struct wayland_display *)hadal->display;
+
     /* TODO add fractional scale */
     at_store_explicit(&wl->window.fb_width, width * 1.f, memory_model_seq_cst);   // window->wl.buffer_scale
     at_store_explicit(&wl->window.fb_height, height * 1.f, memory_model_seq_cst); // window->wl.buffer_scale
+    at_fetch_or_explicit(&hadal->flags, hadal_flag_recreate_swapchain, memory_model_seq_cst);
 }
 
-static b32 resize_window(struct wayland_display *wl, u32 width, u32 height)
+static b32 resize_window(struct hadopelagic *hadal, u32 width, u32 height)
 {
+    struct wayland_display *wl = (struct wayland_display *)hadal->display;
+
     if (width == at_read_relaxed(&wl->window.width) && height == at_read_relaxed(&wl->window.height))
         return false;
 
-    resize_framebuffer(wl, width, height);
+    resize_framebuffer(hadal, width, height);
     at_store_explicit(&wl->window.width, width, memory_model_seq_cst);
     at_store_explicit(&wl->window.height, height, memory_model_seq_cst);
 
@@ -501,7 +506,7 @@ static void handle_xdg_surface_configure(
         }
     }
 
-    if (resize_window(wl, width, height)) {
+    if (resize_window(hadal, width, height)) {
         /* TODO window resized event */
         if (at_read_relaxed(&hadal->flags) & hadal_flag_visible) {
             /* TODO window content damaged */

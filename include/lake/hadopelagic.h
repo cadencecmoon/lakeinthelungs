@@ -81,21 +81,22 @@ struct hadal_calls {
  *  Values up to hadal_flag_reserved_bits are shared and reserved for future use,
  *  any bits above that can be used internally. */
 enum hadal_flag {
-    hadal_flag_initialized    = (1u << 0), /**< True for a valid display backend. */
-    hadal_flag_visible        = (1u << 1),
-    hadal_flag_fullscreen     = (1u << 2),
-    hadal_flag_maximized      = (1u << 3),
-    hadal_flag_minimized      = (1u << 4),
-    hadal_flag_auto_minimize  = (1u << 5),
-    hadal_flag_is_resizing    = (1u << 6),
-    hadal_flag_resizable      = (1u << 7),
-    hadal_flag_decorated      = (1u << 8),
-    hadal_flag_hovered        = (1u << 9),
-    hadal_flag_focused        = (1u << 10),
-    hadal_flag_focus_on_show  = (1u << 11),
-    hadal_flag_activated      = (1u << 12),
-    hadal_flag_should_close   = (1u << 13),
-    hadal_flag_reserved_bits  = 16,
+    hadal_flag_initialized          = (1u << 0),  /**< True for a valid display backend. */
+    hadal_flag_visible              = (1u << 1),  /**< Set if the window is visible to the user, or totally hidden. */
+    hadal_flag_fullscreen           = (1u << 2),  /**< Set if the window is running in fullscreen mode. */
+    hadal_flag_maximized            = (1u << 3),  /**< Set if the window is filling the screen space, ignored in fullscreen. */
+    hadal_flag_minimized            = (1u << 4), 
+    hadal_flag_auto_minimize        = (1u << 5),
+    hadal_flag_is_resizing          = (1u << 6),
+    hadal_flag_resizable            = (1u << 7),
+    hadal_flag_decorated            = (1u << 8),
+    hadal_flag_hovered              = (1u << 9),
+    hadal_flag_focused              = (1u << 10),
+    hadal_flag_focus_on_show        = (1u << 11),
+    hadal_flag_activated            = (1u << 12),
+    hadal_flag_should_close         = (1u << 13),
+    hadal_flag_recreate_swapchain   = (1u << 14), /**< Set internally on framebuffer resizes, or when hiding the window state. Informs the renderer to update the swapchain. */
+    hadal_flag_reserved_bits        = 20,
 };
 /** A bitmask for the reserved bits of a hadal_flag value. */
 #define hadal_flag_mask_reserved ((1u << hadal_flag_reserved_bits) - 1)

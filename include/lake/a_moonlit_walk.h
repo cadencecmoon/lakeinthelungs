@@ -67,6 +67,7 @@ struct amw_hints {
 
     u32      cobalt_max_devices;
     u32      cobalt_preferred_main_device;
+    b32      cobalt_enable_vsync;
 
     struct {
         PFN_hadal_entry_point  hadal;

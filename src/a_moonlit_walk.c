@@ -55,7 +55,8 @@ static void a_moonlit_walk_main__(
         threads,
         thread_count,
         AMW->hints->cobalt_preferred_main_device,
-        AMW->hints->cobalt_max_devices
+        AMW->hints->cobalt_max_devices,
+        AMW->hints->cobalt_enable_vsync
     );
     if (i != result_success) {
         log_fatal("Can't initialize the renderer.");
@@ -149,7 +150,7 @@ AMWAPI s32 a_moonlit_walk(
     struct a_moonlit_walk AMW;
     iazero(AMW);
 
-    log_set_verbose(true);
+    log_set_verbose(false);
     ticks_init();
 
     struct amw_hints hints = {
@@ -164,6 +165,7 @@ AMWAPI s32 a_moonlit_walk(
         .riven_log_2_tears = 12,
         .cobalt_max_devices = 1, /* if 0, use all available GPUs */
         .cobalt_preferred_main_device = -1, /* select the most appropriate GPU as the main device */
+        .cobalt_enable_vsync = false,
         .entry_points.hadal = hadal_entry_point,
         .entry_points.cobalt = cobalt_entry_point,
         .entry_points.silv = silver_entry_point,

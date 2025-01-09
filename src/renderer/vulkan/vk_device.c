@@ -1,3 +1,4 @@
+#include <lake/bedrock/atomic.h>
 #include <lake/bedrock/assert.h>
 #include "vk_cobalt.h"
 
@@ -197,6 +198,8 @@ AMWAPI s32 cobalt_vulkan_renderer_init(
         cobalt_vulkan_renderer_fini(cobalt);
         return res;
     }
+    arena_init(&vk->swapchain.arena, 4 * 1024);
+    log_info("%lu + %lu", sizeof(VkImage) * 3, sizeof(VkImageView) * 3);
 
     /* TODO */
     (void)ia;
@@ -204,15 +207,36 @@ AMWAPI s32 cobalt_vulkan_renderer_init(
     return result_success;
 }
 
+static void partially_destroy_swapchain(struct vulkan_backend *vk, struct vulkan_device *device)
+{
+    for (u32 i = 0; i < vk->swapchain.image_count; i++)
+        if (vk->swapchain.image_views[i] != VK_NULL_HANDLE)
+            device->api.vkDestroyImageView(device->logical, vk->swapchain.image_views[i], NULL);
+    arena_reset(&vk->swapchain.arena);
+
+    struct vulkan_swapchain cleared = {
+        .sc = vk->swapchain.sc,
+        .surface = vk->swapchain.surface,
+        .arena = vk->swapchain.arena,
+    };
+    vk->swapchain = cleared;
+}
+
 AMWAPI void cobalt_vulkan_renderer_fini(struct cobalt *cobalt)
 {
-    if (cobalt->devices)
-        cobalt_vulkan_destroy_devices(cobalt);
     if (cobalt->backend) {
         struct vulkan_backend *vk = (struct vulkan_backend *)cobalt->backend;
+        struct vulkan_device *devices = (struct vulkan_device *)cobalt->devices;
 
-        if (vk->swapchain.surface)
+        if (devices) {
+            assert_debug((at_read_relaxed(&devices[0].flags) & cobalt_device_flag_main) != 0);
+            cobalt_vulkan_destroy_devices(cobalt);
+            devices = NULL;
+        }
+
+        if (vk->swapchain.surface != VK_NULL_HANDLE)
             vk->api.vkDestroySurfaceKHR(vk->instance, vk->swapchain.surface, NULL);
+        arena_fini(&vk->swapchain.arena);
 
 #if !defined(AMW_NDEBUG) && defined(VK_EXT_debug_utils)
         destroy_validation_layers(vk);
@@ -405,6 +429,7 @@ AMWAPI s32 cobalt_vulkan_construct_devices(
     /* setup physical device handles */
     devices[0].physical = physical_devices[main_device_idx];
     devices[0].extensions = extension_bits[main_device_idx];
+    devices[0].flags |= (cobalt_device_flag_main | cobalt_device_flag_is_valid);
     main_device_idx = physical_device_indices[main_device_idx] = -1; /* we don't need that anymore */
     for (u32 i = 1; i < device_count; i++) {
         devices[i].physical = VK_NULL_HANDLE;
@@ -414,6 +439,7 @@ AMWAPI s32 cobalt_vulkan_construct_devices(
 
             devices[i].physical = physical_devices[idx]; 
             devices[i].extensions = extension_bits[idx];
+            devices[i].flags |= cobalt_device_flag_is_valid;
             physical_device_indices[j] = -1;
         }
     }
@@ -530,7 +556,6 @@ AMWAPI s32 cobalt_vulkan_construct_devices(
             extensions[bits++] = "VK_KHR_dynamic_rendering_local_read";
         if (device->extensions & vulkan_extension_dynamic_rendering_bit)
             extensions[bits++] = "VK_KHR_dynamic_rendering";
-
 #ifdef AMW_DEBUG
         log_trace("Device idx %d enabled Vulkan extensions are:", i);
         for (u32 j = 0; j < extension_count; j++) {
@@ -622,6 +647,38 @@ AMWAPI s32 cobalt_vulkan_construct_devices(
         assert_debug(device->compute_queues[0] != VK_NULL_HANDLE);
         assert_debug(device->transfer_queues[0] != VK_NULL_HANDLE);
 
+        /* prepare information for the swapchain */
+        VkBool32 presentation_supported = VK_FALSE;
+        if (i == 0 && vk->api.vkGetPhysicalDeviceSurfaceSupportKHR(device->physical, device->graphics_queue_family_idx, vk->swapchain.surface, &presentation_supported) == VK_SUCCESS) {
+            if (presentation_supported && vk->api.vkGetPhysicalDeviceSurfaceFormatsKHR(device->physical, vk->swapchain.surface, &device->swapchain_info.surface_format_count, NULL) != VK_SUCCESS)
+                presentation_supported = VK_FALSE;
+            else if (presentation_supported) {
+                device->swapchain_info.surface_formats = (VkSurfaceFormatKHR *)malloc(sizeof(VkSurfaceFormatKHR) * device->swapchain_info.surface_format_count);
+                if (vk->api.vkGetPhysicalDeviceSurfaceFormatsKHR(device->physical, vk->swapchain.surface, &device->swapchain_info.surface_format_count, device->swapchain_info.surface_formats) != VK_SUCCESS)
+                    presentation_supported = VK_FALSE;
+            }
+            if (presentation_supported && vk->api.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device->physical, vk->swapchain.surface, &device->swapchain_info.surface_capabilities) != VK_SUCCESS)
+                presentation_supported = VK_FALSE;
+            if (presentation_supported && vk->api.vkGetPhysicalDeviceSurfacePresentModesKHR(device->physical, vk->swapchain.surface, &device->swapchain_info.present_mode_count, NULL) != VK_SUCCESS)
+                presentation_supported = VK_FALSE;
+            else if (presentation_supported) {
+                device->swapchain_info.present_modes = (VkPresentModeKHR *)malloc(sizeof(VkPresentModeKHR) * device->swapchain_info.present_mode_count);
+                if (vk->api.vkGetPhysicalDeviceSurfacePresentModesKHR(device->physical, vk->swapchain.surface, &device->swapchain_info.present_mode_count, device->swapchain_info.present_modes) != VK_SUCCESS)
+                    presentation_supported = VK_FALSE;
+            }
+            if (!presentation_supported) {
+                if (device->swapchain_info.surface_formats) 
+                    free(device->swapchain_info.surface_formats);
+                if (device->swapchain_info.present_modes)   
+                    free(device->swapchain_info.present_modes);
+                device->swapchain_info = (struct vulkan_swapchain_device_info){0};
+            }
+        }
+        if (i == 0 && (at_read_relaxed(&device->flags) & cobalt_device_flag_main) && !presentation_supported) {
+            log_error("Failed to assert that the used main device supports presentation on screen. The engine may be in an invalid state.");
+            return result_error_invalid_engine_context; /* All stuff will be cleaned up when destroying devices. */
+        }
+
         /* create the command cools per queue family */
         device->queue_command_pool_count = VULKAN_MAX_FRAMES * thread_count;
         device->raw_command_pool_count = queue_family_count * device->queue_command_pool_count;
@@ -678,10 +735,10 @@ AMWAPI s32 cobalt_vulkan_construct_devices(
                 .pNext = &device->acceleration_structure_properties,
             };
             vk->api.vkGetPhysicalDeviceProperties2(device->physical, &physical_device_properties2);
+            device->flags |= cobalt_device_flag_accelerated_ray_tracing_supported;
             log_info("This device has hardware support for accelerated ray tracing.");
         }
     }
-
     return result_success;
 }
 
@@ -690,6 +747,7 @@ AMWAPI void cobalt_vulkan_destroy_devices(struct cobalt *cobalt)
     if (!cobalt->devices)
         return;
 
+    struct vulkan_backend *vk = (struct vulkan_backend *)cobalt->backend;
     struct vulkan_device *devices = (struct vulkan_device *)cobalt->devices;
 
     for (u32 i = 0; i < cobalt->device_count; i++) {
@@ -699,6 +757,16 @@ AMWAPI void cobalt_vulkan_destroy_devices(struct cobalt *cobalt)
             continue;
 
         device->api.vkDeviceWaitIdle(device->logical);
+
+        if (vk->swapchain.sc != VK_NULL_HANDLE) {
+            partially_destroy_swapchain(vk, &devices[0]);
+            devices[0].api.vkDestroySwapchainKHR(devices[0].logical, vk->swapchain.sc, NULL);
+        }
+
+        if (device->swapchain_info.present_modes)
+            free(device->swapchain_info.present_modes);
+        if (device->swapchain_info.surface_formats)
+            free(device->swapchain_info.surface_formats);
 
         if (device->raw_command_pools) {
             for (u32 j = 0; j < device->raw_command_pool_count; j++)
@@ -719,4 +787,180 @@ AMWAPI void cobalt_vulkan_destroy_devices(struct cobalt *cobalt)
     cobalt->devices = NULL;
     cobalt->device_count = 0;
     return;
+}
+
+AMWAPI RIVENS_TEAR(cobalt_vulkan_construct_swapchain_tear, struct cobalt_construct_swapchain_work *work)
+{
+    struct vulkan_backend               *vk             = (struct vulkan_backend *)work->cobalt->backend;
+    struct vulkan_device                *device         = (struct vulkan_device *)work->cobalt->devices; /* first device is main */
+    struct vulkan_swapchain             *swapchain      = &vk->swapchain;
+    struct vulkan_swapchain_device_info *swapchain_info = &device->swapchain_info;
+
+    VkSwapchainKHR old_sc = swapchain->sc;
+    u32 window_width = 0, window_height = 0;
+    u32 set_cobalt_flags = 0;
+
+    assert_debug(device->flags & cobalt_device_flag_main);
+    assert_debug(swapchain_info->present_modes);
+    assert_debug(swapchain_info->surface_formats);
+
+    if (old_sc != VK_NULL_HANDLE)
+        partially_destroy_swapchain(vk, device);
+    at_fetch_and_explicit(&work->cobalt->flags,
+          ~(cobalt_flag_vsync_enabled
+          | cobalt_flag_screenshot_supported
+    ), memory_model_seq_cst);
+
+    swapchain->format = VK_FORMAT_UNDEFINED;
+    if (swapchain_info->surface_format_count == 1 && swapchain_info->surface_formats[0].format == VK_FORMAT_UNDEFINED)
+        swapchain->format = VK_FORMAT_B8G8R8A8_UNORM;
+    for (u32 i = 0; i < swapchain_info->surface_format_count; i++) {
+        if (swapchain_info->surface_formats[i].colorSpace != VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+            continue;
+        VkFormat format = swapchain_info->surface_formats[i].format;
+        if (format == VK_FORMAT_R8G8B8A8_UNORM ||
+            format == VK_FORMAT_R8G8B8A8_SRGB ||
+            format == VK_FORMAT_B8G8R8A8_UNORM ||
+            format == VK_FORMAT_B8G8R8A8_SRGB ||
+            format == VK_FORMAT_A2B10G10R10_UNORM_PACK32 ||
+            format == VK_FORMAT_A2R10G10B10_UNORM_PACK32) 
+        {
+            swapchain->format = format;
+        }
+    }
+    if (swapchain->format == VK_FORMAT_UNDEFINED) {
+        log_error("Unable to determine an appropriate surface format. Only R8G8B8A8, B8G8R8A8, A2R10G10B10 or A2B10G10R10 formats are supported.");
+        work->result = result_error_undefined; /* TODO */
+        return;
+    }
+
+    hadal_framebuffer_size(work->hadal, &window_width, &window_height);
+    swapchain->extent.width = (swapchain_info->surface_capabilities.currentExtent.width != 0xFFFFFFFF) ? swapchain_info->surface_capabilities.currentExtent.width : window_width;
+    swapchain->extent.height = (swapchain_info->surface_capabilities.currentExtent.height != 0xFFFFFFFF) ? swapchain_info->surface_capabilities.currentExtent.height : window_height;
+    if (window_width != swapchain->extent.width || window_height != swapchain->extent.height) {
+        log_debug("The swapchain resolution is %ux%u.", swapchain->extent.width, swapchain->extent.height);
+    }
+
+    /* find a supported composite alpha mode (one of these is guaranteed to be set) */
+    VkCompositeAlphaFlagBitsKHR composite_alpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    VkCompositeAlphaFlagBitsKHR composite_alpha_flags[4] = {
+        VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+        VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR,
+        VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR,
+        VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR,
+    };
+    for (u32 i = 0; i < arraysize(composite_alpha_flags); i++) {
+        if (swapchain_info->surface_capabilities.supportedCompositeAlpha & composite_alpha_flags[i]) {
+            composite_alpha = composite_alpha_flags[i];
+            break;
+        }
+    }
+    VkPresentModeKHR no_vsync_present_mode = VK_PRESENT_MODE_FIFO_KHR;
+    for (u32 i = 0; i < swapchain_info->present_mode_count; i++) {
+        if (swapchain_info->present_modes[i] == VK_PRESENT_MODE_IMMEDIATE_KHR && no_vsync_present_mode == VK_PRESENT_MODE_FIFO_KHR)
+            no_vsync_present_mode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+        if (swapchain_info->present_modes[i] == VK_PRESENT_MODE_MAILBOX_KHR)
+            no_vsync_present_mode = VK_PRESENT_MODE_MAILBOX_KHR;
+    }
+    if (no_vsync_present_mode == VK_PRESENT_MODE_FIFO_KHR && !work->use_vsync) {
+        log_warn("No presentation mode without vertical synchronization is available. Enabling v-sync instead.");
+    }
+
+    u32 requested_image_count = VULKAN_MAX_FRAMES;
+    if (requested_image_count < swapchain_info->surface_capabilities.minImageCount)
+        requested_image_count = swapchain_info->surface_capabilities.minImageCount;
+    if (requested_image_count > swapchain_info->surface_capabilities.maxImageCount && swapchain_info->surface_capabilities.maxImageCount != 0)
+        requested_image_count = swapchain_info->surface_capabilities.maxImageCount;
+
+    VkImageUsageFlags image_usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    if (swapchain_info->surface_capabilities.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) {
+        image_usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        set_cobalt_flags |= cobalt_flag_screenshot_supported;
+    }
+
+    VkSharingMode sharing_mode = VK_SHARING_MODE_CONCURRENT;
+    u32 queue_family_count = 3;
+    u32 queue_family_indices[3] = {
+        device->graphics_queue_family_idx,
+        device->compute_queue_family_idx,
+        device->transfer_queue_family_idx,
+    };
+    if (device->compute_queue_count > 0 && device->transfer_queue_count == 0) {
+        queue_family_count = 2;
+    } else if (device->compute_queue_count == 0 && device->transfer_queue_count > 0) {
+        queue_family_indices[1] = device->transfer_queue_family_idx;
+        queue_family_count = 2;
+    } else if (device->compute_queue_count == 0 && device->transfer_queue_count == 0) {
+        sharing_mode = VK_SHARING_MODE_EXCLUSIVE;
+        queue_family_count = 1;
+    }
+
+    VkSwapchainCreateInfoKHR swapchain_create_info = {
+        .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+        .pNext = NULL,
+        .flags = 0,
+        .surface = swapchain->surface,
+        .minImageCount = requested_image_count,
+        .imageFormat = swapchain->format,
+        .imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
+        .imageExtent = swapchain->extent,
+        .imageArrayLayers = 1,
+        .imageUsage = image_usage,
+        .imageSharingMode = sharing_mode,
+        .queueFamilyIndexCount = queue_family_count,
+        .pQueueFamilyIndices = queue_family_indices,
+        .preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
+        .compositeAlpha = composite_alpha,
+        .presentMode = work->use_vsync ? VK_PRESENT_MODE_FIFO_KHR : no_vsync_present_mode,
+        .clipped = VK_FALSE,
+        .oldSwapchain = old_sc,
+    };
+    VkResult result = device->api.vkCreateSwapchainKHR(device->logical, &swapchain_create_info, NULL, &swapchain->sc);
+    if (result != VK_SUCCESS) {
+        log_error("Failed to construct a swap chain: %s", vulkan_result_string(result));
+        if (old_sc != VK_NULL_HANDLE)
+            device->api.vkDestroySwapchainKHR(device->logical, old_sc, NULL);
+        partially_destroy_swapchain(vk, device);
+        work->result = result_error_undefined; /* TODO */
+        return;
+    }
+
+    if (work->use_vsync || no_vsync_present_mode == VK_PRESENT_MODE_FIFO_KHR)
+        set_cobalt_flags |= cobalt_flag_vsync_enabled;
+
+    if (old_sc != VK_NULL_HANDLE)
+        device->api.vkDestroySwapchainKHR(device->logical, old_sc, NULL);
+
+    VERIFY_VK(device->api.vkGetSwapchainImagesKHR(device->logical, swapchain->sc, &swapchain->image_count, NULL));
+    swapchain->images = (VkImage *)arena_alloc(&swapchain->arena, sizeof(VkImage) * swapchain->image_count);
+    VERIFY_VK(device->api.vkGetSwapchainImagesKHR(device->logical, swapchain->sc, &swapchain->image_count, swapchain->images));
+    swapchain->image_views = (VkImageView *)arena_alloc(&swapchain->arena, sizeof(VkImageView) * swapchain->image_count);
+    for (u32 i = 0; i < swapchain->image_count; i++) {
+        VkImageViewCreateInfo color_image_view = {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .image = swapchain->images[i],
+            .viewType = VK_IMAGE_VIEW_TYPE_2D,
+            .format = swapchain->format,
+            .components = {
+                .r = VK_COMPONENT_SWIZZLE_R,
+                .g = VK_COMPONENT_SWIZZLE_G,
+                .b = VK_COMPONENT_SWIZZLE_B,
+                .a = VK_COMPONENT_SWIZZLE_A,
+            },
+            .subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .subresourceRange.levelCount = 1,
+            .subresourceRange.layerCount = 1,
+        };
+        result = device->api.vkCreateImageView(device->logical, &color_image_view, NULL, &swapchain->image_views[i]);
+        if (result != VK_SUCCESS) {
+            log_error("Failed to create a view onto swapchain image: %s", vulkan_result_string(result));
+            partially_destroy_swapchain(vk, device);
+            work->result = result_error_undefined; /* TODO */
+            return;
+        }
+    }
+
+    at_fetch_or_explicit(&work->cobalt->flags, set_cobalt_flags, memory_model_seq_cst);
+    at_fetch_and_explicit(&work->hadal->flags, ~hadal_flag_recreate_swapchain, memory_model_seq_cst);
+    work->result = result_success;
 }

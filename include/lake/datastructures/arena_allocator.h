@@ -63,6 +63,8 @@ AMW_INLINE void region_free(struct region *r)
 AMW_INLINE void arena_init(struct arena_allocator *a, usize bytes) 
 {
     assert_debug(a);
+    if (a->end)
+        return;
 
     if (bytes < 4096) 
         bytes = 4096;

@@ -49,19 +49,20 @@ enum vulkan_extensions {
     vulkan_extension_layer_validation_bit                   = (1u << 11), /**< VK_LAYER_KHRONOS_validation */
     
     /* device extensions */
-    vulkan_extension_swapchain_bit                          = (1u << 0),  /**< VK_KHR_swapchain */
-    vulkan_extension_device_fault_bit                       = (1u << 1),  /**< VK_EXT_device_fault */
-    vulkan_extension_memory_budget_bit                      = (1u << 2),  /**< VK_EXT_memory_budget */
-    vulkan_extension_memory_priority_bit                    = (1u << 3),  /**< VK_EXT_memory_priority */
-    vulkan_extension_deferred_host_operations_bit           = (1u << 5),  /**< VK_KHR_deferred_host_operations */
-    vulkan_extension_acceleration_structure_bit             = (1u << 6),  /**< VK_KHR_acceleration_structure */
-    vulkan_extension_ray_query_bit                          = (1u << 7),  /**< VK_KHR_ray_query */
+    vulkan_extension_swapchain_bit                          = (1ull << 0),  /**< VK_KHR_swapchain */
+    vulkan_extension_device_fault_bit                       = (1ull << 1),  /**< VK_EXT_device_fault */
+    vulkan_extension_memory_budget_bit                      = (1ull << 2),  /**< VK_EXT_memory_budget */
+    vulkan_extension_memory_priority_bit                    = (1ull << 3),  /**< VK_EXT_memory_priority */
+    vulkan_extension_deferred_host_operations_bit           = (1ull << 5),  /**< VK_KHR_deferred_host_operations */
+    vulkan_extension_acceleration_structure_bit             = (1ull << 6),  /**< VK_KHR_acceleration_structure */
+    vulkan_extension_ray_query_bit                          = (1ull << 7),  /**< VK_KHR_ray_query */
     /* AMD hardware */
-    vulkan_extension_amd_device_coherent_memory_bit         = (1u << 17), /**< VK_AMD_device_coherent_memory */
+    vulkan_extension_amd_device_coherent_memory_bit         = (1ull << 17), /**< VK_AMD_device_coherent_memory */
     /* core 1.4, for backwards compatibility */
-    vulkan_extension_dynamic_rendering_local_read_bit       = (1u << 20), /**< VK_KHR_dynamic_rendering_local_read */
+    vulkan_extension_dynamic_rendering_local_read_bit       = (1ull << 20), /**< VK_KHR_dynamic_rendering_local_read */
     /* core 1.3, for backwards compatibility */
-    vulkan_extension_dynamic_rendering_bit                  = (1u << 21), /**< VK_KHR_dynamic_rendering */
+    vulkan_extension_dynamic_rendering_bit                  = (1ull << 21), /**< VK_KHR_dynamic_rendering */
+    /* core 1.2, for backwards compatibility */
 };
 #define vulkan_extension_mask_raytracing \
     (vulkan_extension_deferred_host_operations_bit | \
@@ -349,23 +350,35 @@ struct vulkan_device_api {
 #endif /* VK_KHR_acceleration_structure */
 };
 
+/** Loads the Vulkan shared driver library and loads the global entry point procedures. */
 extern b32 vulkan_open_driver(struct vulkan_instance_api *vk);
+
+/** Unloads the Vulkan library, after this point none of the Vulkan backend calls are valid. */
 extern void vulkan_close_driver(struct vulkan_instance_api *vk);
+
+/** Fills the pointers of procedures defined in struct vulkan_instance_api. */
 extern s32 vulkan_load_instance_api_procedures(
     struct vulkan_instance_api *vk, 
     VkInstance                  instance, 
     u32                         instance_extensions);
+
+/** Fills the pointers of procedures defined in struct vulkan_device_api. */
 extern s32 vulkan_load_device_api_procedures(
     struct vulkan_instance_api *vk, 
     struct vulkan_device_api   *api, 
     VkDevice                    device, 
     u32                         device_api_version, 
-    u32                         device_extensions);
+    u64                         device_extensions);
+
+/** Get a (very helpful) message of a given Vulkan error code. */
+extern const char *vulkan_result_string(VkResult result);
 
 #if !defined(AMW_NDEBUG)
     #define VERIFY_VK(x) { \
-        if ((x) != VK_SUCCESS) { \
+        VkResult res__ = (x); \
+        if (res__ != VK_SUCCESS) { \
             log_error("Failed to assert VK_SUCCESS for: %s", #x); \
+            log_error("The error message: %s", vulkan_result_string(res__)); \
             assert_debug(!"VkResult assertion"); \
         } \
     }
@@ -373,25 +386,31 @@ extern s32 vulkan_load_device_api_procedures(
     #define VERIFY_VK(x) (void)(x)
 #endif
 
+/** Device information about it's swapchain capabilities. Atleast the main device 
+ *  should fill this information, to control the swapchain creation. */
+struct vulkan_swapchain_device_info {
+    VkSurfaceCapabilitiesKHR    surface_capabilities;   /**< The surface capabilities of the associated device. */
+    VkSurfaceFormatKHR         *surface_formats;        /**< List of available surface formats. */
+    VkPresentModeKHR           *present_modes;          /**< List of available presentation modes. */
+    u32                         surface_format_count;   /**< Number of available surface formats, for the list above. */
+    u32                         present_mode_count;     /**< Number of available presentation modes, for the list above. */
+};
+
 /** Holds Vulkan objects that are related to the swapchain. This includes the swapchain handle 
  *  itself, our window surface and image views for images in the swapchain. The swapchain depends
  *  on the device, but we only need one, thus the main device will be responsible for controlling
  *  the swapchain. It's changed substantially whenever the window framebuffer resolution changes. */
 struct vulkan_swapchain {
+    /** The swapchain created within a Hadopelagic window. NULL if the window is minimized. */
     VkSwapchainKHR          sc;
-    VkSurfaceKHR            surface;
-    VkFormat                format;
-    VkExtent2D              extent;
+    VkSurfaceKHR            surface;        /**< A surface created within this swapchain. */
+    VkFormat                format;         /**< The format of the held swapchain images. */
+    VkExtent2D              extent;         /**< The resolution of the held swapchain images in pixels. */
 
-    VkSurfaceFormatKHR     *surface_formats;
-    VkPresentModeKHR       *present_modes;
-    VkImage                *images;
-    VkImageView            *image_views;
-    struct arena_allocator  arena;
-
-    u32                     surface_format_count;
-    u32                     present_mode_count;
-    u32                     image_count;
+    VkImage                *images;         /**< An array of images in the swapchain. */
+    VkImageView            *image_views;    /**< An image view for each image in the swapchain. */
+    u32                     image_count;    /**< Number of total images held by the swapchain (internally max 3). */
+    struct arena_allocator  arena;          /**< A host memory pool for allocating the image and view arrays, reset every time the swapchain is reconstructed. */
 };
 
 /** Holds the shared state of the Vulkan backend. This includes a VkInstance, instance-dependent API
@@ -400,17 +419,35 @@ struct vulkan_backend {
     /** This object makes Vulkan functions available to us. It's used for driver 
      *  calls, that are independent of any particular VkDevice. */
     VkInstance                  instance;
-    VkAllocationCallbacks       allocator;  /** Our own allocation functions that use ipomoeaalba internally. */
+    VkAllocationCallbacks       allocator;      /**< TODO Our own allocation functions that use ipomoeaalba internally. */
 
 #if !defined(AMW_NDEBUG) && defined(VK_EXT_debug_utils)
     /** Used to log messages given to us from the validation layers. */
     VkDebugUtilsMessengerEXT    messenger;
 #endif
 
-    /* we support only one window, thus one swapchain for main device is enough */
-    struct vulkan_swapchain     swapchain;
-    u32                         extensions;
-    struct vulkan_instance_api  api;
+    struct vulkan_swapchain     swapchain;      /**< The swapchain handled by the main device. Only one window is supported. */
+    u32                         extensions;     /**< Bits to check availability of used Vulkan instance extensions. */
+    struct vulkan_instance_api  api;            /**< Global driver and instance procedures. */
+};
+
+/** The information needed to later perform a vkAllocateMemory call. */
+struct vulkan_allocation_request {
+    /**< Defines for what purpose is this allocation. */
+    VkMemoryPropertyFlags   usage;
+    /** An index identifying a memory type from the memoryTypes 
+     *  array of the VkPhysicalDeviceMemoryProperties struct. */
+    u32                     memory_type_idx;
+    /** The size of the memory allocation. */
+    VkDeviceSize            size;
+};
+
+/** Collects the information necessary for subdividing large memory allocations,
+ *  and the offset used for binding resources like images and buffers. */
+struct vulkan_allocation {
+    VkDeviceMemory  memory; /**< The actual memory allocation we're subdividing. */
+    VkDeviceSize    size;   /**< The size in bytes of this suballocation. */
+    VkDeviceSize    offset; /**< The offset in the bound memory allocation in bytes. */
 };
 
 /** The context of a rendering device, explicitly used within backend cobalt 
@@ -437,18 +474,21 @@ struct vulkan_device {
     VkPhysicalDeviceMemoryBudgetPropertiesEXT           memory_budget;
 #endif
 
+    /** Information needed for a device that's controlling the swapchain. */
+    struct vulkan_swapchain_device_info swapchain_info;
+
     /** Command pools are shared between queue families. The total amount of allocated command pools 
      *  is equal to: max images X queue families in use X threads, and are unique to the VkDevice.
      *  The max swapchain images will be equal to 3, that's also due to the parallel gameloop workload.
      *  The individual pointers (graphics, compute, transfer) point inside the array, and the command 
      *  pools will be shared between queues of the same queue family idx. */
     VkCommandPool      *raw_command_pools;          
-    u32                 raw_command_pool_count;
+    u32                 raw_command_pool_count;     /**< Number of total command pools in this device. */
     u32                 queue_command_pool_count;   /**< Used to iterate through <queue>_command_pools. */
 
-    VkCommandPool      *graphics_command_pools;
-    VkCommandPool      *compute_command_pools;
-    VkCommandPool      *transfer_command_pools;
+    VkCommandPool      *graphics_command_pools;     /**< Command pools used by the graphics queue family. */
+    VkCommandPool      *compute_command_pools;      /**< Command pools used by the compute queue family. */
+    VkCommandPool      *transfer_command_pools;     /**< Command pools used by the transfer queue family. */
 
     /** Command queues supporting the features we'll be using. The Vulkan spec guarantees, that if 
      *  a GPU supports draw commands (no reason why wouldn't it??), atleast one queue with graphics, 
@@ -463,37 +503,132 @@ struct vulkan_device {
      *  query for them during initialization - if no async queues are available to us, the compute or 
      *  transfer queues will fallback to use the graphics queue instead, and we will be doing the 
      *  synchronization for submiting our command buffers to the queues ourselfes. */
-    VkQueue            graphics_queue;
-    VkQueue            *compute_queues;             /**< We will request an async compute queue family, or use the graphics queue instead. */
-    VkQueue            *transfer_queues;            /**< We will request a transfer-only queue family, or use the graphics queue instead. */
-    u32                 compute_queue_count;        /**< If 0, the compute queue shares the graphics queue. */
-    u32                 transfer_queue_count;       /**< If 0, the transfer queue shares the graphics queue. */
+    VkQueue                     graphics_queue;
+    /** We will request an async compute queue family, or use the graphics queue instead. */
+    VkQueue                    *compute_queues;
+    /** We will request a transfer-only queue family, or use the graphics queue instead. */
+    VkQueue                    *transfer_queues;
+    u32                         compute_queue_count;  /**< If 0, the compute queue shares the graphics queue. */
+    u32                         transfer_queue_count; /**< If 0, the transfer queue shares the graphics queue. */
 
     /** Indices of different queue families where our queues were created. For comparing if 
      *  compute or transfer are using an unique async queue family, it's enough to just compare 
      *  with the index of the graphics queue family, as compute and transfer queue families will 
      *  only ever be equal (in the context of our rendering backend) if they share the same family 
      *  as our graphics queue. It will simplify some stuff, so i'll take that as a rule of thumb. */
-    u32                 graphics_queue_family_idx;
-    u32                 compute_queue_family_idx;
-    u32                 transfer_queue_family_idx;
+    u32                         graphics_queue_family_idx;
+    u32                         compute_queue_family_idx;
+    u32                         transfer_queue_family_idx;
 
     /** Bits to check support for extensions that interest us. Set during device creation, and then read-only. */
-    u32                      extensions;
-    struct vulkan_device_api api;
+    u64                         extensions;
+    struct vulkan_device_api    api;
 };
 
 /** Holds information needed to request construction of an image. */
 struct vulkan_image_request {
     /** Complete image creation info. If the number of mip levels is set to zero,
      *  it will be automatically set using vulkan_get_mipmap_count_3d(). */ 
-    VkImageCreateInfo image_info;
+    VkImageCreateInfo           image_info;
     /** Description of the image view that is to be created. Format and image do not 
      *  need to be set. If the layer count or mip count are zero, they are set to 
      *  match the corresponding values of the image. If sType is not 
      *  VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO, creation of the view is skipped. */
-    VkImageViewCreateInfo view_info;
+    VkImageViewCreateInfo       view_info;
 };
+
+/** Bundles arrays of Vulkan image objects with meta-data and image views.
+ *  Handles the device memory allocations for the images. */
+struct vulkan_images {
+    VkImage                    *images;         /**< An array of Vulkan objects for each image. */
+    VkImageView                *views;          /**< Views onto the contents of every image or NULL, if no view was requested. */
+    VkDeviceSize               *offsets;        /**< The offset in the bound memory allocation in bytes, for each buffer object. Used to calculate sizes of an image. */
+    struct vulkan_allocation    allocation;     /**< The memory suballocation that serves all of the images. */
+    u32                         image_count;    /**< Number of images and meta-data in the arrays. */
+};
+
+/** Bundles arrays of Vulkan buffer objects with information needed to access its memory. */
+struct vulkan_buffers {
+    VkBuffer                   *buffers;        /**< An array of Vulkan buffer objects. */
+    VkDeviceSize               *offsets;        /**< The offset in the bound memory allocation in bytes, for each buffer object. Used to calculate sizes of a buffer. */
+    struct vulkan_allocation    allocation;     /**< The memory suballocation that serves all of the buffers. */
+    u32                         buffer_count;   /**< Number of buffers and meta-data in the arrays. */
+};
+
+/** Bundles a Vulkan shader module with it's SPIR-V code. */
+struct vulkan_shader {
+    VkShaderModule  module;         /**< The Vulkan compiled shader module. */
+    usize           spirv_size;     /**< The size of the compiled SPIR-V code in bytes. */
+    u32            *spirv_code;     /**< An array of the compiled SPIR-V code. */
+};
+
+/** Holds information needed to create a Vulkan pipeline object. */
+struct vulkan_pipeline_request {
+    VkPipelineVertexInputStateCreateInfo    vertex_input_state;     /* graphics pipelines only */
+    VkPipelineInputAssemblyStateCreateInfo  input_assembly_state;
+    VkPipelineRasterizationStateCreateInfo  rasterization_state;
+    VkPipelineColorBlendStateCreateInfo     color_blend_state;
+    VkPipelineDepthStencilStateCreateInfo   depth_stencil_state;
+    VkPipelineViewportStateCreateInfo       viewport_state;
+    VkPipelineMultisampleStateCreateInfo    multisample_state;
+};
+
+struct vulkan_pipelines {
+    VkDescriptorSetLayout  *descriptor_set_layouts; /**< Descriptor set layouts used by the pipelines. */
+    VkPipelineLayout       *pipeline_layouts;       /**< Pipeline layouts used by the pipelines. */
+    VkPipeline             *pipelines;              /**< An array of pipeline states. */
+    u32                     pipeline_count;         /**< Number of pipelines. */
+};
+
+/** Returns the aspect ratio for a given swapchain. */
+AMW_INLINE f32 vulkan_get_aspect_ratio(const struct vulkan_swapchain *swapchain) {
+    return ((f32) swapchain->extent.width) / ((f32) swapchain->extent.height);
+}
+
+/** Returns the smallest number that is greater equal offset and a multiple of the given positive integer. */
+AMW_INLINE VkDeviceSize vulkan_align_memory_offset(VkDeviceSize offset, VkDeviceSize alignment) {
+    return ((offset + alignment - 1) / alignment) * alignment;
+}
+
+/** Compute the number of mipmap levels needed to get from a resource of the given size to one texel.
+ *  This is the maximum number of mipmaps that can be created. */
+AMW_INLINE u32 vulkan_get_mipmap_count_1d(u32 width) {
+    s32 padded_width = (s32)(2 * width - 1);
+    u32 mipmap_count = 0;
+    while (padded_width > 0) {
+        padded_width &= 0x7ffffffe;
+        padded_width >>= 1;
+        ++mipmap_count;
+    }
+    return mipmap_count;
+}
+
+/** Returns the maximum of vulkan_get_mipmap_count_1d() for all given extents. */
+AMW_INLINE u32 vulkan_get_mipmap_count_3d(VkExtent3D extent) {
+    u32 counts[3] = {
+        vulkan_get_mipmap_count_1d(extent.width),
+        vulkan_get_mipmap_count_1d(extent.height),
+        vulkan_get_mipmap_count_1d(extent.depth)
+    };
+    u32 result = counts[0];
+    result = (result < counts[1]) ? counts[1] : result;
+    result = (result < counts[2]) ? counts[2] : result;
+    return result;
+}
+
+/** Goes through memory types available for the device and identifies the lowest 
+ *  index that satisfies all given requirements. 
+ *
+ *  @param memory_type_bits     A bit mask indicating which memory type indices are 
+ *                              admissible. Available from VkMemoryRequirements. 
+ *  @param property_mask        A combination of VkMemoryPropertyFlagBits.
+ *
+ *  @return 0 if type_idx was set to a valid reply, 1 if no compatible memory is available. */
+extern s32 vulkan_find_memory_type(
+    u32                        *type_idx, 
+    const struct vulkan_device *device, 
+    u32                         memory_type_bits,
+    VkMemoryPropertyFlags       property_mask);
 
 /* vk_device.c */
 AMWAPI s32 cobalt_vulkan_renderer_init(
@@ -507,9 +642,6 @@ AMWAPI s32 cobalt_vulkan_renderer_init(
 /* vk_device.c */
 AMWAPI void cobalt_vulkan_renderer_fini(struct cobalt *cobalt);
 
-/* vk_surface.c */
-AMWAPI s32 cobalt_vulkan_create_swapchain_surface(struct cobalt *cobalt, struct hadopelagic *hadal);
-
 /* vk_device.c */
 AMWAPI s32 cobalt_vulkan_construct_devices(
     struct cobalt          *cobalt,
@@ -522,5 +654,11 @@ AMWAPI s32 cobalt_vulkan_construct_devices(
 
 /* vk_device.c */
 AMWAPI void cobalt_vulkan_destroy_devices(struct cobalt *cobalt);
+
+/* vk_surface.c */
+AMWAPI s32 cobalt_vulkan_create_swapchain_surface(struct cobalt *cobalt, struct hadopelagic *hadal);
+
+/* vk_device.c */
+AMWAPI RIVENS_TEAR(cobalt_vulkan_construct_swapchain_tear, struct cobalt_construct_swapchain_work *work);
 
 #endif /* _AMW_COBALT_VULKAN_H */
