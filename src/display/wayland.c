@@ -1,5 +1,6 @@
 #ifdef AMW_NATIVE_WAYLAND
 
+#include <lake/bedrock/assert.h>
 #include <lake/bedrock/log.h>
 #include <lake/bedrock/os.h>
 
@@ -124,7 +125,7 @@ typedef xkb_keysym_t                    (*PFN_xkb_compose_state_get_one_sym)(str
 #define xkb_compose_state_get_status            WAYLAND->api.xkb.compose_state_get_status
 #define xkb_compose_state_get_one_sym           WAYLAND->api.xkb.compose_state_get_one_sym
 
-typedef struct wayland_output {
+struct wayland_output {
     struct wl_output       *wl_output;
     u32                     name;
     s32                     current_mode;
@@ -133,9 +134,9 @@ typedef struct wayland_output {
 
     /* A window is binded to an output monitor if in fullscreen mode. */
     struct wayland_window  *window;
-} wayland_output;
+};
 
-typedef struct wayland_window {
+struct wayland_window {
     char                   *app_id;
     char                   *title;
 
@@ -158,9 +159,9 @@ typedef struct wayland_window {
     struct {
         u32 width, height, flags;
     } pending;
-} wayland_window;
+};
 
-typedef struct wayland_hadopelagic {
+struct wayland_display {
     const char *tag;
 
     struct wl_display       *display;
@@ -173,7 +174,7 @@ typedef struct wayland_hadopelagic {
     struct xdg_wm_base      *shell;
 
     /* only support one window at a time */
-    wayland_window window;
+    struct wayland_window   window;
 
     struct {
         void *module_core;
@@ -232,10 +233,10 @@ typedef struct wayland_hadopelagic {
     } api;
 
     u32 serial;
-} wayland_hadopelagic;
+};
 
 /* global pointer to the allocated display backend, for convenience */
-static wayland_hadopelagic *WAYLAND;
+static struct wayland_display *WAYLAND;
 
 /* Protocols are generated with wayland-scanner, their sources are included in
  * the project repository: resources/wayland/<protocol>.xml.
@@ -277,8 +278,8 @@ static void handle_registry_global(
     char const         *interface,
     u32                 version)
 {
-    hadopelagic *hadal = (hadopelagic *)data;
-    wayland_hadopelagic *wl = (wayland_hadopelagic *)hadal->display;
+    struct hadopelagic *hadal = (struct hadopelagic *)data;
+    struct wayland_display *wl = (struct wayland_display *)hadal->display;
 
     if (!strcmp(interface, "wl_compositor")) {
         wl->compositor = wl_registry_bind(registry, name, &wl_compositor_interface, min(3, version));
@@ -311,10 +312,10 @@ static void handle_registry_global_remove(
     /* unused */
     (void)registry;
 
-    hadopelagic *hadal = (hadopelagic *)data;
+    struct hadopelagic *hadal = (struct hadopelagic *)data;
 
     for (u32 i = 0; i < hadal->output_count; i++) {
-        wayland_output *output = (wayland_output *)hadal->outputs[i];
+        struct wayland_output *output = (struct wayland_output *)hadal->outputs[i];
         if (output->name == name) {
             /* TODO disconnect output */
             return;
@@ -327,19 +328,21 @@ static const struct wl_registry_listener registry_listener = {
     .global_remove = handle_registry_global_remove,
 };
 
-static void resize_framebuffer(wayland_hadopelagic *wl, u32 width, u32 height)
+static void resize_framebuffer(struct wayland_display *wl, u32 width, u32 height)
 {
     /* TODO add fractional scale */
     at_store_explicit(&wl->window.fb_width, width * 1.f, memory_model_seq_cst);   // window->wl.buffer_scale
     at_store_explicit(&wl->window.fb_height, height * 1.f, memory_model_seq_cst); // window->wl.buffer_scale
 }
 
-static b32 resize_window(wayland_hadopelagic *wl, u32 width, u32 height)
+static b32 resize_window(struct wayland_display *wl, u32 width, u32 height)
 {
     if (width == at_read_relaxed(&wl->window.width) && height == at_read_relaxed(&wl->window.height))
         return false;
 
     resize_framebuffer(wl, width, height);
+    at_store_explicit(&wl->window.width, width, memory_model_seq_cst);
+    at_store_explicit(&wl->window.height, height, memory_model_seq_cst);
 
     /* TODO scaling viewport */
 
@@ -354,13 +357,13 @@ static void handle_surface_enter(
     /* unused */
     (void)surface;
 
-    hadopelagic *hadal = (hadopelagic *)data;
-    wayland_hadopelagic *wl = (wayland_hadopelagic *)hadal->display;
+    struct hadopelagic *hadal = (struct hadopelagic *)data;
+    struct wayland_display *wl = (struct wayland_display *)hadal->display;
 
     if (wl_proxy_get_tag((struct wl_proxy *)wl_output) != &wl->tag)
         return;
 
-    wayland_output *output = wl_output_get_user_data(wl_output);
+    struct wayland_output *output = wl_output_get_user_data(wl_output);
 
     if (!output) return;
 
@@ -375,8 +378,8 @@ static void handle_surface_leave(
     /* unused */
     (void)surface;
 
-    hadopelagic *hadal = (hadopelagic *)data;
-    wayland_hadopelagic *wl = (wayland_hadopelagic *)hadal->display;
+    struct hadopelagic *hadal = (struct hadopelagic *)data;
+    struct wayland_display *wl = (struct wayland_display *)hadal->display;
 
     if (wl_proxy_get_tag((struct wl_proxy *)wl_output) != &wl->tag)
         return;
@@ -401,8 +404,8 @@ static void handle_xdg_toplevel_configure(
     /* unused */
     (void)toplevel;
 
-    hadopelagic *hadal = (hadopelagic *)data;
-    wayland_hadopelagic *wl = (wayland_hadopelagic *)hadal->display;
+    struct hadopelagic *hadal = (struct hadopelagic *)data;
+    struct wayland_display *wl = (struct wayland_display *)hadal->display;
     u32 *state;
 
     /* unset those flags from pending */
@@ -445,7 +448,7 @@ static void handle_xdg_toplevel_close(
     /* unused */
     (void)toplevel;
 
-    hadopelagic *hadal = (hadopelagic *)data;
+    struct hadopelagic *hadal = (struct hadopelagic *)data;
 
     at_fetch_or_explicit(&hadal->flags, hadal_flag_should_close, memory_model_seq_cst);
 }
@@ -460,8 +463,8 @@ static void handle_xdg_surface_configure(
     struct xdg_surface *surface, 
     u32                 serial)
 {
-    hadopelagic *hadal = (hadopelagic *)data;
-    wayland_hadopelagic *wl = (wayland_hadopelagic *)hadal->display;
+    struct hadopelagic *hadal = (struct hadopelagic *)data;
+    struct wayland_display *wl = (struct wayland_display *)hadal->display;
 
     xdg_surface_ack_configure(surface, serial);
     if ((at_read_relaxed(&hadal->flags) & hadal_flag_activated) != (wl->window.pending.flags & hadal_flag_activated)) {
@@ -510,11 +513,11 @@ static const struct xdg_surface_listener xdg_surface_listener = {
     .configure = handle_xdg_surface_configure,
 };
 
-static void update_size_limits(hadopelagic *hadal)
+static void update_size_limits(struct hadopelagic *hadal)
 {
     uint32_t minwidth, minheight, maxwidth, maxheight;
 
-    wayland_hadopelagic *wl = (wayland_hadopelagic *)hadal->display;
+    struct wayland_display *wl = (struct wayland_display *)hadal->display;
 
     if (at_read_relaxed(&hadal->flags) & hadal_flag_resizable) {
         if (wl->window.minwidth == 0 || wl->window.minheight == 0) {
@@ -537,9 +540,9 @@ static void update_size_limits(hadopelagic *hadal)
     xdg_toplevel_set_max_size(wl->window.xdg.toplevel, maxwidth, maxheight);
 }
 
-static b32 create_xdg_shell_objects(hadopelagic *hadal)
+static b32 create_xdg_shell_objects(struct hadopelagic *hadal)
 {
-    wayland_hadopelagic *wl = (wayland_hadopelagic *)hadal->display;
+    struct wayland_display *wl = (struct wayland_display *)hadal->display;
 
     wl->window.xdg.surface = xdg_wm_base_get_xdg_surface(wl->shell, wl->window.surface);
     if (!wl->window.xdg.surface) {
@@ -573,9 +576,9 @@ static b32 create_xdg_shell_objects(hadopelagic *hadal)
     return true;
 }
 
-static void destroy_xdg_shell_objects(hadopelagic *hadal)
+static void destroy_xdg_shell_objects(struct hadopelagic *hadal)
 {
-    wayland_hadopelagic *wl = (wayland_hadopelagic *)hadal->display;
+    struct wayland_display *wl = (struct wayland_display *)hadal->display;
 
     if (wl->window.xdg.toplevel)
         xdg_toplevel_destroy(wl->window.xdg.toplevel);
@@ -585,9 +588,9 @@ static void destroy_xdg_shell_objects(hadopelagic *hadal)
     wl->window.xdg.surface = NULL;
 }
 
-static b32 create_surface(hadopelagic *hadal, u32 width, u32 height)
+static b32 create_surface(struct hadopelagic *hadal, u32 width, u32 height)
 {
-    wayland_hadopelagic *wl = (wayland_hadopelagic *)hadal->display;
+    struct wayland_display *wl = (struct wayland_display *)hadal->display;
 
     wl->window.surface = wl_compositor_create_surface(wl->compositor);
     if (!wl->window.surface) {
@@ -607,40 +610,40 @@ static b32 create_surface(hadopelagic *hadal, u32 width, u32 height)
     return true;
 }
 
-AMWAPI void hadal_wayland_get_window_size(hadopelagic *hadal, u32 *out_width, u32 *out_height)
+AMWAPI void hadal_wayland_get_window_size(struct hadopelagic *hadal, u32 *out_width, u32 *out_height)
 {
-    wayland_hadopelagic *wl = (wayland_hadopelagic *)hadal->display;
+    struct wayland_display *wl = (struct wayland_display *)hadal->display;
     if (out_width)  *out_width  = at_read_explicit(&wl->window.width, memory_model_acquire);
     if (out_height) *out_height = at_read_explicit(&wl->window.height, memory_model_acquire);
 }
 
-AMWAPI void hadal_wayland_get_framebuffer_size(hadopelagic *hadal, u32 *out_width, u32 *out_height)
+AMWAPI void hadal_wayland_get_framebuffer_size(struct hadopelagic *hadal, u32 *out_width, u32 *out_height)
 {
-    wayland_hadopelagic *wl = (wayland_hadopelagic *)hadal->display;
+    struct wayland_display *wl = (struct wayland_display *)hadal->display;
     if (out_width)  *out_width  = at_read_explicit(&wl->window.fb_width, memory_model_acquire);
     if (out_height) *out_height = at_read_explicit(&wl->window.fb_height, memory_model_acquire);
 }
 
-AMWAPI void hadal_wayland_show_window(hadopelagic *hadal)
+AMWAPI void hadal_wayland_show_window(struct hadopelagic *hadal)
 {
-    wayland_hadopelagic *wl = (wayland_hadopelagic *)hadal->display;
+    struct wayland_display *wl = (struct wayland_display *)hadal->display;
     if (!wl->window.xdg.toplevel)
         create_xdg_shell_objects(hadal);
 }
 
-AMWAPI void hadal_wayland_hide_window(hadopelagic *hadal)
+AMWAPI void hadal_wayland_hide_window(struct hadopelagic *hadal)
 {
-    const wayland_hadopelagic *wl = (const wayland_hadopelagic *)hadal->display;
+    const struct wayland_display *wl = (const struct wayland_display *)hadal->display;
     destroy_xdg_shell_objects(hadal);
     wl_surface_attach(wl->window.surface, NULL, 0, 0);
     wl_surface_commit(wl->window.surface);
 }
 
-AMWAPI s32 hadal_wayland_display_init(hadopelagic *hadal, ipomoeaalba *ia, u32 width, u32 height, const char *title)
+AMWAPI s32 hadal_wayland_display_init(struct hadopelagic *hadal, struct ipomoeaalba *ia, u32 width, u32 height, const char *title)
 {
     (void)ia; // TODO
 
-    wayland_hadopelagic *wl = (wayland_hadopelagic *)hadal->display;
+    struct wayland_display *wl = (struct wayland_display *)hadal->display;
 
     if (at_read_relaxed(&hadal->flags) & hadal_flag_initialized) 
         return result_success;
@@ -839,9 +842,9 @@ AMWAPI s32 hadal_wayland_display_init(hadopelagic *hadal, ipomoeaalba *ia, u32 w
     return result_success;
 }
 
-AMWAPI void hadal_wayland_display_fini(hadopelagic *hadal)
+AMWAPI void hadal_wayland_display_fini(struct hadopelagic *hadal)
 {
-    wayland_hadopelagic *wl = (wayland_hadopelagic *)hadal->display;
+    struct wayland_display *wl = (struct wayland_display *)hadal->display;
 
     destroy_xdg_shell_objects(hadal);
     if (wl->window.surface)
@@ -878,9 +881,9 @@ AMWAPI void hadal_wayland_display_fini(hadopelagic *hadal)
     free(wl); // TODO
 }
 
-AMWAPI void hadal_wayland_expose_native_window(hadopelagic *hadal, void **out_display_handle, void **out_surface_handle)
+AMWAPI void hadal_wayland_expose_native_window(struct hadopelagic *hadal, void **out_display_handle, void **out_surface_handle)
 {
-    wayland_hadopelagic *wl = (wayland_hadopelagic *)hadal->display;
+    struct wayland_display *wl = (struct wayland_display *)hadal->display;
 
     if (out_display_handle)
         *out_display_handle = wl->display;
@@ -888,13 +891,13 @@ AMWAPI void hadal_wayland_expose_native_window(hadopelagic *hadal, void **out_di
         *out_surface_handle = wl->window.surface;
 }
 
-AMWAPI s32 hadal_wayland_entry_point(hadopelagic *hadal, ipomoeaalba *ia)
+AMWAPI s32 hadal_wayland_entry_point(struct hadopelagic *hadal, struct ipomoeaalba *ia)
 {
     (void)ia; // TODO
 
     if (WAYLAND != NULL) return result_error_invalid_engine_context;
 
-    wayland_hadopelagic *wl = (wayland_hadopelagic *)malloc(sizeof(wayland_hadopelagic));
+    struct wayland_display *wl = (struct wayland_display *)malloc(sizeof(struct wayland_display));
     iazerop(wl);
 
     wl->api.module_core = bedrock_load_dll("libwayland-client.so.0");
@@ -925,7 +928,7 @@ AMWAPI s32 hadal_wayland_entry_point(hadopelagic *hadal, ipomoeaalba *ia)
     hadal->backend_api = hadal_backend_api_wayland;
     hadal->backend_name = "wayland";
 
-    hadal->calls = (hadal_calls){
+    hadal->calls = (struct hadal_calls){
         .display_init = hadal_wayland_display_init,
         .display_fini = hadal_wayland_display_fini,
         .get_window_size = hadal_wayland_get_window_size,

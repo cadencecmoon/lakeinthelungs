@@ -1,5 +1,7 @@
-#include <lake/bedrock/time.h>
+#include <lake/bedrock/assert.h>
 #include <lake/bedrock/os.h>
+#include <lake/bedrock/log.h>
+#include <lake/bedrock/time.h>
 
 static u64 tick_start = 0;
 static u32 tick_numerator_ms;
@@ -14,7 +16,7 @@ static u32 calculate_gcd(u32 a, u32 b)
     return calculate_gcd(b, (a % b));
 }
 
-static void ticks_init(void)
+AMWAPI void ticks_init(void)
 {
     u64 tick_freq;
     u32 gcd;

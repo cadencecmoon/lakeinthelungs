@@ -1,3 +1,4 @@
+#include <lake/bedrock/assert.h>
 #include <lake/riven.h>
 
 #define FIBER_INVALID SSIZE_MAX
@@ -31,7 +32,7 @@ extern fcontext_t make_fcontext(void *sp, usize size, void (*fn)(sptr));
 /* thread local storage forward declaration */
 struct tls;
 
-static_assertion(sizeof(sptr) == sizeof(rivens_rift *), "intptr_t size assumption");
+static_assertion(sizeof(sptr) == sizeof(struct riven *), "intptr_t size assumption");
 static_assertion(sizeof(usize) >= sizeof(void *), "size_t can't hold pointers");
 
 static sptr internal_jump(struct tls *tls, fcontext_t *from, fcontext_t *to)
@@ -90,7 +91,7 @@ static void stack_memory_stop(void *mem, size_t bytes)
 #endif
 
 struct ripntear {
-    rivens_tear tear;
+    struct rivens_tear tear;
     at_ssize   *work_left;
 };
 
@@ -219,19 +220,19 @@ enum tls_flags {
 };
 
 struct tls {
-    rivens_rift    *riven;
+    struct riven   *riven;
     fcontext_t      home_context;
-    uint32_t        fiber_in_use;
-    uint32_t        fiber_old;
+    u32             fiber_in_use;
+    u32             fiber_old;
 };
 
 struct entrypoint_data {
-    rivens_rift    *riven;
+    struct riven   *riven;
     PFN_riven_main  procedure;
     void           *argument;
 };
 
-struct rivens_rift {
+struct riven {
     struct mpmc_queue   queue;
     struct mpmc_cell   *cells;
 
@@ -244,7 +245,7 @@ struct rivens_rift {
     at_ssize           *locks;
 
     thread_id          *threads;
-    rivens_tear        *ends;
+    struct rivens_tear *ends;
 
     u8                 *stack;
     ssize               stack_bytes;
@@ -252,13 +253,13 @@ struct rivens_rift {
     ssize               fiber_count;
 };
 
-static struct tls *get_thread_local_storage(rivens_rift *riven)
+static struct tls *get_thread_local_storage(struct riven *riven)
 {
     ssize index = bedrock_thread_index(riven->threads, riven->thread_count);
     return &riven->tls[index];
 }
 
-static ssize get_free_fiber(rivens_rift *riven)
+static ssize get_free_fiber(struct riven *riven)
 {
     for (ssize i = 0; i < riven->fiber_count; i++) {
         ssize fiber = at_read_explicit(&riven->free[i], memory_model_relaxed);
@@ -284,7 +285,7 @@ static ssize get_free_fiber(rivens_rift *riven)
 
 static void update_free_and_waiting(struct tls *tls)
 {
-    rivens_rift *riven = tls->riven;
+    struct riven *riven = tls->riven;
 
     if (tls->fiber_old == (u32)FIBER_INVALID)
         return;
@@ -307,7 +308,7 @@ static void update_free_and_waiting(struct tls *tls)
 
 static void weave(sptr raw_tls);
 
-static ssize get_next_fiber(rivens_rift *riven)
+static ssize get_next_fiber(struct riven *riven)
 {
     ssize fiber_idx = FIBER_INVALID;
 
@@ -369,7 +370,7 @@ static ssize get_next_fiber(rivens_rift *riven)
     return fiber_idx;
 }
 
-static struct tls *next_fiber(rivens_rift *riven, struct tls  *tls, fcontext_t  *context)
+static struct tls *next_fiber(struct riven *riven, struct tls  *tls, fcontext_t  *context)
 {
     at_ssize *wait_counter = NULL;
 
@@ -412,10 +413,10 @@ static struct tls *next_fiber(rivens_rift *riven, struct tls  *tls, fcontext_t  
     }
 }
 
-static void weave(intptr_t raw_tls)
+static void weave(sptr raw_tls)
 {
     struct tls *tls = (struct tls *)raw_tls;
-    rivens_rift *riven = tls->riven;
+    struct riven *riven = tls->riven;
 
     update_free_and_waiting(tls);
     { /* do the work */
@@ -423,7 +424,7 @@ static void weave(intptr_t raw_tls)
         fiber->rip.tear.procedure(fiber->rip.tear.argument);
 
         if (fiber->rip.work_left) {
-            size_t last = at_fetch_sub_explicit(fiber->rip.work_left, (size_t)1u, memory_model_relaxed);
+            usize last = at_fetch_sub_explicit(fiber->rip.work_left, (usize)1u, memory_model_relaxed);
             if (!last) {
                 assert_debug(last > 0);
             }
@@ -438,7 +439,7 @@ static void weave(intptr_t raw_tls)
     AMW_UNREACHABLE;
 }
 
-static at_ssize *get_lock(rivens_rift *riven, ssize initial_value)
+static at_ssize *get_lock(struct riven *riven, ssize initial_value)
 {
     for (;;) {
         for (ssize i = 0; i < riven->fiber_count; i++) {
@@ -461,7 +462,7 @@ static at_ssize *get_lock(rivens_rift *riven, ssize initial_value)
 static void *do_the_work(void *raw_tls)
 {
     struct tls *tls = (struct tls *)raw_tls;
-    rivens_rift *riven = tls->riven;
+    struct riven *riven = tls->riven;
 
     while (!at_read_explicit(&riven->tls_sync, memory_model_acquire)) { /* spin :3 */ }
 
@@ -476,7 +477,7 @@ static void *do_the_work(void *raw_tls)
 /* quit the work */
 static void payday(void *raw_riven)
 {
-    rivens_rift *riven = (rivens_rift *)raw_riven;
+    struct riven *riven = (struct riven *)raw_riven;
     struct tls *tls = get_thread_local_storage(riven);
     struct fiber *old_fiber = &riven->fibers[tls->fiber_in_use];
 
@@ -495,7 +496,7 @@ static void payday(void *raw_riven)
 static void entrypoint(void *raw_entrypoint_data)
 {
     struct entrypoint_data *data = (struct entrypoint_data *)raw_entrypoint_data;
-    rivens_rift *riven = data->riven;
+    struct riven *riven = data->riven;
     const ssize thread_count = riven->thread_count;
 
     data->procedure(riven, riven->threads, thread_count, data->argument);
@@ -511,14 +512,14 @@ static void entrypoint(void *raw_entrypoint_data)
     AMW_UNREACHABLE;
 }
 
-AMWAPI void riven_split_and_unchain(rivens_rift *riven, rivens_tear *tears, ssize splits)
+AMWAPI void riven_split_and_unchain(struct riven *riven, struct rivens_tear *tears, ssize splits)
 {
-    rivens_chain chain;
+    rivens_chain_t chain;
     riven_split(riven, tears, splits, &chain);
     riven_unchain(riven, chain);
 }
 
-AMWAPI void riven_split(rivens_rift *riven, rivens_tear *tears, ssize splits, rivens_chain *chain)
+AMWAPI void riven_split(struct riven *riven, struct rivens_tear *tears, ssize splits, rivens_chain_t *chain)
 {
     at_ssize **counters = chain;
     at_ssize  *to_use = NULL;
@@ -536,7 +537,7 @@ AMWAPI void riven_split(rivens_rift *riven, rivens_tear *tears, ssize splits, ri
     }
 }
 
-AMWAPI void riven_unchain(rivens_rift *riven, rivens_chain chain)
+AMWAPI void riven_unchain(struct riven *riven, rivens_chain_t chain)
 {
     at_ssize *counter = chain;
     ssize wait_value = 0;
@@ -561,13 +562,13 @@ AMWAPI void riven_unchain(rivens_rift *riven, rivens_chain chain)
     }
 }
 
-AMWAPI void riven_chain_exile(rivens_rift *riven, rivens_chain *chain)
+AMWAPI void riven_chain_exile(struct riven *riven, rivens_chain_t *chain)
 {
     at_ssize **counters = chain;
     *counters = get_lock(riven, 1);
 }
 
-AMWAPI void riven_unchain_exile(rivens_chain chain)
+AMWAPI void riven_unchain_exile(rivens_chain_t chain)
 {
     at_ssize *counter = chain;
     at_store_explicit(counter, 0ul, memory_model_release);
@@ -586,9 +587,9 @@ AMWAPI ssize riven_unveil_rift(
     assert_debug(fiber_stack_bytes > 1);
     assert_debug(fiber_count >= (thread_count << 1));
 
-    rivens_rift *riven = NULL;
+    struct riven *riven = NULL;
     {
-        ssize riven_bytes          = A16(sizeof(rivens_rift));
+        ssize riven_bytes          = A16(sizeof(struct riven));
         ssize cells_count          = 1ull << log_2_tear_count;
         ssize cells_bytes          = A16(sizeof(struct mpmc_cell) * cells_count);
         ssize tls_bytes            = A16(sizeof(struct tls)) * thread_count;
@@ -597,7 +598,7 @@ AMWAPI ssize riven_unveil_rift(
         ssize free_bytes           = A16(sizeof(ssize) * fiber_count);
         ssize lock_bytes           = A16(sizeof(ssize) * fiber_count);
         ssize thread_bytes         = A16(sizeof(thread_id) * thread_count);
-        ssize end_bytes            = A16(sizeof(rivens_tear) * thread_count);
+        ssize end_bytes            = A16(sizeof(struct rivens_tear) * thread_count);
         ssize stack_bytes          = A16(fiber_stack_bytes);
         ssize stack_heap_bytes     = stack_bytes * fiber_count;
         ssize bytes_alignment      = 15 + (RIVEN_STACK_GUARD);
@@ -620,7 +621,7 @@ AMWAPI ssize riven_unveil_rift(
         if (!riven_memory)
             return total_bytes;
 
-        riven = (rivens_rift *)A16((sptr)riven_memory);
+        riven = (struct riven *)A16((sptr)riven_memory);
         { /* zero */
             u8 *z = (u8 *)riven;
             for (ssize i = 0; i < total_bytes; i++) {
@@ -638,7 +639,7 @@ AMWAPI ssize riven_unveil_rift(
         riven->free    = (ssize *)              &raw[o]; o += free_bytes;
         riven->locks   = (ssize *)              &raw[o]; o += lock_bytes;
         riven->threads = (thread_id *)          &raw[o]; o += thread_bytes;
-        riven->ends    = (rivens_tear *)        &raw[o]; o += end_bytes;
+        riven->ends    = (struct rivens_tear *) &raw[o]; o += end_bytes;
 #if RIVEN_STACK_GUARD > 0
         riven->stack = (u8 *)((((sptr)&raw[o]) + (RIVEN_STACK_GUARD - 1)) & ~(RIVEN_STACK_GUARD - 1));
 #else
@@ -693,7 +694,7 @@ AMWAPI ssize riven_unveil_rift(
         .argument = main_argument,
     };
 
-    rivens_tear main_tear = {
+    struct rivens_tear main_tear = {
         .procedure = entrypoint,
         .argument = (void *)&main_data,
         .name = "riven:entrypoint",

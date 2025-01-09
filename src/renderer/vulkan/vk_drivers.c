@@ -6,7 +6,41 @@
 #include <stdlib.h> /* getenv, for MacOS */
 #endif
 
-static PFN_vkVoidFunction instance_proc_address(vulkan_instance_api *api, VkInstance instance, const char *procname)
+AMWAPI s32 cobalt_vulkan_entry_point(struct cobalt *cobalt, struct ipomoeaalba *ia)
+{
+    (void)ia; // TODO
+
+    struct vulkan_instance_api api;
+    iazero(api);
+
+    if (vulkan_open_driver(&api) == false)
+        return result_error_missing_shared_library;
+
+    struct vulkan_backend *vk = (struct vulkan_backend *)malloc(sizeof(struct vulkan_backend));
+    assert_debug(vk);
+
+    iazerop(vk);
+    vk->api = api;
+
+    /* TODO */
+    //vk->allocator = (VkAllocationCallbacks){};
+
+    cobalt->backend_api = cobalt_backend_api_vulkan;
+    cobalt->backend_name = "vulkan";
+    cobalt->backend = (void *)vk;
+
+    cobalt->calls = (struct cobalt_calls){
+        .renderer_init = cobalt_vulkan_renderer_init,
+        .renderer_fini = cobalt_vulkan_renderer_fini,
+        .create_swapchain_surface = cobalt_vulkan_create_swapchain_surface,
+        .construct_devices = cobalt_vulkan_construct_devices,
+        .destroy_devices = cobalt_vulkan_destroy_devices,
+    };
+
+    return result_success;
+}
+
+static PFN_vkVoidFunction instance_proc_address(struct vulkan_instance_api *api, VkInstance instance, const char *procname)
 {
     PFN_vkVoidFunction address = api->vkGetInstanceProcAddr(instance, procname);
     if (address == NULL) {
@@ -15,7 +49,7 @@ static PFN_vkVoidFunction instance_proc_address(vulkan_instance_api *api, VkInst
     return address;
 }
 
-static PFN_vkVoidFunction device_proc_address(vulkan_instance_api *api, VkDevice device, const char *procname)
+static PFN_vkVoidFunction device_proc_address(struct vulkan_instance_api *api, VkDevice device, const char *procname)
 {
     PFN_vkVoidFunction address = api->vkGetDeviceProcAddr(device, procname);
     if (address == NULL) {
@@ -24,7 +58,7 @@ static PFN_vkVoidFunction device_proc_address(vulkan_instance_api *api, VkDevice
     return address;
 }
 
-b32 vulkan_open_driver(vulkan_instance_api *api)
+b32 vulkan_open_driver(struct vulkan_instance_api *api)
 {
     api->module = NULL;
 
@@ -81,7 +115,7 @@ b32 vulkan_open_driver(vulkan_instance_api *api)
     return true;
 }
 
-void vulkan_close_driver(vulkan_instance_api *vk)
+void vulkan_close_driver(struct vulkan_instance_api *vk)
 {
     if (vk->module)
         bedrock_close_dll(vk->module);
@@ -91,9 +125,9 @@ void vulkan_close_driver(vulkan_instance_api *vk)
 }
 
 s32 vulkan_load_instance_api_procedures(
-    vulkan_instance_api *api, 
-    VkInstance           instance,
-    u32                  instance_extensions)
+    struct vulkan_instance_api *api, 
+    VkInstance                  instance,
+    u32                         instance_extensions)
 {
     api->vkCreateDevice = (PFN_vkCreateDevice)(void *)instance_proc_address(api, instance, "vkCreateDevice");
     api->vkDestroyInstance = (PFN_vkDestroyInstance)(void *)instance_proc_address(api, instance, "vkDestroyInstance");
@@ -260,11 +294,11 @@ s32 vulkan_load_instance_api_procedures(
 }
 
 s32 vulkan_load_device_api_procedures(
-    vulkan_instance_api *vk,
-    vulkan_device_api   *api,
-    VkDevice             device,
-    u32                  device_api_version,
-    u32                  device_extensions)
+    struct vulkan_instance_api *vk,
+    struct vulkan_device_api   *api,
+    VkDevice                    device,
+    u32                         device_api_version,
+    u32                         device_extensions)
 {
     /* core 1.0 */
 	api->vkAllocateCommandBuffers = (PFN_vkAllocateCommandBuffers)(void *)device_proc_address(vk, device, "vkAllocateCommandBuffers");
@@ -622,14 +656,6 @@ s32 vulkan_load_device_api_procedures(
             return result_error_missing_procedure;
     }
 #endif /* VK_EXT_device_fault */
-#if defined(VK_AMD_shader_info)
-    if (device_extensions & vulkan_extension_amd_shader_info_bit) {
-        api->vkGetShaderInfoAMD = (PFN_vkGetShaderInfoAMD)(void *)device_proc_address(vk, device, "vkGetShaderInfoAMD");
-
-        if (!api->vkGetShaderInfoAMD)
-            return result_error_missing_procedure;
-    }
-#endif /* VK_AMD_shader_info */
 #if defined(VK_KHR_deferred_host_operations)
     if (device_extensions & vulkan_extension_deferred_host_operations_bit) {
         api->vkCreateDeferredOperationKHR = (PFN_vkCreateDeferredOperationKHR)(void *)device_proc_address(vk, device, "vkCreateDeferredOperationKHR");

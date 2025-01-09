@@ -53,21 +53,22 @@ enum vulkan_extensions {
     vulkan_extension_device_fault_bit                       = (1u << 1),  /**< VK_EXT_device_fault */
     vulkan_extension_memory_budget_bit                      = (1u << 2),  /**< VK_EXT_memory_budget */
     vulkan_extension_memory_priority_bit                    = (1u << 3),  /**< VK_EXT_memory_priority */
-    vulkan_extension_amd_shader_info_bit                    = (1u << 4),  /**< VK_AMD_shader_info */
     vulkan_extension_deferred_host_operations_bit           = (1u << 5),  /**< VK_KHR_deferred_host_operations */
     vulkan_extension_acceleration_structure_bit             = (1u << 6),  /**< VK_KHR_acceleration_structure */
     vulkan_extension_ray_query_bit                          = (1u << 7),  /**< VK_KHR_ray_query */
+    /* AMD hardware */
+    vulkan_extension_amd_device_coherent_memory_bit         = (1u << 17), /**< VK_AMD_device_coherent_memory */
     /* core 1.4, for backwards compatibility */
-    vulkan_extension_dynamic_rendering_local_read_bit       = (1u << 8),  /**< VK_KHR_dynamic_rendering_local_read */
+    vulkan_extension_dynamic_rendering_local_read_bit       = (1u << 20), /**< VK_KHR_dynamic_rendering_local_read */
     /* core 1.3, for backwards compatibility */
-    vulkan_extension_dynamic_rendering_bit                  = (1u << 9),  /**< VK_KHR_dynamic_rendering */
+    vulkan_extension_dynamic_rendering_bit                  = (1u << 21), /**< VK_KHR_dynamic_rendering */
 };
 #define vulkan_extension_mask_raytracing \
     (vulkan_extension_deferred_host_operations_bit | \
      vulkan_extension_acceleration_structure_bit | \
      vulkan_extension_ray_query_bit)
 
-typedef struct vulkan_instance_api {
+struct vulkan_instance_api {
     void                                                   *module;
     PFN_vkGetInstanceProcAddr                               vkGetInstanceProcAddr;
     PFN_vkGetDeviceProcAddr                                 vkGetDeviceProcAddr;
@@ -150,11 +151,11 @@ typedef struct vulkan_instance_api {
     PFN_vkDestroyDebugUtilsMessengerEXT                     vkDestroyDebugUtilsMessengerEXT;
     PFN_vkSubmitDebugUtilsMessageEXT                        vkSubmitDebugUtilsMessageEXT;
 #endif /* VK_EXT_debug_utils */
-} vulkan_instance_api;
+};
 
 /** Collects Vulkan device procedures and extensions. A minimal Vulkan target is version 1.2 with 
  *  dynamic_rendering and dynamic_rendering_local_read extensions. */
-typedef struct vulkan_device_api {
+struct vulkan_device_api {
     /* core 1.0 */
 	PFN_vkAllocateCommandBuffers                                vkAllocateCommandBuffers;
 	PFN_vkAllocateDescriptorSets                                vkAllocateDescriptorSets;
@@ -321,9 +322,6 @@ typedef struct vulkan_device_api {
 #if defined(VK_EXT_device_fault)
     PFN_vkGetDeviceFaultInfoEXT                                 vkGetDeviceFaultInfoEXT;
 #endif /* VK_EXT_device_fault */
-#if defined(VK_AMD_shader_info)
-    PFN_vkGetShaderInfoAMD                                      vkGetShaderInfoAMD;
-#endif /* VK_AMD_shader_info */
 #if defined(VK_KHR_deferred_host_operations)
     PFN_vkCreateDeferredOperationKHR                            vkCreateDeferredOperationKHR;
     PFN_vkDeferredOperationJoinKHR                              vkDeferredOperationJoinKHR;
@@ -349,12 +347,20 @@ typedef struct vulkan_device_api {
     PFN_vkGetDeviceAccelerationStructureCompatibilityKHR        vkGetDeviceAccelerationStructureCompatibilityKHR;
     PFN_vkWriteAccelerationStructuresPropertiesKHR              vkWriteAccelerationStructuresPropertiesKHR;
 #endif /* VK_KHR_acceleration_structure */
-} vulkan_device_api;
+};
 
-extern b32 vulkan_open_driver(vulkan_instance_api *vk);
-extern void vulkan_close_driver(vulkan_instance_api *vk);
-extern s32 vulkan_load_instance_api_procedures(vulkan_instance_api *vk, VkInstance instance, u32 instance_extensions);
-extern s32 vulkan_load_device_api_procedures(vulkan_instance_api *vk, vulkan_device_api *api, VkDevice device, u32 device_api_version, u32 device_extensions);
+extern b32 vulkan_open_driver(struct vulkan_instance_api *vk);
+extern void vulkan_close_driver(struct vulkan_instance_api *vk);
+extern s32 vulkan_load_instance_api_procedures(
+    struct vulkan_instance_api *vk, 
+    VkInstance                  instance, 
+    u32                         instance_extensions);
+extern s32 vulkan_load_device_api_procedures(
+    struct vulkan_instance_api *vk, 
+    struct vulkan_device_api   *api, 
+    VkDevice                    device, 
+    u32                         device_api_version, 
+    u32                         device_extensions);
 
 #if !defined(AMW_NDEBUG)
     #define VERIFY_VK(x) { \
@@ -371,7 +377,7 @@ extern s32 vulkan_load_device_api_procedures(vulkan_instance_api *vk, vulkan_dev
  *  itself, our window surface and image views for images in the swapchain. The swapchain depends
  *  on the device, but we only need one, thus the main device will be responsible for controlling
  *  the swapchain. It's changed substantially whenever the window framebuffer resolution changes. */
-typedef struct vulkan_swapchain {
+struct vulkan_swapchain {
     VkSwapchainKHR          sc;
     VkSurfaceKHR            surface;
     VkFormat                format;
@@ -381,16 +387,16 @@ typedef struct vulkan_swapchain {
     VkPresentModeKHR       *present_modes;
     VkImage                *images;
     VkImageView            *image_views;
-    arena_allocator         arena;
+    struct arena_allocator  arena;
 
     u32                     surface_format_count;
     u32                     present_mode_count;
     u32                     image_count;
-} vulkan_swapchain;
+};
 
 /** Holds the shared state of the Vulkan backend. This includes a VkInstance, instance-dependent API
  *  procedures, the swapchain and debug messengers or other non-device specific callbacks. */
-typedef struct vulkan_backend {
+struct vulkan_backend {
     /** This object makes Vulkan functions available to us. It's used for driver 
      *  calls, that are independent of any particular VkDevice. */
     VkInstance                  instance;
@@ -402,14 +408,14 @@ typedef struct vulkan_backend {
 #endif
 
     /* we support only one window, thus one swapchain for main device is enough */
-    vulkan_swapchain            swapchain;
+    struct vulkan_swapchain     swapchain;
     u32                         extensions;
-    vulkan_instance_api         api;
-} vulkan_backend;
+    struct vulkan_instance_api  api;
+};
 
 /** The context of a rendering device, explicitly used within backend cobalt 
  *  calls and representing an individual GPU. */
-typedef struct vulkan_device {
+struct vulkan_device {
     at_u64                              flags;
 
     /** The vulkan object for the physical device below. */
@@ -436,13 +442,13 @@ typedef struct vulkan_device {
      *  The max swapchain images will be equal to 3, that's also due to the parallel gameloop workload.
      *  The individual pointers (graphics, compute, transfer) point inside the array, and the command 
      *  pools will be shared between queues of the same queue family idx. */
-    VkCommandPool                      *raw_command_pools;          
-    ssize                               raw_command_pool_count;
-    ssize                               queue_command_pool_count;   /**< Used to iterate through <queue>_command_pools. */
+    VkCommandPool      *raw_command_pools;          
+    u32                 raw_command_pool_count;
+    u32                 queue_command_pool_count;   /**< Used to iterate through <queue>_command_pools. */
 
-    VkCommandPool                      *graphics_command_pools;
-    VkCommandPool                      *compute_command_pools;
-    VkCommandPool                      *transfer_command_pools;
+    VkCommandPool      *graphics_command_pools;
+    VkCommandPool      *compute_command_pools;
+    VkCommandPool      *transfer_command_pools;
 
     /** Command queues supporting the features we'll be using. The Vulkan spec guarantees, that if 
      *  a GPU supports draw commands (no reason why wouldn't it??), atleast one queue with graphics, 
@@ -457,28 +463,28 @@ typedef struct vulkan_device {
      *  query for them during initialization - if no async queues are available to us, the compute or 
      *  transfer queues will fallback to use the graphics queue instead, and we will be doing the 
      *  synchronization for submiting our command buffers to the queues ourselfes. */
-    VkQueue                             graphics_queue;
-    VkQueue                            *compute_queues;             /**< We will request an async compute queue family, or use the graphics queue instead. */
-    VkQueue                            *transfer_queues;            /**< We will request a transfer-only queue family, or use the graphics queue instead. */
-    ssize                               compute_queue_count;        /**< If 0, the compute queue shares the graphics queue. */
-    ssize                               transfer_queue_count;       /**< If 0, the transfer queue shares the graphics queue. */
+    VkQueue            graphics_queue;
+    VkQueue            *compute_queues;             /**< We will request an async compute queue family, or use the graphics queue instead. */
+    VkQueue            *transfer_queues;            /**< We will request a transfer-only queue family, or use the graphics queue instead. */
+    u32                 compute_queue_count;        /**< If 0, the compute queue shares the graphics queue. */
+    u32                 transfer_queue_count;       /**< If 0, the transfer queue shares the graphics queue. */
 
     /** Indices of different queue families where our queues were created. For comparing if 
      *  compute or transfer are using an unique async queue family, it's enough to just compare 
      *  with the index of the graphics queue family, as compute and transfer queue families will 
      *  only ever be equal (in the context of our rendering backend) if they share the same family 
      *  as our graphics queue. It will simplify some stuff, so i'll take that as a rule of thumb. */
-    u32                                 graphics_queue_family_idx;
-    u32                                 compute_queue_family_idx;
-    u32                                 transfer_queue_family_idx;
+    u32                 graphics_queue_family_idx;
+    u32                 compute_queue_family_idx;
+    u32                 transfer_queue_family_idx;
 
     /** Bits to check support for extensions that interest us. Set during device creation, and then read-only. */
-    u32                                 extensions;
-    vulkan_device_api                   api;
-} vulkan_device;
+    u32                      extensions;
+    struct vulkan_device_api api;
+};
 
 /** Holds information needed to request construction of an image. */
-typedef struct vulkan_image_request {
+struct vulkan_image_request {
     /** Complete image creation info. If the number of mip levels is set to zero,
      *  it will be automatically set using vulkan_get_mipmap_count_3d(). */ 
     VkImageCreateInfo image_info;
@@ -487,34 +493,34 @@ typedef struct vulkan_image_request {
      *  match the corresponding values of the image. If sType is not 
      *  VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO, creation of the view is skipped. */
     VkImageViewCreateInfo view_info;
-} vulkan_image_request;
+};
 
 /* vk_device.c */
 AMWAPI s32 cobalt_vulkan_renderer_init(
-    cobalt          *co, 
-    ipomoeaalba     *ia, 
-    hadopelagic     *hadal, 
-    const char      *application_name, 
-    u32              application_version, 
-    arena_allocator *temp_arena);
+    struct cobalt          *cobalt, 
+    struct ipomoeaalba     *ia, 
+    struct hadopelagic     *hadal, 
+    const char             *application_name, 
+    u32                     application_version, 
+    struct arena_allocator *temp_arena);
 
 /* vk_device.c */
-AMWAPI void cobalt_vulkan_renderer_fini(cobalt *co);
+AMWAPI void cobalt_vulkan_renderer_fini(struct cobalt *cobalt);
 
 /* vk_surface.c */
-AMWAPI s32 cobalt_vulkan_create_swapchain_surface(cobalt *co, hadopelagic *hadal);
+AMWAPI s32 cobalt_vulkan_create_swapchain_surface(struct cobalt *cobalt, struct hadopelagic *hadal);
 
 /* vk_device.c */
 AMWAPI s32 cobalt_vulkan_construct_devices(
-    cobalt          *co,
-    rivens_rift     *riven,
-    thread_id       *threads,
-    ssize            thread_count,
-    s32              preferred_main_device_idx,
-    s32              max_device_count,
-    arena_allocator *temp_arena);
+    struct cobalt          *cobalt,
+    struct riven           *riven,
+    thread_id              *threads,
+    ssize                   thread_count,
+    s32                     preferred_main_device_idx,
+    s32                     max_device_count,
+    struct arena_allocator *temp_arena);
 
 /* vk_device.c */
-AMWAPI void cobalt_vulkan_destroy_devices(cobalt *co);
+AMWAPI void cobalt_vulkan_destroy_devices(struct cobalt *cobalt);
 
 #endif /* _AMW_COBALT_VULKAN_H */

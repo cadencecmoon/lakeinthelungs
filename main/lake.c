@@ -57,9 +57,9 @@ void lake_in_the_lungs_cleanup__(
 
 int amw_main(struct amw_hints *hints, int argc, char **argv)
 {
-    hints->app_name = "Jezioro w Plucach";
+    hints->app_name = "Lake in the Lungs";
     hints->version = AMW_VERSION_NUM(AMW_VERSION_MAJOR, AMW_VERSION_MINOR, AMW_VERSION_REVISION);
-    hints->window_title = "Lake in the Lungs";
+    hints->window_title = hints->app_name;
     hints->window_width = 1200;
     hints->window_height = 800;
 

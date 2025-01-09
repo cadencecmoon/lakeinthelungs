@@ -83,18 +83,18 @@ AMWAPI void *iamemset(void *dest, s32 c, ssize n)
     return dest;
 }
 
-AMWAPI s32 iainit(ipomoeaalba *ia)
+AMWAPI s32 iainit(struct ipomoeaalba *ia)
 {
     (void)ia;
     return result_success;
 }
 
-AMWAPI void iafini(ipomoeaalba *ia)
+AMWAPI void iafini(struct ipomoeaalba *ia)
 {
     (void)ia;
 }
 
-AMWAPI void *iaalloc(ipomoeaalba *ia, ssize size, ssize alignment, u64 tag)
+AMWAPI void *iaalloc(struct ipomoeaalba *ia, ssize size, ssize alignment, u64 tag)
 {
     (void)ia;
     (void)size;
@@ -103,7 +103,7 @@ AMWAPI void *iaalloc(ipomoeaalba *ia, ssize size, ssize alignment, u64 tag)
     return NULL;
 }
 
-AMWAPI void *iarealloc(ipomoeaalba *ia, void *allocation, ssize size, ssize alignment, u64 tag)
+AMWAPI void *iarealloc(struct ipomoeaalba *ia, void *allocation, ssize size, ssize alignment, u64 tag)
 {
     (void)ia;
     (void)allocation;
@@ -113,7 +113,7 @@ AMWAPI void *iarealloc(ipomoeaalba *ia, void *allocation, ssize size, ssize alig
     return NULL;
 }
 
-AMWAPI void iafree(ipomoeaalba *ia, u64 tag)
+AMWAPI void iafree(struct ipomoeaalba *ia, u64 tag)
 {
     (void)ia;
     (void)tag;

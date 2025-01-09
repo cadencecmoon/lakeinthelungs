@@ -107,10 +107,10 @@ extern "C" {
  */
 
 /** Opaque handle for the fiber job system's context. */
-typedef struct rivens_rift rivens_rift;
+struct riven;
 
 typedef void (*PFN_riven_tear)(void *argument);
-typedef void (*PFN_riven_main)(rivens_rift *riven, thread_id *threads, ssize thread_count, void *argument);
+typedef void (*PFN_riven_main)(struct riven *riven, thread_id *threads, ssize thread_count, void *argument);
 
 #define RIVENS_TEAR(tear, arg) \
      void tear(arg)
@@ -121,43 +121,43 @@ typedef void (*PFN_riven_main)(rivens_rift *riven, thread_id *threads, ssize thr
  *  a job queue. It will block any wait calls to Riven, until
  *  all jobs bound to the chain are finished. In short, it's 
  *  used as a synchronization primitive for the job system. */
-typedef at_ssize *rivens_chain;
+typedef at_ssize *rivens_chain_t;
 
 /** A job for the fiber context */
-typedef struct rivens_tear {
+struct rivens_tear {
     PFN_riven_tear procedure;
     void          *argument;
     const char    *name;
-} rivens_tear;
+};
 
 #ifndef AMW_NO_PROTOTYPES
 
 /** Runs 'splits' amount of jobs, passed in the flat array 'tears'.
  *  Waits for them to finish, before returning. So, this will block 
  *  until all jobs have been handled. */
-AMWAPI void riven_split_and_unchain(rivens_rift *riven, rivens_tear *tears, ssize splits);
+AMWAPI void riven_split_and_unchain(struct riven *riven, struct rivens_tear *tears, ssize splits);
 
 /** Run 'splits' amount of jobs, passed in the flat array 'tears'.
  *  This will return immediately, and the jobs will be handled in 
  *  the background in parallel. If 'chain' is not null, it will 
  *  be set to a value that can be used to wait for a bound split 
  *  to finish the tears. */
-AMWAPI void riven_split(rivens_rift *riven, rivens_tear *tears, ssize splits, rivens_chain *chain);
+AMWAPI void riven_split(struct riven *riven, struct rivens_tear *tears, ssize splits, rivens_chain_t *chain);
 
 /** If chain is not null, then wait for all of the jobs bound to 
  *  a given chain to finish. If the chain is null, then the call 
  *  may or may not be yield to the job system before returning. */
-AMWAPI void riven_unchain(rivens_rift *riven, rivens_chain chain);
+AMWAPI void riven_unchain(struct riven *riven, rivens_chain_t chain);
 
 /** Used to get an exiled chain that's not bound to any working 
  *  tears. The chain will become a bound state and block any call 
  *  to 'riven_unchain' until 'riven_unchain_exile' is called. */
-AMWAPI void riven_chain_exile(rivens_rift *riven, rivens_chain *chain);
+AMWAPI void riven_chain_exile(struct riven *riven, rivens_chain_t *chain);
 
 /** Used to mark an exiled chain as unbound. Once called, the 
  *  chain is now invalid and should not be used in any future
  *  chain/unchain nor split calls - implies risk of fiber leaks. */
-AMWAPI void riven_unchain_exile(rivens_chain chain);
+AMWAPI void riven_unchain_exile(rivens_chain_t chain);
 
 /** This function serves as the entry point to the fiber job system.
  *  Riven's memory will be initialized using a standard malloc.

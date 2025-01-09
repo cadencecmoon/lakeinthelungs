@@ -10,13 +10,13 @@
 extern "C" {
 #endif
 
-typedef struct silver silver;
+struct silver;
 
 /** Entry point to the Silver audio backend. 
  *  @return True if loading the backend module and procedures was successful.
  *  Creating a possible backend from middleware like OpenAL, Wwise or FMOD, or other proprietary 
  *  APIs like Steinberg ASIO, should be straightforward if an application wishes to support them. */
-typedef s32 (*PFN_silver_entry_point)(silver *silv, ipomoeaalba *ia);
+typedef s32 (*PFN_silver_entry_point)(struct silver *silv, struct ipomoeaalba *ia);
 
 /** An enumeration to identify the API used for accessing audio on the system.
  *  This can be either native audio drivers, APIs of audio servers or audio middleware.
@@ -36,10 +36,10 @@ enum silver_backend_api {
     silver_backend_api_custom = 0x20,
 };
 
-AMWAPI s32 silver_pipewire_entry_point(silver *silv, ipomoeaalba *ia);
-AMWAPI s32 silver_dummy_entry_point(silver *silv, ipomoeaalba *ia);
+AMWAPI s32 silver_pipewire_entry_point(struct silver *silv, struct ipomoeaalba *ia);
+AMWAPI s32 silver_dummy_entry_point(struct silver *silv, struct ipomoeaalba *ia);
 /** Select the first appropriate audio backend supported by this build. */
-AMWAPI s32 silver_entry_point(silver *silv, ipomoeaalba *ia);
+AMWAPI s32 silver_entry_point(struct silver *silv, struct ipomoeaalba *ia);
 
 /** A context for the audio backend. Internally uses native APIs and audio servers. */
 struct silver {
@@ -48,9 +48,6 @@ struct silver {
     u32         backend_api;    /**< Either enum silver_backend_api or a custom identifier. */
     const char *backend_name;   /**< A readable name of the running audio backend, for logging purposes. */
 };
-
-#ifndef AMW_NO_PROTOTYPES
-#endif /* AMW_NO_PROTOTYPES */
 
 #ifdef __cplusplus
 }

@@ -7,21 +7,21 @@
 extern "C" {
 #endif
 
-#define str(s) (str){(str *)s, lengthof(s)}
-typedef struct str {
+#define string(s) (struct string){(struct string *)s, lengthof(s)}
+struct string {
     u8   *data;
     ssize len;
-} str;
+};
 
-typedef struct strlist {
+struct strlist {
     struct strlist *next;
-    struct str      item;
-} strlist;
+    struct string   item;
+};
 
-typedef struct strpair {
-    str head;
-    str tail;
-} strpair;
+struct strpair {
+    struct string head;
+    struct string tail;
+};
 
 // TODO
 

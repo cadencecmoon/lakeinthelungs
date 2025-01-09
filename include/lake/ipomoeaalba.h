@@ -7,18 +7,16 @@
 extern "C" {
 #endif
 
-typedef struct ipomoeaalba ipomoeaalba;
-
 /* TODO tagged heap memory allocator */
 struct ipomoeaalba {
     int todo;
 };
 
-AMWAPI s32 iainit(ipomoeaalba *ia);
-AMWAPI void iafini(ipomoeaalba *ia);
-AMWAPI void *iaalloc(ipomoeaalba *ia, ssize size, ssize alignment, u64 tag);
-AMWAPI void *iarealloc(ipomoeaalba *ia, void *alloc, ssize size, ssize alignment, u64 tag);
-AMWAPI void iafree(ipomoeaalba *ia, u64 tag);
+AMWAPI s32 iainit(struct ipomoeaalba *ia);
+AMWAPI void iafini(struct ipomoeaalba *ia);
+AMWAPI void *iaalloc(struct ipomoeaalba *ia, ssize size, ssize alignment, u64 tag);
+AMWAPI void *iarealloc(struct ipomoeaalba *ia, void *alloc, ssize size, ssize alignment, u64 tag);
+AMWAPI void iafree(struct ipomoeaalba *ia, u64 tag);
 
 /** Sets bits of a memory region of size n as c. */
 AMWAPI void *iamemset(void *dest, s32 c, ssize n);

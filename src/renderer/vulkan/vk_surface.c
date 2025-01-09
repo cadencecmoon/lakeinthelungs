@@ -12,7 +12,7 @@
 #endif /* AMW_PLATFORM_ANDROID */
 
 #ifdef AMW_NATIVE_WAYLAND
-static s32 create_surface_wayland(vulkan_backend *vk, struct wl_display *display, struct wl_surface *surface)
+static s32 create_surface_wayland(struct vulkan_backend *vk, struct wl_display *display, struct wl_surface *surface)
 {
     VkWaylandSurfaceCreateInfoKHR wayland_surface_info = {
         .sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR,
@@ -35,9 +35,9 @@ static s32 create_surface_wayland(vulkan_backend *vk, struct wl_display *display
 #ifdef AMW_NATIVE_DRM
 #endif /* AMW_NATIVE_DRM */
 
-AMWAPI s32 cobalt_vulkan_create_swapchain_surface(cobalt *co, hadopelagic *hadal)
+AMWAPI s32 cobalt_vulkan_create_swapchain_surface(struct cobalt *cobalt, struct hadopelagic *hadal)
 {
-    vulkan_backend *vk = (vulkan_backend *)co->renderer;
+    struct vulkan_backend *vk = (struct vulkan_backend *)cobalt->backend;
 
     if (vk->instance == VK_NULL_HANDLE || !hadal->calls.expose_native_window)
         return result_error_invalid_engine_context;

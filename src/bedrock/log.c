@@ -1,3 +1,4 @@
+#include <lake/bedrock/assert.h>
 #include <lake/bedrock/atomic.h>
 #include <lake/bedrock/log.h>
 
@@ -27,7 +28,7 @@ static const char *level_colors[] = {
     "\x1b[0m",
     "\x1b[0m",
 #else
-    "\033[38;5;240m", 
+    "\033[38;5;8m", 
     "\033[38;5;215m", //"\033[38;5;209m", 
     "\x1b[0m",
     "\033[38;5;167m", 

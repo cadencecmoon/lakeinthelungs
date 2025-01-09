@@ -16,11 +16,11 @@ extern "C" {
 #endif
 
 /* forward declarations */
-typedef struct cobalt cobalt;
+struct cobalt;
 
 /** Entry point to the rendering backend. 
  *  @return True if loading the backend module and procedures was successful. */
-typedef s32 (*PFN_cobalt_entry_point)(cobalt *co, ipomoeaalba *ia);
+typedef s32 (*PFN_cobalt_entry_point)(struct cobalt *cobalt, struct ipomoeaalba *ia);
 
 enum cobalt_backend_api {
     cobalt_backend_api_vulkan = 0,
@@ -32,47 +32,47 @@ enum cobalt_backend_api {
     cobalt_backend_api_custom = 0x20,
 };
 
-AMWAPI s32 cobalt_vulkan_entry_point(cobalt *co, ipomoeaalba *ia);
-AMWAPI s32 cobalt_mock_entry_point(cobalt *co, ipomoeaalba *ia);
+AMWAPI s32 cobalt_vulkan_entry_point(struct cobalt *cobalt, struct ipomoeaalba *ia);
+AMWAPI s32 cobalt_mock_entry_point(struct cobalt *cobalt, struct ipomoeaalba *ia);
 /** Select the first appropriate rendering backend supported by this build. */
-AMWAPI s32 cobalt_entry_point(cobalt *co, ipomoeaalba *ia);
+AMWAPI s32 cobalt_entry_point(struct cobalt *cobalt, struct ipomoeaalba *ia);
 
 /** Initialize the internal rendering backend. */
 typedef s32 (*PFN_cobalt_renderer_init)(
-    cobalt          *co, 
-    ipomoeaalba     *ia, 
-    hadopelagic     *hadal, 
-    const char      *application_name, 
-    u32              application_version, 
-    arena_allocator *temp_arena);
+    struct cobalt          *cobalt, 
+    struct ipomoeaalba     *ia, 
+    struct hadopelagic     *hadal, 
+    const char             *application_name, 
+    u32                     application_version, 
+    struct arena_allocator *temp_arena);
 
 /** Finalize the internal rendering backend. */
-typedef void (*PFN_cobalt_renderer_fini)(cobalt *co);
+typedef void (*PFN_cobalt_renderer_fini)(struct cobalt *cobalt);
 
 /** Using the display backend, create a swapchain surface we can draw to. */
-typedef s32 (*PFN_cobalt_create_swapchain_surface)(cobalt *co, hadopelagic *hadal);
+typedef s32 (*PFN_cobalt_create_swapchain_surface)(struct cobalt *cobalt, struct hadopelagic *hadal);
 
 /** Create new rendering devices from physical GPUs for this backend. */
 typedef s32 (*PFN_cobalt_construct_devices)(
-    cobalt          *co,
-    rivens_rift     *riven,
-    thread_id       *threads,
-    ssize            thread_count,
-    s32              preferred_main_device_idx,
-    s32              max_device_count,
-    arena_allocator *temp_arena);
+    struct cobalt          *cobalt,
+    struct riven           *riven,
+    thread_id              *threads,
+    ssize                   thread_count,
+    s32                     preferred_main_device_idx,
+    s32                     max_device_count,
+    struct arena_allocator *temp_arena);
 
 /** Destroy all existing rendering devices for this backend. */
-typedef void (*PFN_cobalt_destroy_devices)(cobalt *co);
+typedef void (*PFN_cobalt_destroy_devices)(struct cobalt *cobalt);
 
 /** Internal calls to be implemented by a rendering backend and assigned from the entry point. */
-typedef struct {
+struct cobalt_calls {
     PFN_cobalt_renderer_init            renderer_init;
     PFN_cobalt_renderer_fini            renderer_fini;
     PFN_cobalt_create_swapchain_surface create_swapchain_surface;
     PFN_cobalt_construct_devices        construct_devices;
     PFN_cobalt_destroy_devices          destroy_devices;
-} cobalt_calls;
+};
 
 /** Boolean flags describing the state of the rendering context. */
 enum cobalt_flags {
@@ -101,25 +101,25 @@ enum cobalt_device_flags {
 
 /** The renderer. */
 struct cobalt {
-    at_s32           flags;          /**< Any write-modify operations outside the backend must be externally synchronized. */
+    at_s32                  flags;          /**< Any write-modify operations outside the backend must be externally synchronized. */
 
-    void            *renderer;       /**< A rendering context shared between devices. */
-    void            *devices;        /**< An array of rendering devices, representing an execution context per GPU. The device of idx 0 is always the main GPU. */
-    u32              device_count;   /**< How many devices are available in the renderer. This value will not change during the lifetime of a rendering backend. */
+    void                   *backend;        /**< A rendering context shared between devices. */
+    void                   *devices;        /**< An array of rendering devices, representing an execution context per GPU. The device of idx 0 is always the main GPU. */
+    u32                     device_count;   /**< How many devices are available in the renderer. This value will not change during the lifetime of a rendering backend. */
 
-    u32              backend_api;    /**< Either enum cobalt_backend_api or a custom identifier. */
-    const char      *backend_name;   /**< A readable name of the running rendering backend, for logging purposes. */
-    cobalt_calls     calls;
+    u32                     backend_api;    /**< Either enum cobalt_backend_api or a custom identifier. */
+    const char             *backend_name;   /**< A readable name of the running rendering backend, for logging purposes. */
+    struct cobalt_calls     calls;
 };
 
 #ifndef AMW_NO_PROTOTYPES
 
 AMWAPI s32 cobalt_init(
     PFN_cobalt_entry_point entry_point__,
-    cobalt                *co, 
-    ipomoeaalba           *ia,
-    hadopelagic           *hadal, 
-    rivens_rift           *riven,
+    struct cobalt         *cobalt, 
+    struct ipomoeaalba    *ia,
+    struct hadopelagic    *hadal, 
+    struct riven          *riven,
     const char            *application_name,
     u32                    application_version,
     thread_id             *threads,
@@ -127,7 +127,7 @@ AMWAPI s32 cobalt_init(
     s32                    preferred_main_device_idx,
     s32                    max_device_count);
 
-AMWAPI void cobalt_fini(cobalt *co);
+AMWAPI void cobalt_fini(struct cobalt *cobalt);
 
 #endif /* AMW_NO_PROTOTYPES */
 

@@ -4,6 +4,7 @@
 #include <lake/bedrock/defines.h>
 
 #include <lake/bedrock/align.h>
+#include <lake/bedrock/assert.h>
 #include <lake/bedrock/atomic.h>
 #include <lake/bedrock/endian.h>
 #include <lake/bedrock/log.h>
@@ -34,25 +35,25 @@
 extern "C" {
 #endif
 
-typedef struct a_moonlit_walk a_moonlit_walk; /* forward declaration */
+struct a_moonlit_walk; /* forward declaration */
 
 /** Holds per-frame memory, pointer to the engine context and data needed to calculate and present a frame. */
-typedef struct amw_workload {
+struct amw_workload {
     u32                        idx;
     f64                        dt;
 
-    a_moonlit_walk            *AMW;
+    struct a_moonlit_walk     *AMW;
     const struct amw_workload *last_work;
-} amw_workload;
+};
 
-typedef s32  (*PFN_amw_init)( a_moonlit_walk *AMW, amw_workload *work, u32 frame_count, void *context);
-typedef s32  (*PFN_amw_simulation)(a_moonlit_walk *AMW, amw_workload *work, void *context);
-typedef s32  (*PFN_amw_rendering)(a_moonlit_walk *AMW, amw_workload *work, void *context);
-typedef s32  (*PFN_amw_gpuexec)(a_moonlit_walk *AMW, amw_workload *work, void *context);
-typedef void (*PFN_amw_cleanup)(a_moonlit_walk *AMW, void *context);
+typedef s32  (*PFN_amw_init)(struct a_moonlit_walk *AMW, struct amw_workload *work, u32 frame_count, void *context);
+typedef s32  (*PFN_amw_simulation)(struct a_moonlit_walk *AMW, struct amw_workload *work, void *context);
+typedef s32  (*PFN_amw_rendering)(struct a_moonlit_walk *AMW, struct amw_workload *work, void *context);
+typedef s32  (*PFN_amw_gpuexec)(struct a_moonlit_walk *AMW, struct amw_workload *work, void *context);
+typedef void (*PFN_amw_cleanup)(struct a_moonlit_walk *AMW, void *context);
 
 /** Data used for configuring the framework from the application space. */
-typedef struct amw_hints {
+struct amw_hints {
     const char *app_name;
     u32         version;
 
@@ -69,7 +70,7 @@ typedef struct amw_hints {
 
     struct {
         PFN_hadal_entry_point  hadal;
-        PFN_cobalt_entry_point co;
+        PFN_cobalt_entry_point cobalt;
         PFN_silver_entry_point silv;
     } entry_points;
 
@@ -80,7 +81,7 @@ typedef struct amw_hints {
         PFN_amw_gpuexec     gpuexec;
         PFN_amw_cleanup     cleanup;
     } callbacks;
-} amw_hints;
+};
 
 /** Used to control the framework's gameloop. */
 enum amw_flags {
@@ -94,21 +95,21 @@ enum amw_flags {
 struct a_moonlit_walk {
     at_u32       flags;
 
-    ipomoeaalba  ia;
-    hadopelagic  hadal;
-    silver       silv;
-    cobalt       co;
+    struct ipomoeaalba  ia;
+    struct hadopelagic  hadal;
+    struct silver       silv;
+    struct cobalt       cobalt;
 
-    rivens_rift *riven;
-    thread_id   *threads;
-    ssize        thread_count;
+    struct riven   *riven;
+    thread_id      *threads;
+    ssize           thread_count;
 
-    const amw_hints *hints;
+    const struct amw_hints *hints;
 };
 
 /** Entry point for the framework. */
-AMWAPI s32 a_moonlit_walk__(
-    s32 (*main__)(amw_hints *hints, s32 argc, char **argv),
+AMWAPI s32 a_moonlit_walk(
+    s32 (*main__)(struct amw_hints *hints, s32 argc, char **argv),
     s32 argc, char **argv);
 
 #ifdef A_MOONLIT_WALK_MAIN
@@ -171,7 +172,7 @@ int WINAPI WinMain(
     int32_t res, argc_utf8 = 0;
     char **argv_utf8 = command_line_to_utf8_argv(GetCommandLineW(), &argc_utf8);
 
-    res = a_moonlit_walk__(amw_main, argc_utf8, argv_utf8);
+    res = a_moonlit_walk(amw_main, argc_utf8, argv_utf8);
     free(argv_utf8);
     return res;
 }
@@ -197,7 +198,7 @@ JNIEXPORT void ANativeActivity_onCreate(
 #else
 int main(int argc, char **argv) 
 {
-    return a_moonlit_walk__(amw_main, argc, argv);
+    return a_moonlit_walk(amw_main, argc, argv);
 }
 #endif
 #endif /* A_MOONLIT_WALK_MAIN */

@@ -3,9 +3,6 @@
 
 #include <lake/bedrock/defines.h>
 
-/** A handle for representing a worker thread. */
-typedef u64 thread_id;
-
 /** Load the dynamic library into memory. */
 AMWAPI void *bedrock_load_dll(const char *libname);
 
@@ -23,6 +20,9 @@ AMWAPI u64 bedrock_rtc_frequency(void);
 
 /** Read some basic CPU info. */
 AMWAPI void bedrock_cpu_count(u32 *threads, u32 *cores, u32 *packages);
+
+/** A handle for representing a worker thread. */
+typedef u64 thread_id;
 
 /** Creates and runs a worker thread at a given handle. */
 AMWAPI void bedrock_thread_create(thread_id *thread, void *(*procedure)(void *), void *argument);

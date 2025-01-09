@@ -1,3 +1,4 @@
+#include <lake/bedrock/assert.h>
 #include <lake/bedrock/log.h>
 #include <lake/bedrock/os.h>
 #include <lake/riven.h>

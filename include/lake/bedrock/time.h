@@ -19,6 +19,9 @@ extern "C" {
 #define AMW_US_TO_NS(US)        (((u64)(US)) * AMW_NS_PER_US)
 #define AMW_NS_TO_US(NS)        ((NS) / AMW_NS_PER_US)
 
+/** Initialize the game clock. */
+AMWAPI void ticks_init(void);
+
 /** Get the time passed since the game initialized in milliseconds. */
 AMWAPI u64 ticks_ms(void);
 

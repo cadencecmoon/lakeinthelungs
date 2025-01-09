@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-static void terminate(hadopelagic *hadal)
+static void terminate(struct hadopelagic *hadal)
 {
     if (hadal->calls.display_fini)
         hadal->calls.display_fini(hadal);
@@ -15,8 +15,8 @@ static void terminate(hadopelagic *hadal)
 
 AMWAPI s32 hadal_init(
     PFN_hadal_entry_point entry_point__,
-    hadopelagic          *hadal,
-    ipomoeaalba          *ia,
+    struct hadopelagic   *hadal,
+    struct ipomoeaalba   *ia,
     u32                   window_width,
     u32                   window_height,
     const char           *window_title)
@@ -63,13 +63,13 @@ AMWAPI s32 hadal_init(
     return result_success;
 }
 
-AMWAPI void hadal_fini(hadopelagic *hadal)
+AMWAPI void hadal_fini(struct hadopelagic *hadal)
 {
     if (hadal && at_read_relaxed(&hadal->flags) & hadal_flag_initialized)
         terminate(hadal);
 }
 
-AMWAPI void hadal_window_size(hadopelagic *hadal, u32 *out_width, u32 *out_height)
+AMWAPI void hadal_window_size(struct hadopelagic *hadal, u32 *out_width, u32 *out_height)
 {
     if (out_width)  *out_width = 0;
     if (out_height) *out_height = 0;
@@ -78,7 +78,7 @@ AMWAPI void hadal_window_size(hadopelagic *hadal, u32 *out_width, u32 *out_heigh
         hadal->calls.get_window_size(hadal, out_width, out_height);
 }
 
-AMWAPI void hadal_framebuffer_size(hadopelagic *hadal, u32 *out_width, u32 *out_height)
+AMWAPI void hadal_framebuffer_size(struct hadopelagic *hadal, u32 *out_width, u32 *out_height)
 {
     if (out_width)  *out_width = 0;
     if (out_height) *out_height = 0;
@@ -87,7 +87,7 @@ AMWAPI void hadal_framebuffer_size(hadopelagic *hadal, u32 *out_width, u32 *out_
         hadal->calls.get_framebuffer_size(hadal, out_width, out_height);
 }
 
-AMWAPI u32 hadal_window_should_close(hadopelagic *hadal, b32 should)
+AMWAPI u32 hadal_window_should_close(struct hadopelagic *hadal, b32 should)
 {
     if (!hadal)
         return 0u;
@@ -100,7 +100,7 @@ AMWAPI u32 hadal_window_should_close(hadopelagic *hadal, b32 should)
     }
 }
 
-AMWAPI u32 hadal_window_visible(hadopelagic *hadal, b32 visible)
+AMWAPI u32 hadal_window_visible(struct hadopelagic *hadal, b32 visible)
 {
     u32 flags = 0u;
 
@@ -122,7 +122,7 @@ AMWAPI u32 hadal_window_visible(hadopelagic *hadal, b32 visible)
     return flags;
 }
 
-AMWAPI s32 hadal_entry_point(hadopelagic *hadal, ipomoeaalba *ia)
+AMWAPI s32 hadal_entry_point(struct hadopelagic *hadal, struct ipomoeaalba *ia)
 {
 #ifdef AMW_NATIVE_WAYLAND
     if (hadal_wayland_entry_point(hadal, ia) == 0) return result_success;
@@ -132,7 +132,7 @@ AMWAPI s32 hadal_entry_point(hadopelagic *hadal, ipomoeaalba *ia)
 }
 
 #ifndef AMW_NATIVE_WAYLAND
-AMWAPI s32 hadal_wayland_entry_point(hadopelagic *hadal, ipomoeaalba *ia)
+AMWAPI s32 hadal_wayland_entry_point(struct hadopelagic *hadal, struct ipomoeaalba *ia)
 { 
     (void)hadal; (void)ia; 
     log_debug("The Wayland display backend is not available in this build."); 

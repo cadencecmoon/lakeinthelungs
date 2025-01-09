@@ -1,38 +1,5 @@
+#include <lake/bedrock/assert.h>
 #include "vk_cobalt.h"
-
-AMWAPI s32 cobalt_vulkan_entry_point(cobalt *co, ipomoeaalba *ia)
-{
-    (void)ia; // TODO
-
-    vulkan_instance_api api;
-    iazero(api);
-
-    if (vulkan_open_driver(&api) == false)
-        return result_error_missing_shared_library;
-
-    vulkan_backend *vk = (vulkan_backend *)malloc(sizeof(vulkan_backend));
-    assert_debug(vk);
-
-    iazerop(vk);
-    vk->api = api;
-
-    /* TODO */
-    //vk->allocator = (VkAllocationCallbacks){};
-
-    co->backend_api = cobalt_backend_api_vulkan;
-    co->backend_name = "vulkan";
-    co->renderer = (void *)vk;
-
-    co->calls = (cobalt_calls){
-        .renderer_init = cobalt_vulkan_renderer_init,
-        .renderer_fini = cobalt_vulkan_renderer_fini,
-        .create_swapchain_surface = cobalt_vulkan_create_swapchain_surface,
-        .construct_devices = cobalt_vulkan_construct_devices,
-        .destroy_devices = cobalt_vulkan_destroy_devices,
-    };
-
-    return result_success;
-}
 
 #if !defined(AMW_NDEBUG) && defined(VK_EXT_debug_utils)
 static VKAPI_ATTR VkBool32 VKAPI_CALL 
@@ -47,22 +14,22 @@ debug_utils_callback(
 
     switch (severity) {
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
-        log_debug("Vulkan: %s", callbackdata->pMessage);
+        log_debug("%s", callbackdata->pMessage);
         break;
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
-        log_trace("Vulkan: %s", callbackdata->pMessage);
+        log_trace("%s", callbackdata->pMessage);
         break;
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
-        log_warn("Vulkan: %s", callbackdata->pMessage);
+        log_warn("%s", callbackdata->pMessage);
         break;
     default:
-        log_error("Vulkan: %s", callbackdata->pMessage);
+        log_error("%s", callbackdata->pMessage);
         assertion(!"Vulkan validation error !!");
     }
     return VK_FALSE;
 }
 
-static void create_validation_layers(vulkan_backend *vk) 
+static void create_validation_layers(struct vulkan_backend *vk) 
 {
     if (vk->messenger != VK_NULL_HANDLE)
         return;
@@ -89,7 +56,7 @@ static void create_validation_layers(vulkan_backend *vk)
     log_debug("Created Vulkan validation layers.");
 }
 
-static void destroy_validation_layers(vulkan_backend *vk)
+static void destroy_validation_layers(struct vulkan_backend *vk)
 {
     if (vk->messenger == VK_NULL_HANDLE)
         return;
@@ -101,16 +68,16 @@ static void destroy_validation_layers(vulkan_backend *vk)
 #endif /* validation layers */
 
 AMWAPI s32 cobalt_vulkan_renderer_init(
-    cobalt          *co, 
-    ipomoeaalba     *ia, 
-    hadopelagic     *hadal, 
-    const char      *application_name, 
-    u32              application_version, 
-    arena_allocator *temp_arena)
+    struct cobalt          *cobalt, 
+    struct ipomoeaalba     *ia, 
+    struct hadopelagic     *hadal, 
+    const char             *application_name, 
+    u32                     application_version, 
+    struct arena_allocator *temp_arena)
 {
     u32 i, instance_version = 0, extension_count = 0, layer_count = 0;
     char **instance_extensions = NULL;
-    vulkan_backend *vk = (vulkan_backend *)co->renderer;
+    struct vulkan_backend *vk = (struct vulkan_backend *)cobalt->backend;
 
     vk->api.vkEnumerateInstanceVersion(&instance_version);
     vk->api.vkEnumerateInstanceLayerProperties(&layer_count, NULL);
@@ -224,10 +191,10 @@ AMWAPI s32 cobalt_vulkan_renderer_init(
         create_validation_layers(vk);
 #endif /* validation layers */
 
-    s32 res = cobalt_vulkan_create_swapchain_surface(co, hadal);
+    s32 res = cobalt_vulkan_create_swapchain_surface(cobalt, hadal);
     if (res != result_success) {
         log_error("Failed to create a Vulkan surface for the '%s' display backend.", hadal->backend_name);
-        cobalt_vulkan_renderer_fini(co);
+        cobalt_vulkan_renderer_fini(cobalt);
         return res;
     }
 
@@ -237,12 +204,12 @@ AMWAPI s32 cobalt_vulkan_renderer_init(
     return result_success;
 }
 
-AMWAPI void cobalt_vulkan_renderer_fini(cobalt *co)
+AMWAPI void cobalt_vulkan_renderer_fini(struct cobalt *cobalt)
 {
-    if (co->devices)
-        cobalt_vulkan_destroy_devices(co);
-    if (co->renderer) {
-        vulkan_backend *vk = (vulkan_backend *)co->renderer;
+    if (cobalt->devices)
+        cobalt_vulkan_destroy_devices(cobalt);
+    if (cobalt->backend) {
+        struct vulkan_backend *vk = (struct vulkan_backend *)cobalt->backend;
 
         if (vk->swapchain.surface)
             vk->api.vkDestroySurfaceKHR(vk->instance, vk->swapchain.surface, NULL);
@@ -258,8 +225,8 @@ AMWAPI void cobalt_vulkan_renderer_fini(cobalt *co)
         free(vk);
     }
 
-    co->backend_api = 0;
-    co->renderer = NULL;
+    cobalt->backend_api = 0;
+    cobalt->backend = NULL;
 }
 
 static const char *device_type_string(VkPhysicalDeviceType type)
@@ -292,21 +259,21 @@ static const char *vendor_name_string(u32 vendor_id)
 }
 
 AMWAPI s32 cobalt_vulkan_construct_devices(
-    cobalt          *co,
-    rivens_rift     *riven,
-    thread_id       *threads,
-    ssize            thread_count,
-    s32              preferred_main_device_idx,
-    s32              max_device_count,
-    arena_allocator *temp_arena)
+    struct cobalt          *cobalt,
+    struct riven           *riven,
+    thread_id              *threads,
+    ssize                   thread_count,
+    s32                     preferred_main_device_idx,
+    s32                     max_device_count,
+    struct arena_allocator *temp_arena)
 {
     u32 physical_device_count = 0;
     u32 device_count = 0;
     s32 main_device_idx = -1;
-    if (!co->renderer) 
+    if (!cobalt->backend) 
         return result_error_invalid_engine_context;
 
-    vulkan_backend *vk = (vulkan_backend *)co->renderer;
+    struct vulkan_backend *vk = (struct vulkan_backend *)cobalt->backend;
 
     /* TODO */
     (void)riven;
@@ -329,7 +296,7 @@ AMWAPI s32 cobalt_vulkan_construct_devices(
     raw_helpers += sizeof(s32) * physical_device_count;
     u32 *extension_bits = (u32 *)raw_helpers;
 
-    region scratch = *temp_arena->end;
+    struct region scratch = *temp_arena->end;
     for (u32 i = 0; (i < physical_device_count) && (max_device_count > 0 ? max_device_count : true); i++) {
         VkPhysicalDeviceProperties physical_device_properties;
         VkQueueFamilyProperties *queue_family_properties;
@@ -343,10 +310,6 @@ AMWAPI s32 cobalt_vulkan_construct_devices(
         /* too old drivers? */
         vk->api.vkGetPhysicalDeviceProperties(physical_devices[i], &physical_device_properties);
         if (physical_device_properties.apiVersion < VK_MAKE_API_VERSION(0,1,1,0)) continue;
-
-        /* no device extensions? */
-        vk->api.vkEnumerateDeviceExtensionProperties(physical_devices[i], NULL, &extension_count, NULL);
-        if (extension_count == 0) continue;
 
         /* no queue families? */
         vk->api.vkGetPhysicalDeviceQueueFamilyProperties(physical_devices[i], &queue_family_count, NULL);
@@ -368,6 +331,10 @@ AMWAPI s32 cobalt_vulkan_construct_devices(
         /* accept only devices with support for graphics, compute and transfer commands. */
         if ((command_support & 7) != 7) continue;
 
+        /* no device extensions? */
+        vk->api.vkEnumerateDeviceExtensionProperties(physical_devices[i], NULL, &extension_count, NULL);
+        if (extension_count == 0) continue;
+
         extension_properties = (VkExtensionProperties *)arena_alloc(temp_arena, sizeof(VkExtensionProperties) * extension_count);
         vk->api.vkEnumerateDeviceExtensionProperties(physical_devices[i], NULL, &extension_count, extension_properties);
 
@@ -380,8 +347,8 @@ AMWAPI s32 cobalt_vulkan_construct_devices(
                 extension_bits[i] |= vulkan_extension_memory_budget_bit;
             } else if (!strcmp(extension_properties[j].extensionName, "VK_EXT_memory_priority")) {
                 extension_bits[i] |= vulkan_extension_memory_priority_bit;
-            } else if (!strcmp(extension_properties[j].extensionName, "VK_AMD_shader_info")) {
-                extension_bits[i] |= vulkan_extension_amd_shader_info_bit;
+            } else if (!strcmp(extension_properties[j].extensionName, "VK_AMD_device_coherent_memory")) {
+                extension_bits[i] |= vulkan_extension_amd_device_coherent_memory_bit;
             } else if (!strcmp(extension_properties[j].extensionName, "VK_KHR_deferred_host_operations")) {
                 extension_bits[i] |= vulkan_extension_deferred_host_operations_bit;
             } else if (!strcmp(extension_properties[j].extensionName, "VK_KHR_acceleration_structure")) {
@@ -410,12 +377,10 @@ AMWAPI s32 cobalt_vulkan_construct_devices(
 
             /* TODO check for presentation support */
 
-            if (viable_for_main) {
+            if (viable_for_main)
                 main_device_idx = i;
-            } else { 
-                if (preferred_main_device_idx >= 0 && preferred_main_device_idx == (s32)i)
-                    preferred_main_device_idx = -1;
-            }
+            else if (preferred_main_device_idx >= 0 && preferred_main_device_idx == (s32)i)
+                preferred_main_device_idx = -1;
             physical_device_indices[i] = i;
             device_count++;
         } else if ((max_device_count <= 0) || (main_device_idx >= 0 ? max_device_count > (s32)device_count : max_device_count > (s32)(device_count - 1))) {
@@ -432,10 +397,10 @@ AMWAPI s32 cobalt_vulkan_construct_devices(
         main_device_idx = 0;
     }
 
-    vulkan_device *devices = (vulkan_device *)malloc(sizeof(vulkan_device) * device_count);
-    iamemset(devices, 0u, sizeof(vulkan_device) * device_count);
-    co->devices = (void *)devices;
-    co->device_count = device_count;
+    struct vulkan_device *devices = (struct vulkan_device *)malloc(sizeof(struct vulkan_device) * device_count);
+    iamemset(devices, 0u, sizeof(struct vulkan_device) * device_count);
+    cobalt->devices = (void *)devices;
+    cobalt->device_count = device_count;
 
     /* setup physical device handles */
     devices[0].physical = physical_devices[main_device_idx];
@@ -461,26 +426,19 @@ AMWAPI s32 cobalt_vulkan_construct_devices(
         u32 extension_count = 0;
         char **extensions = NULL;
 
-        vulkan_device *device = &devices[i];
+        struct vulkan_device *device = &devices[i];
         *temp_arena->end = scratch;
 
         vk->api.vkGetPhysicalDeviceProperties(devices[i].physical, &devices[i].physical_properties);
         vk->api.vkGetPhysicalDeviceFeatures(devices[i].physical, &devices[i].physical_features);
         vk->api.vkGetPhysicalDeviceMemoryProperties(devices[i].physical, &devices[i].memory_properties);
 
-        log_info("\nCreating a Vulkan rendering device:\n"
-                 "    Name: %s\n"
-                 "    Type: %s, ID: %X\n"
-                 "    Vendor: %s, ID: %X\n"
-                 "    Api version: %u.%u.%u",
-                 device->physical_properties.deviceName,
-                 device_type_string(device->physical_properties.deviceType),
-                 device->physical_properties.deviceID,
-                 vendor_name_string(device->physical_properties.vendorID),
-                 device->physical_properties.vendorID,
-                 (device->physical_properties.apiVersion >> 22U),
-                 (device->physical_properties.apiVersion >> 12U) & 0x3ffU,
-                 (device->physical_properties.apiVersion & 0xfffU));
+        log_info("Creating a Vulkan rendering device, idx %d:", i);
+        log_info("              Name : %s", device->physical_properties.deviceName);
+        log_info("              Type : %s, ID: %X", device_type_string(device->physical_properties.deviceType), device->physical_properties.deviceID);
+        log_info("            Vendor : %s, ID: %X", vendor_name_string(device->physical_properties.vendorID), device->physical_properties.vendorID);
+        log_info("       Api version : %u.%u.%u", (device->physical_properties.apiVersion >> 22U), (device->physical_properties.apiVersion >> 12U) & 0x3ffU, (device->physical_properties.apiVersion & 0xfffU));
+        log_info("    Driver version : %u.%u.%u", (device->physical_properties.driverVersion >> 22U), (device->physical_properties.driverVersion >> 12U) & 0x3ffU, (device->physical_properties.driverVersion & 0xfffU));
 
         /* we already made sure the GPU in question supports the command queues we need */
         vk->api.vkGetPhysicalDeviceQueueFamilyProperties(devices[i].physical, &queue_family_count, NULL);
@@ -502,7 +460,7 @@ AMWAPI s32 cobalt_vulkan_construct_devices(
                 device->compute_queue_count = queue_family_properties[j].queueCount;
                 device->compute_queue_family_idx = j;
             }
-            /* ask for async transfer queue family */
+            /* ask for an async transfer queue family */
             if (device->transfer_queue_count == 0 && queue_family_properties[j].queueCount > 0
                 && (queue_family_properties[j].queueFlags & VK_QUEUE_TRANSFER_BIT)
                 && ((queue_family_properties[j].queueFlags & VK_QUEUE_COMPUTE_BIT) == 0)
@@ -560,8 +518,8 @@ AMWAPI s32 cobalt_vulkan_construct_devices(
             extensions[bits++] = "VK_EXT_memory_budget";
         if (device->extensions & vulkan_extension_memory_priority_bit)
             extensions[bits++] = "VK_EXT_memory_priority";
-        if (device->extensions & vulkan_extension_amd_shader_info_bit)
-            extensions[bits++] = "VK_AMD_shader_info";
+        if (device->extensions & vulkan_extension_amd_device_coherent_memory_bit)
+            extensions[bits++] = "VK_AMD_device_coherent_memory";
         if (device->extensions & vulkan_extension_deferred_host_operations_bit)
             extensions[bits++] = "VK_KHR_deferred_host_operations";
         if (device->extensions & vulkan_extension_acceleration_structure_bit)
@@ -572,6 +530,13 @@ AMWAPI s32 cobalt_vulkan_construct_devices(
             extensions[bits++] = "VK_KHR_dynamic_rendering_local_read";
         if (device->extensions & vulkan_extension_dynamic_rendering_bit)
             extensions[bits++] = "VK_KHR_dynamic_rendering";
+
+#ifdef AMW_DEBUG
+        log_trace("Device idx %d enabled Vulkan extensions are:", i);
+        for (u32 j = 0; j < extension_count; j++) {
+            log_trace("    %s", extensions[j]);
+        }
+#endif
 
         VkPhysicalDeviceFeatures physical_device_feats = {
             .shaderSampledImageArrayDynamicIndexing = VK_TRUE,
@@ -590,7 +555,7 @@ AMWAPI s32 cobalt_vulkan_construct_devices(
             .pNext = &acceleration_structure_feats,
             .rayQuery = VK_TRUE,
         };
-        VkPhysicalDeviceDynamicRenderingLocalReadFeaturesKHR dynamic_rendering_local_read_feats = {
+        VkPhysicalDeviceDynamicRenderingLocalReadFeatures dynamic_rendering_local_read_feats = {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_LOCAL_READ_FEATURES_KHR,
             .pNext = ((device->extensions & vulkan_extension_mask_raytracing) 
                     == vulkan_extension_mask_raytracing) ? &ray_query_feats : NULL,
@@ -609,6 +574,8 @@ AMWAPI s32 cobalt_vulkan_construct_devices(
             .shaderSampledImageArrayNonUniformIndexing = VK_TRUE,
             .bufferDeviceAddress = VK_TRUE,
             .timelineSemaphore = VK_TRUE,
+            .vulkanMemoryModel = VK_TRUE,
+            .vulkanMemoryModelDeviceScope = VK_TRUE,
         };
         VkDeviceCreateInfo device_create_info = {
             .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
@@ -625,12 +592,13 @@ AMWAPI s32 cobalt_vulkan_construct_devices(
 
         /* create the logical device */
         if (vk->api.vkCreateDevice(device->physical, &device_create_info, NULL, &device->logical) != VK_SUCCESS) {
-            log_error("Can't create a Vulkan logical device.");
+            log_error("Can't create a Vulkan logical device idx %d.", i);
             return result_error_undefined; /* TODO */
         }
-        if (vulkan_load_device_api_procedures(&vk->api, &device->api, device->logical, device->physical_properties.apiVersion, device->extensions)) {
-            log_error("Can't load the Vulkan API procedures for a device.");
-            return result_error_undefined; /* TODO */
+        s32 res = vulkan_load_device_api_procedures(&vk->api, &device->api, device->logical, device->physical_properties.apiVersion, device->extensions);
+        if (res != result_success) {
+            log_error("Can't load the Vulkan API procedures for device idx %d, returned code '%d'.", i, res);
+            return res;
         }
 
         /* grab the command queues */
@@ -650,9 +618,9 @@ AMWAPI s32 cobalt_vulkan_construct_devices(
                 device->api.vkGetDeviceQueue(device->logical, device->transfer_queue_family_idx, j, &device->transfer_queues[j]);
         }
 
-        assert_debug(device->graphics_queue);
-        assert_debug(device->compute_queues);
-        assert_debug(device->transfer_queues);
+        assert_debug(device->graphics_queue != VK_NULL_HANDLE);
+        assert_debug(device->compute_queues[0] != VK_NULL_HANDLE);
+        assert_debug(device->transfer_queues[0] != VK_NULL_HANDLE);
 
         /* create the command cools per queue family */
         device->queue_command_pool_count = VULKAN_MAX_FRAMES * thread_count;
@@ -672,21 +640,21 @@ AMWAPI s32 cobalt_vulkan_construct_devices(
             VERIFY_VK(device->api.vkCreateCommandPool(device->logical, &command_pool_create_info, NULL, &device->graphics_command_pools[j]));
 
         /* resolve the compute queue family, if present */
-        if (device->compute_queue_count == 0) {
-            device->compute_command_pools = device->graphics_command_pools;
-        } else {
+        if (device->compute_queue_count > 0) {
             device->compute_command_pools = &device->raw_command_pools[device->queue_command_pool_count];
             for (u32 j = 0; j < device->queue_command_pool_count; j++)
                 VERIFY_VK(device->api.vkCreateCommandPool(device->logical, &command_pool_create_info, NULL, &device->compute_command_pools[j]));
+        } else {
+            device->compute_command_pools = device->graphics_command_pools;
         }
 
-        /* resolve the transfer queue family, if present */
-        if (device->transfer_queue_count == 0) {
-            device->transfer_command_pools = device->graphics_command_pools;
-        } else {
+        /* resolve the transfer-only queue family, if present */
+        if (device->transfer_queue_count > 0) {
             device->transfer_command_pools = &device->raw_command_pools[device->raw_command_pool_count - device->queue_command_pool_count];
             for (u32 j = 0; j < device->queue_command_pool_count; j++)
                 VERIFY_VK(device->api.vkCreateCommandPool(device->logical, &command_pool_create_info, NULL, &device->transfer_command_pools[j]));
+        } else {
+            device->transfer_command_pools = device->graphics_command_pools;
         }
 
 #if AMW_DEBUG
@@ -695,19 +663,12 @@ AMWAPI s32 cobalt_vulkan_construct_devices(
         }
 #endif
 
-        log_info("Created %d unique command queue families and %lu command pools (shared between %lu threads):\n"
-                  "    graphics queues : 1  graphics queue family idx : %d   command pools : %lu\n"
-                  "    compute queues  : %lu  compute queue family idx  : %d   command pools : %lu\n"
-                  "    transfer queues : %lu  transfer queue family idx : %d   command pools : %lu", 
-                queue_family_count, device->raw_command_pool_count, thread_count,
-                device->graphics_queue_family_idx, 
-                device->queue_command_pool_count,
-                device->compute_queue_count, 
-                device->compute_queue_family_idx, 
-                device->compute_queue_count ? device->queue_command_pool_count : 0,
-                device->transfer_queue_count, 
-                device->transfer_queue_family_idx,
-                device->transfer_queue_count ? device->queue_command_pool_count : 0);
+        log_info("Device idx %d created %d command queue families and %u command pools:", i, queue_family_count, device->raw_command_pool_count);
+        log_info("    graphics queues : 1   graphics queue family idx : %d   command pools : %u", device->graphics_queue_family_idx, device->queue_command_pool_count);
+        log_info("     compute queues : %u    compute queue family idx : %d   command pools : %u",
+                device->compute_queue_count, device->compute_queue_family_idx, device->compute_queue_count ? device->queue_command_pool_count : 0);
+        log_info("    transfer queues : %u   transfer queue family idx : %d   command pools : %u",
+                device->transfer_queue_count, device->transfer_queue_family_idx, device->transfer_queue_count ? device->queue_command_pool_count : 0);
 
         /* ray tracing mesh support */
         if ((device->extensions & vulkan_extension_mask_raytracing) == vulkan_extension_mask_raytracing) {
@@ -724,15 +685,15 @@ AMWAPI s32 cobalt_vulkan_construct_devices(
     return result_success;
 }
 
-AMWAPI void cobalt_vulkan_destroy_devices(cobalt *co)
+AMWAPI void cobalt_vulkan_destroy_devices(struct cobalt *cobalt)
 {
-    if (!co->devices)
+    if (!cobalt->devices)
         return;
 
-    vulkan_device *devices = (vulkan_device *)co->devices;
+    struct vulkan_device *devices = (struct vulkan_device *)cobalt->devices;
 
-    for (u32 i = 0; i < co->device_count; i++) {
-        vulkan_device *device = &devices[i];
+    for (u32 i = 0; i < cobalt->device_count; i++) {
+        struct vulkan_device *device = &devices[i];
 
         if (device->logical == VK_NULL_HANDLE)
             continue;
@@ -755,7 +716,7 @@ AMWAPI void cobalt_vulkan_destroy_devices(cobalt *co)
     }
 
     free(devices);
-    co->devices = NULL;
-    co->device_count = 0;
+    cobalt->devices = NULL;
+    cobalt->device_count = 0;
     return;
 }
