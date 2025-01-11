@@ -1,3 +1,7 @@
+/*  Lake in the Lungs
+ *  Copyright (c) 2025 Cadence C. Moon
+ *  The source code is licensed under a standard MIT license. */
+
 #include <lake/bedrock/assert.h>
 #include <lake/bedrock/log.h>
 #include <lake/bedrock/os.h>

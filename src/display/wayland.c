@@ -1,5 +1,8 @@
-#ifdef AMW_NATIVE_WAYLAND
+/*  Lake in the Lungs
+ *  Copyright (c) 2025 Cadence C. Moon
+ *  The source code is licensed under a standard MIT license. */
 
+#ifdef AMW_NATIVE_WAYLAND
 #include <lake/bedrock/assert.h>
 #include <lake/bedrock/log.h>
 #include <lake/bedrock/os.h>
@@ -247,15 +250,17 @@ static struct wayland_display *WAYLAND;
  * keeping the backend clean, if for some reasons multiple wayland displays were to be 
  * created via hadopelagic, for example when testing. */
 #include <wayland-protocol.h>
+#include <viewporter-protocol.h>
+#if 0
 #include <fractional-scale-v1-protocol.h>
 #include <idle-inhibit-unstable-v1-protocol.h>
 #include <pointer-constraints-unstable-v1-protocol.h>
 #include <pointer-gestures-unstable-v1-protocol.h>
 #include <relative-pointer-unstable-v1-protocol.h>
 #include <tablet-v2-protocol.h>
-#include <viewporter-protocol.h>
 #include <xdg-activation-v1-protocol.h>
 #include <xdg-decoration-unstable-v1-protocol.h>
+#endif
 #include <xdg-shell-protocol.h>
 
 static void handle_wm_base_ping(

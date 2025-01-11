@@ -1,3 +1,7 @@
+/*  Lake in the Lungs
+ *  Copyright (c) 2025 Cadence C. Moon
+ *  The source code is licensed under a standard MIT license. */
+
 #ifndef _AMW_COBALT_H
 #define _AMW_COBALT_H
 
@@ -18,10 +22,20 @@ extern "C" {
 /* forward declarations */
 struct cobalt;
 
+/** */
+enum cobalt_command_queue_type {
+    cobalt_command_queue_type_none      = 0x00,
+    cobalt_command_queue_type_graphics  = 0x01,
+    cobalt_command_queue_type_compute   = 0x02,
+    cobalt_command_queue_type_transfer  = 0x04,
+    cobalt_command_queue_type_all       = 0x07,
+};
+
 /** Entry point to the rendering backend. 
  *  @return True if loading the backend module and procedures was successful. */
 typedef s32 (*PFN_cobalt_entry_point)(struct cobalt *cobalt, struct ipomoeaalba *ia);
 
+/** Defines ID's of supported rendering backends. */
 enum cobalt_backend_api {
     cobalt_backend_api_vulkan = 0,
     cobalt_backend_api_d3dx12,      // TODO reserved id
@@ -29,7 +43,6 @@ enum cobalt_backend_api {
     cobalt_backend_api_webgpu,      // TODO reserved id
     cobalt_backend_api_proxy,       // TODO reserved id
     cobalt_backend_api_mock,
-    cobalt_backend_api_custom = 0x20,
 };
 
 AMWAPI s32 cobalt_vulkan_entry_point(struct cobalt *cobalt, struct ipomoeaalba *ia);
@@ -70,10 +83,8 @@ struct cobalt_construct_swapchain_work {
     struct cobalt      *cobalt;         /**< Holds the swapchain and a device that controls it. */
     struct hadopelagic *hadal;          /**< The display backend will provide necessary window info. */
     struct ipomoeaalba *ia;             /**< Needed for initialization of the swapchain arena, can be NULL'ed afterwards */
-    thread_id          *threads;        /**< To query bedrock_thread_index(). */
-    ssize               thread_count;   /**< To compute indices of externally synchronized objects. */
     b32                 use_vsync;      /**< Whether to enable vertical synchronization. */
-    s32                 result;         /**< A return code, check for errors. */
+    s32                 out_result;     /**< A return code, check for errors. */
 };
 
 /** Creates or recreates the swapchain, for a given display backend and main rendering device. */

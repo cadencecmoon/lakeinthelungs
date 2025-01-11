@@ -1,3 +1,7 @@
+/*  Lake in the Lungs
+ *  Copyright (c) 2025 Cadence C. Moon
+ *  The source code is licensed under a standard MIT license. */
+
 #include <lake/a_moonlit_walk.h>
 
 #define VALIDATE_RENDERING_STATE_SPLITS_COUNT 1
@@ -7,8 +11,8 @@ static s32 construct_the_rendering_state(struct amw_workload *work)
     struct hadopelagic *hadal   = &work->AMW->hadal;
     struct ipomoeaalba *ia      = &work->AMW->ia;
     struct riven       *riven   = work->AMW->riven;
-    thread_id          *threads = work->AMW->threads;
-    ssize          thread_count = work->AMW->thread_count;
+    //thread_id          *threads = work->AMW->threads;
+    //ssize          thread_count = work->AMW->thread_count;
 
     /* TODO here i can do stuff like building the pipelines, hot reloading shaders, allocating the command buffers */
 
@@ -16,10 +20,8 @@ static s32 construct_the_rendering_state(struct amw_workload *work)
         .cobalt = cobalt,
         .hadal = hadal,
         .ia = ia,
-        .threads = threads,
-        .thread_count = thread_count,
         .use_vsync = (at_read_relaxed(&cobalt->flags) & cobalt_flag_vsync_enabled) ? true : false,
-        .result = result_success,
+        .out_result = result_success,
     };
 
     /* prepare the work */
@@ -33,9 +35,9 @@ static s32 construct_the_rendering_state(struct amw_workload *work)
     riven_split_and_unchain(riven, tears, idx);
 
     s32 result = result_success;
-    if (swapchain_work.result != result_success) {
-        log_error("The cobalt_construct_swapchain_tear failed with result code '%d'.", swapchain_work.result);
-        result = swapchain_work.result;
+    if (swapchain_work.out_result != result_success) {
+        log_error("The cobalt_construct_swapchain_tear failed with result code '%d'.", swapchain_work.out_result);
+        result = swapchain_work.out_result;
     } /* else if... */
 
     return result;

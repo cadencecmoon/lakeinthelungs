@@ -1,3 +1,7 @@
+/*  Lake in the Lungs
+ *  Copyright (c) 2025 Cadence C. Moon
+ *  The source code is licensed under a standard MIT license. */
+
 #ifndef _AMW_ARENA_ALLOCATOR_H
 #define _AMW_ARENA_ALLOCATOR_H
 
@@ -65,9 +69,6 @@ AMW_INLINE void arena_init(struct arena_allocator *a, usize bytes)
     assert_debug(a);
     if (a->end)
         return;
-
-    if (bytes < 4096) 
-        bytes = 4096;
 
     struct region *r = region_new(bytes);
     a->begin = a->end = r;

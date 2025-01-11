@@ -1,8 +1,13 @@
+# Lake in the Lungs
+# Copyright (c) 2025 Cadence C. Moon
+# The source code is licensed under a standard MIT license.
+
 engine += files(
     'hadal.c',
     'headless.c',
 )
 
+# Android
 if sys == 'android'
     engine += files('android.c')
     defs += [
@@ -24,10 +29,12 @@ if sys == 'android'
     deps += [ dep_android, dep_log, dep_android_native_glue ]
 endif
 
+# Win32
 if sys == 'windows'
     #engine = files('')
 endif
 
+# Cocoa / iOS
 if sys == 'darwin'
     engine = files('cocoa.c')
     deps += declare_dependency(link_args: [
@@ -59,15 +66,15 @@ if build_wayland
 
     wayland_protocols = [
         'wayland',
-        'fractional-scale-v1',
-        'idle-inhibit-unstable-v1',
-        'pointer-constraints-unstable-v1',
-        'pointer-gestures-unstable-v1',
-        'relative-pointer-unstable-v1',
-        'tablet-v2',
         'viewporter',
-        'xdg-activation-v1',
-        'xdg-decoration-unstable-v1',
+        # 'fractional-scale-v1',
+        # 'idle-inhibit-unstable-v1',
+        # 'pointer-constraints-unstable-v1',
+        # 'pointer-gestures-unstable-v1',
+        # 'relative-pointer-unstable-v1',
+        # 'tablet-v2',
+        # 'xdg-activation-v1',
+        # 'xdg-decoration-unstable-v1',
         'xdg-shell',
     ]
 

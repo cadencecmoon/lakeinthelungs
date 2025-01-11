@@ -1,3 +1,7 @@
+/*  Lake in the Lungs
+ *  Copyright (c) 2025 Cadence C. Moon
+ *  The source code is licensed under a standard MIT license. */
+
 #ifndef _AMW_SILVER_H
 #define _AMW_SILVER_H
 
@@ -33,7 +37,6 @@ enum silver_backend_api {
     silver_backend_api_pipewire,        // TODO reserved id
     silver_backend_api_oss,             // TODO reserved id
     silver_backend_api_dummy,
-    silver_backend_api_custom = 0x20,
 };
 
 AMWAPI s32 silver_pipewire_entry_point(struct silver *silv, struct ipomoeaalba *ia);

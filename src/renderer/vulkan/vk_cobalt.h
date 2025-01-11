@@ -1,3 +1,7 @@
+/*  Lake in the Lungs
+ *  Copyright (c) 2025 Cadence C. Moon
+ *  The source code is licensed under a standard MIT license. */
+
 #ifndef _AMW_COBALT_VULKAN_H
 #define _AMW_COBALT_VULKAN_H
 
@@ -386,31 +390,27 @@ extern const char *vulkan_result_string(VkResult result);
     #define VERIFY_VK(x) (void)(x)
 #endif
 
-/** Device information about it's swapchain capabilities. Atleast the main device 
- *  should fill this information, to control the swapchain creation. */
-struct vulkan_swapchain_device_info {
-    VkSurfaceCapabilitiesKHR    surface_capabilities;   /**< The surface capabilities of the associated device. */
-    VkSurfaceFormatKHR         *surface_formats;        /**< List of available surface formats. */
-    VkPresentModeKHR           *present_modes;          /**< List of available presentation modes. */
-    u32                         surface_format_count;   /**< Number of available surface formats, for the list above. */
-    u32                         present_mode_count;     /**< Number of available presentation modes, for the list above. */
-};
-
 /** Holds Vulkan objects that are related to the swapchain. This includes the swapchain handle 
  *  itself, our window surface and image views for images in the swapchain. The swapchain depends
  *  on the device, but we only need one, thus the main device will be responsible for controlling
  *  the swapchain. It's changed substantially whenever the window framebuffer resolution changes. */
 struct vulkan_swapchain {
     /** The swapchain created within a Hadopelagic window. NULL if the window is minimized. */
-    VkSwapchainKHR          sc;
-    VkSurfaceKHR            surface;        /**< A surface created within this swapchain. */
-    VkFormat                format;         /**< The format of the held swapchain images. */
-    VkExtent2D              extent;         /**< The resolution of the held swapchain images in pixels. */
+    VkSwapchainKHR              sc;
+    VkSurfaceKHR                surface;        /**< A surface created within this swapchain. */
+    VkFormat                    format;         /**< The format of the held swapchain images. */
+    VkExtent2D                  extent;         /**< The resolution of the held swapchain images in pixels. */
 
-    VkImage                *images;         /**< An array of images in the swapchain. */
-    VkImageView            *image_views;    /**< An image view for each image in the swapchain. */
-    u32                     image_count;    /**< Number of total images held by the swapchain (internally max 3). */
-    struct arena_allocator  arena;          /**< A host memory pool for allocating the image and view arrays, reset every time the swapchain is reconstructed. */
+    VkSurfaceCapabilitiesKHR    surface_capabilities;   /**< The surface capabilities of the associated device. */
+    VkSurfaceFormatKHR         *surface_formats;        /**< List of available surface formats. */
+    VkPresentModeKHR           *present_modes;          /**< List of available presentation modes. */
+    u32                         surface_format_count;   /**< Number of available surface formats, for the list above. */
+    u32                         present_mode_count;     /**< Number of available presentation modes, for the list above. */
+
+    VkImage                    *images;         /**< An array of images in the swapchain. */
+    VkImageView                *image_views;    /**< An image view for each image in the swapchain. */
+    u32                         image_count;    /**< Number of total images held by the swapchain (internally max 3). */
+    struct arena_allocator      arena;          /**< A host memory pool for allocating the image and view arrays, reset every time the swapchain is reconstructed. */
 };
 
 /** Holds the shared state of the Vulkan backend. This includes a VkInstance, instance-dependent API
@@ -474,9 +474,6 @@ struct vulkan_device {
     VkPhysicalDeviceMemoryBudgetPropertiesEXT           memory_budget;
 #endif
 
-    /** Information needed for a device that's controlling the swapchain. */
-    struct vulkan_swapchain_device_info swapchain_info;
-
     /** Command pools are shared between queue families. The total amount of allocated command pools 
      *  is equal to: max images X queue families in use X threads, and are unique to the VkDevice.
      *  The max swapchain images will be equal to 3, that's also due to the parallel gameloop workload.
@@ -525,18 +522,6 @@ struct vulkan_device {
     struct vulkan_device_api    api;
 };
 
-/** Holds information needed to request construction of an image. */
-struct vulkan_image_request {
-    /** Complete image creation info. If the number of mip levels is set to zero,
-     *  it will be automatically set using vulkan_get_mipmap_count_3d(). */ 
-    VkImageCreateInfo           image_info;
-    /** Description of the image view that is to be created. Format and image do not 
-     *  need to be set. If the layer count or mip count are zero, they are set to 
-     *  match the corresponding values of the image. If sType is not 
-     *  VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO, creation of the view is skipped. */
-    VkImageViewCreateInfo       view_info;
-};
-
 /** Bundles arrays of Vulkan image objects with meta-data and image views.
  *  Handles the device memory allocations for the images. */
 struct vulkan_images {
@@ -555,11 +540,23 @@ struct vulkan_buffers {
     u32                         buffer_count;   /**< Number of buffers and meta-data in the arrays. */
 };
 
+/** Handles all information needed to compile a shader into a module. */
+struct vulkan_shader_request {
+    char               *shader_file_path;       /**< A path to the file with the GLSL source code (relative to the current working directory). */
+    char               *include_path;           /**< The director(ies) which are searched for includes. */
+    char               *entry_point;            /**< The name of the function that serves as the entry point. */
+    VkShaderStageFlags  stage;                  /**< A single bit from VkShaderStageFlagBits to indicate the targeted shader stage. */
+    u32                 define_count;           /**< The number of defines. */
+    /** A list of strings providing the defines, eitheras "IDENTIFIER" or "IDENTIFIER=VALUE". 
+     *  Do not use white space, these strings go into the command line unmodified. */
+    char              **defines;
+};
+
 /** Bundles a Vulkan shader module with it's SPIR-V code. */
 struct vulkan_shader {
-    VkShaderModule  module;         /**< The Vulkan compiled shader module. */
-    usize           spirv_size;     /**< The size of the compiled SPIR-V code in bytes. */
-    u32            *spirv_code;     /**< An array of the compiled SPIR-V code. */
+    VkShaderModule      module;                 /**< The Vulkan compiled shader module. */
+    usize               spirv_size;             /**< The size of the compiled SPIR-V code in bytes. */
+    u32                *spirv_code;             /**< An array of the compiled SPIR-V code. */
 };
 
 /** Holds information needed to create a Vulkan pipeline object. */
@@ -615,6 +612,9 @@ AMW_INLINE u32 vulkan_get_mipmap_count_3d(VkExtent3D extent) {
     result = (result < counts[2]) ? counts[2] : result;
     return result;
 }
+
+extern s32 vulkan_compile_glsl_shader(void);
+extern void vulkan_destroy_shader(void);
 
 /** Goes through memory types available for the device and identifies the lowest 
  *  index that satisfies all given requirements. 

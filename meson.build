@@ -1,3 +1,7 @@
+# Lake in the Lungs
+# Copyright (c) 2025 Cadence C. Moon
+# The source code is licensed under a standard MIT license.
+
 project('lakeinthelungs', 'c',
     version : '2024',
     default_options : [
@@ -37,7 +41,8 @@ if meson.is_cross_build()
     systype = '@0@ (cross-compiling)'.format(systype)
 endif
 
-subdir('resources')
+subdir('docs')
+subdir('tools')
 subdir('src')
 
 a_moonlit_walk = library(
@@ -59,9 +64,6 @@ lakeinthelungs = executable(
     dependencies : dep_amw,
     include_directories : 'main',
     install : false)
-
-subdir('docs')
-subdir('tools')
 
 summary({
     'System type' : systype,

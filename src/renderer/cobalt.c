@@ -1,3 +1,7 @@
+/*  Lake in the Lungs
+ *  Copyright (c) 2025 Cadence C. Moon
+ *  The source code is licensed under a standard MIT license. */
+
 #include <lake/bedrock/assert.h>
 #include <lake/cobalt.h>
 
@@ -68,16 +72,14 @@ AMWAPI s32 cobalt_init(
         .cobalt = cobalt,
         .hadal = hadal,
         .ia = ia,
-        .threads = threads,
-        .thread_count = thread_count,
         .use_vsync = enable_vsync,
-        .result = result_success,
+        .out_result = result_success,
     };
     cobalt->calls.construct_swapchain_tear(&swapchain_work);
 
-    if (swapchain_work.result != result_success) {
-        log_error("Cobalt construct swap chain work failed at initialization with return code '%d'.", swapchain_work.result);
-        ret = swapchain_work.result;
+    if (swapchain_work.out_result != result_success) {
+        log_error("Cobalt construct swap chain work failed at initialization with return code '%d'.", swapchain_work.out_result);
+        ret = swapchain_work.out_result;
     } 
 
     arena_fini(&temp_arena);
