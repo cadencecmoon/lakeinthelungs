@@ -651,8 +651,6 @@ AMWAPI void pelagia_vulkan_renderer_fini(struct pelagia *pelagia);
 /* vk_device.c */
 AMWAPI s32 pelagia_vulkan_construct_devices(
     struct pelagia         *pelagia,
-    struct riven           *riven,
-    thread_id              *threads,
     ssize                   thread_count,
     s32                     preferred_main_device_idx,
     s32                     max_device_count,
@@ -665,6 +663,6 @@ AMWAPI void pelagia_vulkan_destroy_devices(struct pelagia *pelagia);
 AMWAPI s32 pelagia_vulkan_create_swapchain_surface(struct pelagia *pelagia, struct hadopelagic *hadal);
 
 /* vk_device.c */
-AMWAPI RIVENS_TEAR(pelagia_vulkan_construct_swapchain_tear, struct pelagia_construct_swapchain_work *work);
+AMWAPI RIVENS_TEAR(pelagia_vulkan_construct_swapchain_tear__, struct pelagia_construct_swapchain_work *work);
 
 #endif /* _AMW_PELAGIA_VULKAN_H */

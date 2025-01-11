@@ -10,10 +10,8 @@ AMWAPI s32 pelagia_init(
     struct pelagia         *pelagia,
     struct ipomoeaalba     *ia,
     struct hadopelagic     *hadal, 
-    struct riven           *riven,
     const char             *application_name,
     u32                     application_version,
-    thread_id              *threads,
     ssize                   thread_count,
     s32                     preferred_main_device_idx,
     s32                     max_device_count,
@@ -55,7 +53,7 @@ AMWAPI s32 pelagia_init(
         return result_error_invalid_engine_context;
     }
     arena_reset(&temp_arena);
-    ret = pelagia->calls.construct_devices(pelagia, riven, threads, thread_count, preferred_main_device_idx, max_device_count, &temp_arena);
+    ret = pelagia->calls.construct_devices(pelagia, thread_count, preferred_main_device_idx, max_device_count, &temp_arena);
     if (ret != result_success) {
         log_error("Internal Pelagia call for %s_construct_devices failed with return code '%d'.", pelagia->backend_name, ret);
         pelagia->calls.renderer_fini(pelagia);

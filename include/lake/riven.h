@@ -118,7 +118,7 @@ typedef void (*PFN_riven_main)(struct riven *riven, thread_id *threads, ssize th
 
 #define RIVENS_TEAR(tear, arg) \
      void tear(arg)
-#define RIVENS_TEAR_PFN(tear, arg) \
+#define RIVENS_TEAR_TYPEDEF(tear, arg) \
     typedef void (*tear)(arg)
 
 /** A chain points to an atomic counter that is binded to 

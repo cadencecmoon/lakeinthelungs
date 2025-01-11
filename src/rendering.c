@@ -4,8 +4,7 @@
 
 #include <lake/a_moonlit_walk.h>
 
-#define VALIDATE_RENDERING_STATE_SPLITS_COUNT 1
-static s32 construct_the_rendering_state(struct amw_workload *work)
+static s32 prepare_the_rendering_state(struct amw_workload *work)
 {
     struct pelagia     *pelagia = &work->AMW->pelagia;
     struct hadopelagic *hadal   = &work->AMW->hadal;
@@ -14,7 +13,8 @@ static s32 construct_the_rendering_state(struct amw_workload *work)
     //thread_id          *threads = work->AMW->threads;
     //ssize          thread_count = work->AMW->thread_count;
 
-    /* TODO here i can do stuff like building the pipelines, hot reloading shaders, allocating the command buffers */
+    /* TODO here i can do stuff like building the pipelines, hot reloading shaders, 
+     * allocating the command buffers, prepare audio streams for the mixer, etc. */
 
     struct pelagia_construct_swapchain_work swapchain_work = {
         .pelagia = pelagia,
@@ -24,8 +24,7 @@ static s32 construct_the_rendering_state(struct amw_workload *work)
         .out_result = result_success,
     };
 
-    /* prepare the work */
-    struct rivens_tear tears[VALIDATE_RENDERING_STATE_SPLITS_COUNT];
+    struct rivens_tear tears[1];
     ssize idx = 0;
 
     if (at_read_explicit(&hadal->flags, memory_model_acquire) & hadal_flag_recreate_swapchain)
@@ -48,6 +47,12 @@ RIVENS_TEAR(a_moonlit_walk_rendering_tear__, struct amw_workload *work)
     /* If there is no work, return early. */
     if (!work) return;
 
-    /* Setup and update the shared and frame-to-frame rendering state. */
-    if (construct_the_rendering_state(work) != result_success) return;
+    /* Setup and update the shared auditory and visual rendering state. */
+    if (prepare_the_rendering_state(work) != result_success) return;
+
+    /* TODO:
+     * - render graph construction (specify inputs and outputs, non parallel by design)
+     * - evaluate the render graph (highly parallel, record high level commands)
+     * - compile the rendering commands (backend record command buffers per swapchain image)
+     * - complete the work, pass command buffers to GPU execution */
 }

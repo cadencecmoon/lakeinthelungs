@@ -39,7 +39,7 @@ AMWAPI s32 pelagia_vulkan_entry_point(struct pelagia *pelagia, struct ipomoeaalb
         .create_swapchain_surface = pelagia_vulkan_create_swapchain_surface,
         .construct_devices = pelagia_vulkan_construct_devices,
         .destroy_devices = pelagia_vulkan_destroy_devices,
-        .construct_swapchain_tear = pelagia_vulkan_construct_swapchain_tear,
+        .construct_swapchain_tear = pelagia_vulkan_construct_swapchain_tear__,
     };
 
     return result_success;

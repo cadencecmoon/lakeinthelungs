@@ -286,8 +286,6 @@ static const char *vendor_name_string(u32 vendor_id)
 
 AMWAPI s32 pelagia_vulkan_construct_devices(
     struct pelagia         *pelagia,
-    struct riven           *riven,
-    thread_id              *threads,
     ssize                   thread_count,
     s32                     preferred_main_device_idx,
     s32                     max_device_count,
@@ -300,10 +298,6 @@ AMWAPI s32 pelagia_vulkan_construct_devices(
         return result_error_invalid_engine_context;
 
     struct vulkan_backend *vk = (struct vulkan_backend *)pelagia->backend;
-
-    /* TODO */
-    (void)riven;
-    (void)threads;
 
     VERIFY_VK(vk->api.vkEnumeratePhysicalDevices(vk->instance, &physical_device_count, NULL));
     if (physical_device_count == 0) {
@@ -431,7 +425,7 @@ AMWAPI s32 pelagia_vulkan_construct_devices(
     /* setup physical device handles */
     devices[0].physical = physical_devices[main_device_idx];
     devices[0].extensions = extension_bits[main_device_idx];
-    devices[0].flags |= (pelagia_device_flag_main | pelagia_device_flag_is_valid);
+    devices[0].flags |= (pelagia_device_flag_primary | pelagia_device_flag_is_valid);
     main_device_idx = physical_device_indices[main_device_idx] = -1; /* we don't need that anymore */
     for (u32 i = 1; i < device_count; i++) {
         devices[i].physical = VK_NULL_HANDLE;
@@ -727,7 +721,7 @@ AMWAPI void pelagia_vulkan_destroy_devices(struct pelagia *pelagia)
 
         device->api.vkDeviceWaitIdle(device->logical);
 
-        if (at_read_relaxed(&device->flags) & pelagia_device_flag_main) {
+        if (at_read_relaxed(&device->flags) & pelagia_device_flag_primary) {
             if (vk->swapchain.sc != VK_NULL_HANDLE) {
                 partially_destroy_swapchain(vk, &devices[0]);
                 devices[0].api.vkDestroySwapchainKHR(devices[0].logical, vk->swapchain.sc, NULL);
@@ -755,7 +749,7 @@ AMWAPI void pelagia_vulkan_destroy_devices(struct pelagia *pelagia)
     return;
 }
 
-AMWAPI RIVENS_TEAR(pelagia_vulkan_construct_swapchain_tear, struct pelagia_construct_swapchain_work *work)
+AMWAPI RIVENS_TEAR(pelagia_vulkan_construct_swapchain_tear__, struct pelagia_construct_swapchain_work *work)
 {
     struct vulkan_backend               *vk             = (struct vulkan_backend *)work->pelagia->backend;
     struct vulkan_device                *device         = (struct vulkan_device *)work->pelagia->devices; /* first device is main */
@@ -765,7 +759,7 @@ AMWAPI RIVENS_TEAR(pelagia_vulkan_construct_swapchain_tear, struct pelagia_const
     u32 window_width = 0, window_height = 0;
     u32 set_pelagia_flags = 0;
 
-    assert_debug(device->flags & pelagia_device_flag_main);
+    assert_debug(device->flags & pelagia_device_flag_primary);
 
     if (old_sc != VK_NULL_HANDLE)
         partially_destroy_swapchain(vk, device);
