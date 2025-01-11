@@ -11,7 +11,7 @@
 static void a_moonlit_walk_cleanup__(
     struct a_moonlit_walk *AMW)
 {
-    cobalt_fini(&AMW->cobalt);
+    pelagia_fini(&AMW->pelagia);
     hadal_fini(&AMW->hadal);
     iafini(&AMW->ia);
 }
@@ -48,9 +48,9 @@ static void a_moonlit_walk_main__(
     }
     hadal_window_visible(&AMW->hadal, true);
 
-    i = cobalt_init(
-        AMW->hints->entry_points.cobalt,
-        &AMW->cobalt, 
+    i = pelagia_init(
+        AMW->hints->entry_points.pelagia,
+        &AMW->pelagia, 
         &AMW->ia, 
         &AMW->hadal, 
         riven, 
@@ -58,9 +58,9 @@ static void a_moonlit_walk_main__(
         AMW->hints->version, 
         threads,
         thread_count,
-        AMW->hints->cobalt_preferred_main_device,
-        AMW->hints->cobalt_max_devices,
-        AMW->hints->cobalt_enable_vsync
+        AMW->hints->pelagia_preferred_main_device,
+        AMW->hints->pelagia_max_devices,
+        AMW->hints->pelagia_enable_vsync
     );
     if (i != result_success) {
         log_fatal("Can't initialize the renderer.");
@@ -167,11 +167,11 @@ AMWAPI s32 a_moonlit_walk(
         .riven_fiber_count = 128,
         .riven_stack_size = 64 * 1024,
         .riven_log_2_tears = 12,
-        .cobalt_max_devices = 1, /* if 0, use all available GPUs */
-        .cobalt_preferred_main_device = -1, /* select the most appropriate GPU as the main device */
-        .cobalt_enable_vsync = false,
+        .pelagia_max_devices = 1, /* if 0, use all available GPUs */
+        .pelagia_preferred_main_device = -1, /* select the most appropriate GPU as the main device */
+        .pelagia_enable_vsync = false,
         .entry_points.hadal = hadal_entry_point,
-        .entry_points.cobalt = cobalt_entry_point,
+        .entry_points.pelagia = pelagia_entry_point,
         .entry_points.silv = silver_entry_point,
         .callbacks.init = NULL,
         .callbacks.simulation = NULL,

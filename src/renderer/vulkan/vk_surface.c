@@ -4,7 +4,7 @@
 
 #include <lake/hadopelagic.h>
 
-#include "vk_cobalt.h"
+#include "vk_pelagia.h"
 
 #ifdef AMW_PLATFORM_WINDOW
 #endif /* AMW_PLATFORM_WINDOW */
@@ -39,9 +39,9 @@ static s32 create_surface_wayland(struct vulkan_backend *vk, struct wl_display *
 #ifdef AMW_NATIVE_DRM
 #endif /* AMW_NATIVE_DRM */
 
-AMWAPI s32 cobalt_vulkan_create_swapchain_surface(struct cobalt *cobalt, struct hadopelagic *hadal)
+AMWAPI s32 pelagia_vulkan_create_swapchain_surface(struct pelagia *pelagia, struct hadopelagic *hadal)
 {
-    struct vulkan_backend *vk = (struct vulkan_backend *)cobalt->backend;
+    struct vulkan_backend *vk = (struct vulkan_backend *)pelagia->backend;
 
     if (vk->instance == VK_NULL_HANDLE || !hadal->calls.expose_native_window)
         return result_error_invalid_engine_context;

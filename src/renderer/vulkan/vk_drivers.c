@@ -4,13 +4,13 @@
 
 #include <lake/bedrock/os.h>
 
-#include "vk_cobalt.h"
+#include "vk_pelagia.h"
 
 #if defined(AMW_PLATFORM_APPLE)
 #include <stdlib.h> /* getenv, for MacOS */
 #endif
 
-AMWAPI s32 cobalt_vulkan_entry_point(struct cobalt *cobalt, struct ipomoeaalba *ia)
+AMWAPI s32 pelagia_vulkan_entry_point(struct pelagia *pelagia, struct ipomoeaalba *ia)
 {
     (void)ia; // TODO
 
@@ -29,17 +29,17 @@ AMWAPI s32 cobalt_vulkan_entry_point(struct cobalt *cobalt, struct ipomoeaalba *
     /* TODO */
     //vk->allocator = (VkAllocationCallbacks){};
 
-    cobalt->backend_api = cobalt_backend_api_vulkan;
-    cobalt->backend_name = "vulkan";
-    cobalt->backend = (void *)vk;
+    pelagia->backend_api = pelagia_backend_api_vulkan;
+    pelagia->backend_name = "vulkan";
+    pelagia->backend = (void *)vk;
 
-    cobalt->calls = (struct cobalt_calls){
-        .renderer_init = cobalt_vulkan_renderer_init,
-        .renderer_fini = cobalt_vulkan_renderer_fini,
-        .create_swapchain_surface = cobalt_vulkan_create_swapchain_surface,
-        .construct_devices = cobalt_vulkan_construct_devices,
-        .destroy_devices = cobalt_vulkan_destroy_devices,
-        .construct_swapchain_tear = cobalt_vulkan_construct_swapchain_tear,
+    pelagia->calls = (struct pelagia_calls){
+        .renderer_init = pelagia_vulkan_renderer_init,
+        .renderer_fini = pelagia_vulkan_renderer_fini,
+        .create_swapchain_surface = pelagia_vulkan_create_swapchain_surface,
+        .construct_devices = pelagia_vulkan_construct_devices,
+        .destroy_devices = pelagia_vulkan_destroy_devices,
+        .construct_swapchain_tear = pelagia_vulkan_construct_swapchain_tear,
     };
 
     return result_success;

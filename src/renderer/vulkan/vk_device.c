@@ -4,7 +4,7 @@
 
 #include <lake/bedrock/atomic.h>
 #include <lake/bedrock/assert.h>
-#include "vk_cobalt.h"
+#include "vk_pelagia.h"
 
 #if !defined(AMW_NDEBUG) && defined(VK_EXT_debug_utils)
 static VKAPI_ATTR VkBool32 VKAPI_CALL 
@@ -72,8 +72,8 @@ static void destroy_validation_layers(struct vulkan_backend *vk)
 }
 #endif /* validation layers */
 
-AMWAPI s32 cobalt_vulkan_renderer_init(
-    struct cobalt          *cobalt, 
+AMWAPI s32 pelagia_vulkan_renderer_init(
+    struct pelagia         *pelagia, 
     struct ipomoeaalba     *ia, 
     struct hadopelagic     *hadal, 
     const char             *application_name, 
@@ -82,7 +82,7 @@ AMWAPI s32 cobalt_vulkan_renderer_init(
 {
     u32 i, instance_version = 0, extension_count = 0, layer_count = 0;
     char **instance_extensions = NULL;
-    struct vulkan_backend *vk = (struct vulkan_backend *)cobalt->backend;
+    struct vulkan_backend *vk = (struct vulkan_backend *)pelagia->backend;
 
     vk->api.vkEnumerateInstanceVersion(&instance_version);
     vk->api.vkEnumerateInstanceLayerProperties(&layer_count, NULL);
@@ -196,10 +196,10 @@ AMWAPI s32 cobalt_vulkan_renderer_init(
         create_validation_layers(vk);
 #endif /* validation layers */
 
-    s32 res = cobalt_vulkan_create_swapchain_surface(cobalt, hadal);
+    s32 res = pelagia_vulkan_create_swapchain_surface(pelagia, hadal);
     if (res != result_success) {
         log_error("Failed to create a Vulkan surface for the '%s' display backend.", hadal->backend_name);
-        cobalt_vulkan_renderer_fini(cobalt);
+        pelagia_vulkan_renderer_fini(pelagia);
         return res;
     }
     arena_init(&vk->swapchain.arena, 232);
@@ -225,14 +225,14 @@ static void partially_destroy_swapchain(struct vulkan_backend *vk, struct vulkan
     vk->swapchain = cleared;
 }
 
-AMWAPI void cobalt_vulkan_renderer_fini(struct cobalt *cobalt)
+AMWAPI void pelagia_vulkan_renderer_fini(struct pelagia *pelagia)
 {
-    if (cobalt->backend) {
-        struct vulkan_backend *vk = (struct vulkan_backend *)cobalt->backend;
-        struct vulkan_device *devices = (struct vulkan_device *)cobalt->devices;
+    if (pelagia->backend) {
+        struct vulkan_backend *vk = (struct vulkan_backend *)pelagia->backend;
+        struct vulkan_device *devices = (struct vulkan_device *)pelagia->devices;
 
         if (devices) {
-            cobalt_vulkan_destroy_devices(cobalt);
+            pelagia_vulkan_destroy_devices(pelagia);
             devices = NULL;
         }
 
@@ -251,8 +251,8 @@ AMWAPI void cobalt_vulkan_renderer_fini(struct cobalt *cobalt)
         free(vk);
     }
 
-    cobalt->backend_api = 0;
-    cobalt->backend = NULL;
+    pelagia->backend_api = 0;
+    pelagia->backend = NULL;
 }
 
 static const char *device_type_string(VkPhysicalDeviceType type)
@@ -284,8 +284,8 @@ static const char *vendor_name_string(u32 vendor_id)
     }
 }
 
-AMWAPI s32 cobalt_vulkan_construct_devices(
-    struct cobalt          *cobalt,
+AMWAPI s32 pelagia_vulkan_construct_devices(
+    struct pelagia         *pelagia,
     struct riven           *riven,
     thread_id              *threads,
     ssize                   thread_count,
@@ -296,10 +296,10 @@ AMWAPI s32 cobalt_vulkan_construct_devices(
     u32 physical_device_count = 0;
     u32 device_count = 0;
     s32 main_device_idx = -1;
-    if (!cobalt->backend) 
+    if (!pelagia->backend) 
         return result_error_invalid_engine_context;
 
-    struct vulkan_backend *vk = (struct vulkan_backend *)cobalt->backend;
+    struct vulkan_backend *vk = (struct vulkan_backend *)pelagia->backend;
 
     /* TODO */
     (void)riven;
@@ -425,13 +425,13 @@ AMWAPI s32 cobalt_vulkan_construct_devices(
 
     struct vulkan_device *devices = (struct vulkan_device *)malloc(sizeof(struct vulkan_device) * device_count);
     iamemset(devices, 0u, sizeof(struct vulkan_device) * device_count);
-    cobalt->devices = (void *)devices;
-    cobalt->device_count = device_count;
+    pelagia->devices = (void *)devices;
+    pelagia->device_count = device_count;
 
     /* setup physical device handles */
     devices[0].physical = physical_devices[main_device_idx];
     devices[0].extensions = extension_bits[main_device_idx];
-    devices[0].flags |= (cobalt_device_flag_main | cobalt_device_flag_is_valid);
+    devices[0].flags |= (pelagia_device_flag_main | pelagia_device_flag_is_valid);
     main_device_idx = physical_device_indices[main_device_idx] = -1; /* we don't need that anymore */
     for (u32 i = 1; i < device_count; i++) {
         devices[i].physical = VK_NULL_HANDLE;
@@ -441,7 +441,7 @@ AMWAPI s32 cobalt_vulkan_construct_devices(
 
             devices[i].physical = physical_devices[idx]; 
             devices[i].extensions = extension_bits[idx];
-            devices[i].flags |= cobalt_device_flag_is_valid;
+            devices[i].flags |= pelagia_device_flag_is_valid;
             physical_device_indices[j] = -1;
         }
     }
@@ -564,7 +564,6 @@ AMWAPI s32 cobalt_vulkan_construct_devices(
             log_trace("    %s", extensions[j]);
         }
 #endif
-
         VkPhysicalDeviceFeatures physical_device_feats = {
             .shaderSampledImageArrayDynamicIndexing = VK_TRUE,
             .samplerAnisotropy = VK_TRUE,
@@ -705,22 +704,22 @@ AMWAPI s32 cobalt_vulkan_construct_devices(
                 .pNext = &device->acceleration_structure_properties,
             };
             vk->api.vkGetPhysicalDeviceProperties2(device->physical, &physical_device_properties2);
-            device->flags |= cobalt_device_flag_accelerated_ray_tracing_supported;
+            device->flags |= pelagia_device_flag_accelerated_ray_tracing_supported;
             log_info("This device has hardware support for accelerated ray tracing.");
         }
     }
     return result_success;
 }
 
-AMWAPI void cobalt_vulkan_destroy_devices(struct cobalt *cobalt)
+AMWAPI void pelagia_vulkan_destroy_devices(struct pelagia *pelagia)
 {
-    if (!cobalt->devices)
+    if (!pelagia->devices)
         return;
 
-    struct vulkan_backend *vk = (struct vulkan_backend *)cobalt->backend;
-    struct vulkan_device *devices = (struct vulkan_device *)cobalt->devices;
+    struct vulkan_backend *vk = (struct vulkan_backend *)pelagia->backend;
+    struct vulkan_device *devices = (struct vulkan_device *)pelagia->devices;
 
-    for (u32 i = 0; i < cobalt->device_count; i++) {
+    for (u32 i = 0; i < pelagia->device_count; i++) {
         struct vulkan_device *device = &devices[i];
 
         if (device->logical == VK_NULL_HANDLE)
@@ -728,7 +727,7 @@ AMWAPI void cobalt_vulkan_destroy_devices(struct cobalt *cobalt)
 
         device->api.vkDeviceWaitIdle(device->logical);
 
-        if (at_read_relaxed(&device->flags) & cobalt_device_flag_main) {
+        if (at_read_relaxed(&device->flags) & pelagia_device_flag_main) {
             if (vk->swapchain.sc != VK_NULL_HANDLE) {
                 partially_destroy_swapchain(vk, &devices[0]);
                 devices[0].api.vkDestroySwapchainKHR(devices[0].logical, vk->swapchain.sc, NULL);
@@ -751,22 +750,22 @@ AMWAPI void cobalt_vulkan_destroy_devices(struct cobalt *cobalt)
     }
 
     free(devices);
-    cobalt->devices = NULL;
-    cobalt->device_count = 0;
+    pelagia->devices = NULL;
+    pelagia->device_count = 0;
     return;
 }
 
-AMWAPI RIVENS_TEAR(cobalt_vulkan_construct_swapchain_tear, struct cobalt_construct_swapchain_work *work)
+AMWAPI RIVENS_TEAR(pelagia_vulkan_construct_swapchain_tear, struct pelagia_construct_swapchain_work *work)
 {
-    struct vulkan_backend               *vk             = (struct vulkan_backend *)work->cobalt->backend;
-    struct vulkan_device                *device         = (struct vulkan_device *)work->cobalt->devices; /* first device is main */
+    struct vulkan_backend               *vk             = (struct vulkan_backend *)work->pelagia->backend;
+    struct vulkan_device                *device         = (struct vulkan_device *)work->pelagia->devices; /* first device is main */
     struct vulkan_swapchain             *swapchain      = &vk->swapchain;
 
     VkSwapchainKHR old_sc = swapchain->sc;
     u32 window_width = 0, window_height = 0;
-    u32 set_cobalt_flags = 0;
+    u32 set_pelagia_flags = 0;
 
-    assert_debug(device->flags & cobalt_device_flag_main);
+    assert_debug(device->flags & pelagia_device_flag_main);
 
     if (old_sc != VK_NULL_HANDLE)
         partially_destroy_swapchain(vk, device);
@@ -790,10 +789,6 @@ AMWAPI RIVENS_TEAR(cobalt_vulkan_construct_swapchain_tear, struct cobalt_constru
             vk->swapchain.present_modes = (VkPresentModeKHR *)arena_alloc(&vk->swapchain.arena, sizeof(VkPresentModeKHR) * vk->swapchain.present_mode_count);
         if (presentation_supported && vk->api.vkGetPhysicalDeviceSurfacePresentModesKHR(device->physical, vk->swapchain.surface, &vk->swapchain.present_mode_count, vk->swapchain.present_modes) != VK_SUCCESS)
             presentation_supported = VK_FALSE;
-
-        assert_debug(vk->swapchain.surface);
-        assert_debug(vk->swapchain.surface_formats);
-        assert_debug(vk->swapchain.present_modes);
     } 
     if (!presentation_supported) {
         log_error("Failed to assert that the main rendering device supports presentation on screen.");
@@ -868,7 +863,7 @@ AMWAPI RIVENS_TEAR(cobalt_vulkan_construct_swapchain_tear, struct cobalt_constru
     VkImageUsageFlags image_usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
     if (swapchain->surface_capabilities.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) {
         image_usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-        set_cobalt_flags |= cobalt_flag_screenshot_supported;
+        set_pelagia_flags |= pelagia_flag_screenshot_supported;
     }
 
     VkSharingMode sharing_mode = VK_SHARING_MODE_CONCURRENT;
@@ -919,7 +914,7 @@ AMWAPI RIVENS_TEAR(cobalt_vulkan_construct_swapchain_tear, struct cobalt_constru
     }
 
     if (work->use_vsync || no_vsync_present_mode == VK_PRESENT_MODE_FIFO_KHR)
-        set_cobalt_flags |= cobalt_flag_vsync_enabled;
+        set_pelagia_flags |= pelagia_flag_vsync_enabled;
 
     if (old_sc != VK_NULL_HANDLE)
         device->api.vkDestroySwapchainKHR(device->logical, old_sc, NULL);
@@ -954,7 +949,7 @@ AMWAPI RIVENS_TEAR(cobalt_vulkan_construct_swapchain_tear, struct cobalt_constru
     }
 
     at_fetch_and_explicit(&work->hadal->flags, ~hadal_flag_recreate_swapchain, memory_model_seq_cst);
-    at_fetch_and_explicit(&work->cobalt->flags, ~(cobalt_flag_vsync_enabled | cobalt_flag_screenshot_supported), memory_model_seq_cst);
-    at_fetch_or_explicit(&work->cobalt->flags, set_cobalt_flags, memory_model_seq_cst);
+    at_fetch_and_explicit(&work->pelagia->flags, ~(pelagia_flag_vsync_enabled | pelagia_flag_screenshot_supported), memory_model_seq_cst);
+    at_fetch_or_explicit(&work->pelagia->flags, set_pelagia_flags, memory_model_seq_cst);
     work->out_result = result_success;
 }

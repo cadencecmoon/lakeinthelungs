@@ -2,8 +2,8 @@
  *  Copyright (c) 2025 Cadence C. Moon
  *  The source code is licensed under a standard MIT license. */
 
-#ifndef _AMW_COBALT_VULKAN_H
-#define _AMW_COBALT_VULKAN_H
+#ifndef _AMW_PELAGIA_VULKAN_H
+#define _AMW_PELAGIA_VULKAN_H
 
 #ifndef VK_NO_PROTOTYPES
     #define VK_NO_PROTOTYPES
@@ -30,7 +30,7 @@
     #include <vulkan/vulkan.h>
 #endif
 
-#include <lake/cobalt.h>
+#include <lake/pelagia.h>
 
 #define VULKAN_MAX_FRAMES 3
 
@@ -382,7 +382,7 @@ extern const char *vulkan_result_string(VkResult result);
         VkResult res__ = (x); \
         if (res__ != VK_SUCCESS) { \
             log_error("Failed to assert VK_SUCCESS for: %s", #x); \
-            log_error("The error message: %s", vulkan_result_string(res__)); \
+            log_error("The Vulkan error message: %s", vulkan_result_string(res__)); \
             assert_debug(!"VkResult assertion"); \
         } \
     }
@@ -395,11 +395,11 @@ extern const char *vulkan_result_string(VkResult result);
  *  on the device, but we only need one, thus the main device will be responsible for controlling
  *  the swapchain. It's changed substantially whenever the window framebuffer resolution changes. */
 struct vulkan_swapchain {
-    /** The swapchain created within a Hadopelagic window. NULL if the window is minimized. */
-    VkSwapchainKHR              sc;
-    VkSurfaceKHR                surface;        /**< A surface created within this swapchain. */
-    VkFormat                    format;         /**< The format of the held swapchain images. */
-    VkExtent2D                  extent;         /**< The resolution of the held swapchain images in pixels. */
+    VkSwapchainKHR              sc;                     /**< The swapchain created within a Hadopelagic window. NULL if the window is minimized. */
+    VkSurfaceKHR                surface;                /**< A surface created within this swapchain. */
+    VkFormat                    format;                 /**< The format of the held swapchain images. */
+    VkExtent2D                  extent;                 /**< The resolution of the held swapchain images in pixels. */
+    struct arena_allocator      arena;                  /**< A host memory pool for allocating the image and view arrays, reset every time the swapchain is reconstructed. */
 
     VkSurfaceCapabilitiesKHR    surface_capabilities;   /**< The surface capabilities of the associated device. */
     VkSurfaceFormatKHR         *surface_formats;        /**< List of available surface formats. */
@@ -407,10 +407,9 @@ struct vulkan_swapchain {
     u32                         surface_format_count;   /**< Number of available surface formats, for the list above. */
     u32                         present_mode_count;     /**< Number of available presentation modes, for the list above. */
 
-    VkImage                    *images;         /**< An array of images in the swapchain. */
-    VkImageView                *image_views;    /**< An image view for each image in the swapchain. */
-    u32                         image_count;    /**< Number of total images held by the swapchain (internally max 3). */
-    struct arena_allocator      arena;          /**< A host memory pool for allocating the image and view arrays, reset every time the swapchain is reconstructed. */
+    VkImage                    *images;                 /**< An array of images in the swapchain. */
+    VkImageView                *image_views;            /**< An image view for each image in the swapchain. */
+    u32                         image_count;            /**< Number of total images held by the swapchain (internally max 3). */
 };
 
 /** Holds the shared state of the Vulkan backend. This includes a VkInstance, instance-dependent API
@@ -450,6 +449,11 @@ struct vulkan_allocation {
     VkDeviceSize    offset; /**< The offset in the bound memory allocation in bytes. */
 };
 
+/** TODO A custom GPU heap memory allocator. */
+struct vulkan_memory_allocator {
+    struct vulkan_allocation todo; 
+};
+
 /** The context of a rendering device, explicitly used within backend cobalt 
  *  calls and representing an individual GPU. */
 struct vulkan_device {
@@ -473,6 +477,8 @@ struct vulkan_device {
     /** Information about how much heap memory can be safely allocated for the used physical device. */
     VkPhysicalDeviceMemoryBudgetPropertiesEXT           memory_budget;
 #endif
+    /** A GPU memory allocator to track all device allocations. */
+    struct vulkan_memory_allocator      allocator;
 
     /** Command pools are shared between queue families. The total amount of allocated command pools 
      *  is equal to: max images X queue families in use X threads, and are unique to the VkDevice.
@@ -631,8 +637,8 @@ extern s32 vulkan_find_memory_type(
     VkMemoryPropertyFlags       property_mask);
 
 /* vk_device.c */
-AMWAPI s32 cobalt_vulkan_renderer_init(
-    struct cobalt          *cobalt, 
+AMWAPI s32 pelagia_vulkan_renderer_init(
+    struct pelagia         *pelagia, 
     struct ipomoeaalba     *ia, 
     struct hadopelagic     *hadal, 
     const char             *application_name, 
@@ -640,11 +646,11 @@ AMWAPI s32 cobalt_vulkan_renderer_init(
     struct arena_allocator *temp_arena);
 
 /* vk_device.c */
-AMWAPI void cobalt_vulkan_renderer_fini(struct cobalt *cobalt);
+AMWAPI void pelagia_vulkan_renderer_fini(struct pelagia *pelagia);
 
 /* vk_device.c */
-AMWAPI s32 cobalt_vulkan_construct_devices(
-    struct cobalt          *cobalt,
+AMWAPI s32 pelagia_vulkan_construct_devices(
+    struct pelagia         *pelagia,
     struct riven           *riven,
     thread_id              *threads,
     ssize                   thread_count,
@@ -653,12 +659,12 @@ AMWAPI s32 cobalt_vulkan_construct_devices(
     struct arena_allocator *temp_arena);
 
 /* vk_device.c */
-AMWAPI void cobalt_vulkan_destroy_devices(struct cobalt *cobalt);
+AMWAPI void pelagia_vulkan_destroy_devices(struct pelagia *pelagia);
 
 /* vk_surface.c */
-AMWAPI s32 cobalt_vulkan_create_swapchain_surface(struct cobalt *cobalt, struct hadopelagic *hadal);
+AMWAPI s32 pelagia_vulkan_create_swapchain_surface(struct pelagia *pelagia, struct hadopelagic *hadal);
 
 /* vk_device.c */
-AMWAPI RIVENS_TEAR(cobalt_vulkan_construct_swapchain_tear, struct cobalt_construct_swapchain_work *work);
+AMWAPI RIVENS_TEAR(pelagia_vulkan_construct_swapchain_tear, struct pelagia_construct_swapchain_work *work);
 
-#endif /* _AMW_COBALT_VULKAN_H */
+#endif /* _AMW_PELAGIA_VULKAN_H */

@@ -29,7 +29,7 @@
 #include <lake/input/pen.h>
 #include <lake/input/touch.h>
 
-#include <lake/cobalt.h>
+#include <lake/pelagia.h>
 #include <lake/hadopelagic.h>
 #include <lake/ipomoeaalba.h>
 #include <lake/riven.h>
@@ -69,14 +69,14 @@ struct amw_hints {
     u32      riven_log_2_tears;
     u32      riven_stack_size;
 
-    u32      cobalt_max_devices;
-    u32      cobalt_preferred_main_device;
-    b32      cobalt_enable_vsync;
+    u32      pelagia_max_devices;
+    u32      pelagia_preferred_main_device;
+    b32      pelagia_enable_vsync;
 
     struct {
-        PFN_hadal_entry_point  hadal;
-        PFN_cobalt_entry_point cobalt;
-        PFN_silver_entry_point silv;
+        PFN_hadal_entry_point   hadal;
+        PFN_pelagia_entry_point pelagia;
+        PFN_silver_entry_point  silv;
     } entry_points;
 
     struct {
@@ -103,7 +103,7 @@ struct a_moonlit_walk {
     struct ipomoeaalba  ia;
     struct hadopelagic  hadal;
     struct silver       silv;
-    struct cobalt       cobalt;
+    struct pelagia      pelagia;
 
     struct riven   *riven;
     thread_id      *threads;
