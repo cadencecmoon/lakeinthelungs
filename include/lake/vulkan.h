@@ -1,9 +1,5 @@
-/*  Lake in the Lungs
- *  Copyright (c) 2025 Cadence C. Moon
- *  The source code is licensed under a standard MIT license. */
-
-#ifndef _AMW_PELAGIA_VULKAN_H
-#define _AMW_PELAGIA_VULKAN_H
+#ifndef _AMW_VULKAN_H
+#define _AMW_VULKAN_H
 
 #ifndef VK_NO_PROTOTYPES
     #define VK_NO_PROTOTYPES
@@ -30,9 +26,11 @@
     #include <vulkan/vulkan.h>
 #endif
 
-#include <lake/pelagia.h>
+#include <lake/bedrock/defines.h>
+#include <lake/bedrock/assert.h>
 
-#define VULKAN_MAX_FRAMES 3
+#include <lake/datastructures/arena_allocator.h>
+#include <lake/datastructures/render_graph.h>
 
 /** Collects bits for checking used vulkan extensions. The bits are set only during initialization, 
  *  and then are read-only after. If an extension was promoted to core, the corresponding bit will be 
@@ -73,6 +71,7 @@ enum vulkan_extensions {
      vulkan_extension_acceleration_structure_bit | \
      vulkan_extension_ray_query_bit)
 
+/** Collects Vulkan global and instance procedures and extensions. */
 struct vulkan_instance_api {
     void                                                   *module;
     PFN_vkGetInstanceProcAddr                               vkGetInstanceProcAddr;
@@ -355,19 +354,19 @@ struct vulkan_device_api {
 };
 
 /** Loads the Vulkan shared driver library and loads the global entry point procedures. */
-extern b32 vulkan_open_driver(struct vulkan_instance_api *vk);
+AMWAPI b32 vulkan_open_driver(struct vulkan_instance_api *vk);
 
 /** Unloads the Vulkan library, after this point none of the Vulkan backend calls are valid. */
-extern void vulkan_close_driver(struct vulkan_instance_api *vk);
+AMWAPI void vulkan_close_driver(struct vulkan_instance_api *vk);
 
 /** Fills the pointers of procedures defined in struct vulkan_instance_api. */
-extern s32 vulkan_load_instance_api_procedures(
+AMWAPI s32 vulkan_load_instance_api_procedures(
     struct vulkan_instance_api *vk, 
     VkInstance                  instance, 
     u32                         instance_extensions);
 
 /** Fills the pointers of procedures defined in struct vulkan_device_api. */
-extern s32 vulkan_load_device_api_procedures(
+AMWAPI s32 vulkan_load_device_api_procedures(
     struct vulkan_instance_api *vk, 
     struct vulkan_device_api   *api, 
     VkDevice                    device, 
@@ -375,7 +374,7 @@ extern s32 vulkan_load_device_api_procedures(
     u64                         device_extensions);
 
 /** Get a (very helpful) message of a given Vulkan error code. */
-extern const char *vulkan_result_string(VkResult result);
+AMWAPI const char *vulkan_result_string(VkResult result);
 
 #if !defined(AMW_NDEBUG)
     #define VERIFY_VK(x) { \
@@ -425,7 +424,6 @@ struct vulkan_backend {
     VkDebugUtilsMessengerEXT    messenger;
 #endif
 
-    struct vulkan_swapchain     swapchain;      /**< The swapchain handled by the main device. Only one window is supported. */
     u32                         extensions;     /**< Bits to check availability of used Vulkan instance extensions. */
     struct vulkan_instance_api  api;            /**< Global driver and instance procedures. */
 };
@@ -523,6 +521,25 @@ struct vulkan_device {
     u32                         compute_queue_family_idx;
     u32                         transfer_queue_family_idx;
 
+    /** Descriptor set layouts used by the pipelines. */
+    VkDescriptorSetLayout       descriptor_set_layouts[render_pass_type_count];
+    /** Pipeline layouts used by the pipelines. */
+    VkPipelineLayout            pipeline_layouts[render_pass_type_count];
+    /** An array of pipeline states. */
+    VkPipeline                  pipelines[render_pass_type_count];
+
+    /** There is one descriptor set per swapchain image (always between 2 to 4 in our case),
+     *  for every descriptor pool. Because we use 'render_pass_type_count' of descriptor pools, 
+     *  we just need to allocate a bunch of descriptor set pointers for every render pass type.
+     *  This raw variable will make destroying the descriptor sets easier, with a layout that 
+     *  corresponds to the descriptor_sets[render_pass_type_count] array. The descriptor set 
+     *  count can be calculated from the enum above, we don't rely on thread count. */
+    VkDescriptorSet            *raw_descriptor_sets;
+    /** An array with one descriptor set per swapchain image. The descriptor set host allocation is continuous. */
+    VkDescriptorSet            *descriptor_sets[render_pass_type_count]; 
+    /** A descriptor pool per pipeline state. */
+    VkDescriptorPool            descriptor_pools[render_pass_type_count];
+
     /** Bits to check support for extensions that interest us. Set during device creation, and then read-only. */
     u64                         extensions;
     struct vulkan_device_api    api;
@@ -546,18 +563,6 @@ struct vulkan_buffers {
     u32                         buffer_count;   /**< Number of buffers and meta-data in the arrays. */
 };
 
-/** Handles all information needed to compile a shader into a module. */
-struct vulkan_shader_request {
-    char               *shader_file_path;       /**< A path to the file with the GLSL source code (relative to the current working directory). */
-    char               *include_path;           /**< The director(ies) which are searched for includes. */
-    char               *entry_point;            /**< The name of the function that serves as the entry point. */
-    VkShaderStageFlags  stage;                  /**< A single bit from VkShaderStageFlagBits to indicate the targeted shader stage. */
-    u32                 define_count;           /**< The number of defines. */
-    /** A list of strings providing the defines, eitheras "IDENTIFIER" or "IDENTIFIER=VALUE". 
-     *  Do not use white space, these strings go into the command line unmodified. */
-    char              **defines;
-};
-
 /** Bundles a Vulkan shader module with it's SPIR-V code. */
 struct vulkan_shader {
     VkShaderModule      module;                 /**< The Vulkan compiled shader module. */
@@ -565,27 +570,20 @@ struct vulkan_shader {
     u32                *spirv_code;             /**< An array of the compiled SPIR-V code. */
 };
 
-/** Holds information needed to create a Vulkan pipeline object. */
-struct vulkan_pipeline_request {
-    VkPipelineVertexInputStateCreateInfo    vertex_input_state;     /* graphics pipelines only */
-    VkPipelineInputAssemblyStateCreateInfo  input_assembly_state;
-    VkPipelineRasterizationStateCreateInfo  rasterization_state;
-    VkPipelineColorBlendStateCreateInfo     color_blend_state;
-    VkPipelineDepthStencilStateCreateInfo   depth_stencil_state;
-    VkPipelineViewportStateCreateInfo       viewport_state;
-    VkPipelineMultisampleStateCreateInfo    multisample_state;
+/** Specifies a single descriptor layout. */
+struct vulkan_descriptor_set_request {
+    VkShaderStageFlagBits           stage_flags;            /**< the stageFlags of each entry of bindings is OR'ed with this value before using it */
+    u32                             min_descriptor_count;   /**< Setting this is a good way to avoid some redundant specifications. */
+    u32                             binding_count;          /**< Number of entries in bindings. */
+    /** A specification of the bindings in the layout. The member binding is overwritten
+     *  by the array index before use, stageFlags is OR'ed with stage_flags and descriptorCount 
+     *  is clamped to a minimum of min_descriptor_count. */
+    VkDescriptorSetLayoutBinding   *bindings;
 };
 
-struct vulkan_pipelines {
-    VkDescriptorSetLayout  *descriptor_set_layouts; /**< Descriptor set layouts used by the pipelines. */
-    VkPipelineLayout       *pipeline_layouts;       /**< Pipeline layouts used by the pipelines. */
-    VkPipeline             *pipelines;              /**< An array of pipeline states. */
-    u32                     pipeline_count;         /**< Number of pipelines. */
-};
-
-/** Returns the aspect ratio for a given swapchain. */
-AMW_INLINE f32 vulkan_get_aspect_ratio(const struct vulkan_swapchain *swapchain) {
-    return ((f32) swapchain->extent.width) / ((f32) swapchain->extent.height);
+/** Returns the aspect ratio for a given 2D extent. */
+AMW_INLINE f32 vulkan_get_aspect_ratio(const VkExtent2D *extent) {
+    return ((f32) extent->width) / ((f32) extent->height);
 }
 
 /** Returns the smallest number that is greater equal offset and a multiple of the given positive integer. */
@@ -619,50 +617,4 @@ AMW_INLINE u32 vulkan_get_mipmap_count_3d(VkExtent3D extent) {
     return result;
 }
 
-extern s32 vulkan_compile_glsl_shader(void);
-extern void vulkan_destroy_shader(void);
-
-/** Goes through memory types available for the device and identifies the lowest 
- *  index that satisfies all given requirements. 
- *
- *  @param memory_type_bits     A bit mask indicating which memory type indices are 
- *                              admissible. Available from VkMemoryRequirements. 
- *  @param property_mask        A combination of VkMemoryPropertyFlagBits.
- *
- *  @return 0 if type_idx was set to a valid reply, 1 if no compatible memory is available. */
-extern s32 vulkan_find_memory_type(
-    u32                        *type_idx, 
-    const struct vulkan_device *device, 
-    u32                         memory_type_bits,
-    VkMemoryPropertyFlags       property_mask);
-
-/* vk_device.c */
-AMWAPI s32 pelagia_vulkan_renderer_init(
-    struct pelagia         *pelagia, 
-    struct ipomoeaalba     *ia, 
-    struct hadopelagic     *hadal, 
-    const char             *application_name, 
-    u32                     application_version, 
-    struct arena_allocator *temp_arena);
-
-/* vk_device.c */
-AMWAPI void pelagia_vulkan_renderer_fini(struct pelagia *pelagia);
-
-/* vk_device.c */
-AMWAPI s32 pelagia_vulkan_construct_devices(
-    struct pelagia         *pelagia,
-    ssize                   thread_count,
-    s32                     preferred_main_device_idx,
-    s32                     max_device_count,
-    struct arena_allocator *temp_arena);
-
-/* vk_device.c */
-AMWAPI void pelagia_vulkan_destroy_devices(struct pelagia *pelagia);
-
-/* vk_surface.c */
-AMWAPI s32 pelagia_vulkan_create_swapchain_surface(struct pelagia *pelagia, struct hadopelagic *hadal);
-
-/* vk_device.c */
-AMWAPI RIVENS_TEAR(pelagia_vulkan_construct_swapchain_tear__, struct pelagia_construct_swapchain_work *work);
-
-#endif /* _AMW_PELAGIA_VULKAN_H */
+#endif /* _AMW_VULKAN_H */

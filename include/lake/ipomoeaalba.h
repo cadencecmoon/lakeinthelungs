@@ -11,7 +11,7 @@
 extern "C" {
 #endif
 
-/* TODO tagged heap memory allocator */
+/* TODO tagged heap memory allocator. */
 struct ipomoeaalba {
     int todo;
 };

@@ -42,6 +42,7 @@ if meson.is_cross_build()
 endif
 
 subdir('docs')
+subdir('resources/shaders')
 subdir('tools')
 subdir('src')
 

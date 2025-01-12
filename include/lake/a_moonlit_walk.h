@@ -21,6 +21,7 @@
 #include <lake/compute/simd.h>
 
 #include <lake/datastructures/arena_allocator.h>
+#include <lake/datastructures/render_graph.h>
 
 #include <lake/input/gamepad.h>
 #include <lake/input/joystick.h>
@@ -34,6 +35,7 @@
 #include <lake/ipomoeaalba.h>
 #include <lake/riven.h>
 #include <lake/silver.h>
+#include <lake/vulkan.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,11 +45,12 @@ struct a_moonlit_walk; /* forward declaration */
 
 /** Holds per-frame memory, pointer to the engine context and data needed to calculate and present a frame. */
 struct amw_workload {
-    u32                        idx;
-    f64                        dt;
+    u32                         idx;
+    f64                         dt;
+    struct render_graph         render_graph;
 
-    struct a_moonlit_walk     *AMW;
-    const struct amw_workload *last_work;
+    struct a_moonlit_walk      *AMW;
+    const struct amw_workload  *last_work;
 };
 
 typedef s32  (*PFN_amw_init)(struct a_moonlit_walk *AMW, struct amw_workload *work, u32 frame_count, void *context);
@@ -64,18 +67,19 @@ struct amw_hints {
     u32         window_width, window_height;
     const char *window_title;
 
-    u32      riven_thread_count;
-    u32      riven_fiber_count;
-    u32      riven_log_2_tears;
-    u32      riven_stack_size;
+    u32     riven_thread_count;
+    u32     riven_fiber_count;
+    u32     riven_log_2_tears;
+    u32     riven_stack_size;
 
-    u32      pelagia_max_devices;
-    u32      pelagia_preferred_main_device;
-    b32      pelagia_enable_vsync;
+    s32     pelagia_max_devices;
+    s32     pelagia_virtual_devices;
+    s32     pelagia_preferred_primary_device;
+    s32     pelagia_frames_buffering;
+    b32     pelagia_enable_vsync;
 
     struct {
         PFN_hadal_entry_point   hadal;
-        PFN_pelagia_entry_point pelagia;
         PFN_silver_entry_point  silv;
     } entry_points;
 
@@ -102,8 +106,8 @@ struct a_moonlit_walk {
 
     struct ipomoeaalba  ia;
     struct hadopelagic  hadal;
-    struct silver       silv;
     struct pelagia      pelagia;
+    struct silver       silv;
 
     struct riven   *riven;
     thread_id      *threads;

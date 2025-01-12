@@ -11,7 +11,9 @@
 static void a_moonlit_walk_cleanup__(
     struct a_moonlit_walk *AMW)
 {
-    pelagia_fini(&AMW->pelagia);
+    struct pelagia_renderer_fini_work renderer_fini = { &AMW->pelagia };
+
+    pelagia_renderer_fini(&renderer_fini);
     hadal_fini(&AMW->hadal);
     iafini(&AMW->ia);
 }
@@ -32,40 +34,46 @@ static void a_moonlit_walk_main__(
     AMW->riven = riven;
     AMW->threads = threads;
     AMW->thread_count = thread_count;
+    
+    { /* initialization */
+        i = hadal_init(
+            AMW->hints->entry_points.hadal,
+            &AMW->hadal,
+            &AMW->ia,
+            AMW->hints->window_width, 
+            AMW->hints->window_height,
+            AMW->hints->window_title
+        );
+        if (i != result_success) {
+            log_fatal("Can't initialize the display backend.");
+            a_moonlit_walk_cleanup__(AMW);
+            return; 
+        }
+        hadal_window_visible(&AMW->hadal, true);
 
-    i = hadal_init(
-        AMW->hints->entry_points.hadal,
-        &AMW->hadal,
-        &AMW->ia,
-        AMW->hints->window_width, 
-        AMW->hints->window_height,
-        AMW->hints->window_title
-    );
-    if (i != result_success) {
-        log_fatal("Can't initialize the display backend.");
-        a_moonlit_walk_cleanup__(AMW);
-        return; 
-    }
-    hadal_window_visible(&AMW->hadal, true);
+        struct pelagia_renderer_init_work renderer_init_work = {
+            .pelagia = &AMW->pelagia,
+            .ia = &AMW->ia,
+            .hadal = &AMW->hadal,
+            .application_name = AMW->hints->app_name,
+            .application_version = AMW->hints->version,
+            .riven = riven,
+            .threads = threads,
+            .thread_count = thread_count,
+            .max_frames_buffering = AMW->hints->pelagia_frames_buffering,
+            .preferred_primary_device_idx = AMW->hints->pelagia_preferred_primary_device,
+            .max_physical_device_count = AMW->hints->pelagia_max_devices,
+            .virtual_device_count = AMW->hints->pelagia_virtual_devices,
+            .enable_vsync = AMW->hints->pelagia_enable_vsync,
+            .out_result = result_success,
+        };
 
-    i = pelagia_init(
-        AMW->hints->entry_points.pelagia,
-        &AMW->pelagia, 
-        &AMW->ia, 
-        &AMW->hadal, 
-        riven, 
-        AMW->hints->app_name, 
-        AMW->hints->version, 
-        threads,
-        thread_count,
-        AMW->hints->pelagia_preferred_main_device,
-        AMW->hints->pelagia_max_devices,
-        AMW->hints->pelagia_enable_vsync
-    );
-    if (i != result_success) {
-        log_fatal("Can't initialize the renderer.");
-        a_moonlit_walk_cleanup__(AMW);
-        return;
+        pelagia_renderer_init(&renderer_init_work);
+        if (renderer_init_work.out_result != result_success) {
+            log_fatal("Can't initialize the renderer.");
+            a_moonlit_walk_cleanup__(AMW);
+            return;
+        }
     }
 
     struct amw_workload work[AMW_MAX_WORKLOAD];
@@ -80,13 +88,13 @@ static void a_moonlit_walk_main__(
     for (i = 0; i < 3; i++) {
         tears[i].argument = NULL;
     }
-    tears[AMW_SIMULATION_TEAR_IDX].procedure = (PFN_riven_tear)a_moonlit_walk_simulation_tear__;
+    tears[AMW_SIMULATION_TEAR_IDX].procedure = (PFN_riven_work)a_moonlit_walk_simulation_tear__;
     tears[AMW_SIMULATION_TEAR_IDX].name = "a_moonlit_walk_simulation_tear__";
 
-    tears[AMW_RENDERING_TEAR_IDX].procedure = (PFN_riven_tear)a_moonlit_walk_rendering_tear__;
+    tears[AMW_RENDERING_TEAR_IDX].procedure = (PFN_riven_work)a_moonlit_walk_rendering_tear__;
     tears[AMW_RENDERING_TEAR_IDX].name = "a_moonlit_walk_rendering_tear__";
 
-    tears[AMW_GPUEXEC_TEAR_IDX].procedure = (PFN_riven_tear)a_moonlit_walk_gpuexec_tear__;
+    tears[AMW_GPUEXEC_TEAR_IDX].procedure = (PFN_riven_work)a_moonlit_walk_gpuexec_tear__;
     tears[AMW_GPUEXEC_TEAR_IDX].name = "a_moonlit_walk_gpuexec_tear__";
 
     struct amw_workload *simulation_workload = &work[frame_idx % AMW_MAX_WORKLOAD];
@@ -168,10 +176,11 @@ AMWAPI s32 a_moonlit_walk(
         .riven_stack_size = 64 * 1024,
         .riven_log_2_tears = 12,
         .pelagia_max_devices = 1, /* if 0, use all available GPUs */
-        .pelagia_preferred_main_device = -1, /* select the most appropriate GPU as the main device */
+        .pelagia_virtual_devices = 0, /* if 0, no virtual devices */
+        .pelagia_preferred_primary_device = -1, /* select the most appropriate GPU as the main device */
+        .pelagia_frames_buffering = pelagia_frames_triple_buffering,
         .pelagia_enable_vsync = false,
         .entry_points.hadal = hadal_entry_point,
-        .entry_points.pelagia = pelagia_entry_point,
         .entry_points.silv = silver_entry_point,
         .callbacks.init = NULL,
         .callbacks.simulation = NULL,

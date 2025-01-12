@@ -113,7 +113,7 @@ extern "C" {
 /** Opaque handle for the fiber job system's context. */
 struct riven;
 
-typedef void (*PFN_riven_tear)(void *argument);
+typedef void (*PFN_riven_work)(void *argument);
 typedef void (*PFN_riven_main)(struct riven *riven, thread_id *threads, ssize thread_count, void *argument);
 
 #define RIVENS_TEAR(tear, arg) \
@@ -129,7 +129,7 @@ typedef at_ssize *rivens_chain_t;
 
 /** A job for the fiber context */
 struct rivens_tear {
-    PFN_riven_tear procedure;
+    PFN_riven_work procedure;
     void          *argument;
     const char    *name;
 };

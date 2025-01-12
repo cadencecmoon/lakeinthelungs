@@ -4,9 +4,7 @@
 
 #include <lake/pelagia.h>
 
-AMWAPI s32 pelagia_mock_entry_point(struct pelagia *pelagia, struct ipomoeaalba *ia)
+AMWAPI void pelagia_construct_shader_pipelines(struct pelagia_construct_shader_pipelines_work *work)
 {
-    (void)pelagia;
-    (void)ia;
-    return result_error_undefined;
+
 }

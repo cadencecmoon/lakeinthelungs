@@ -2,126 +2,12 @@
  *  Copyright (c) 2025 Cadence C. Moon
  *  The source code is licensed under a standard MIT license. */
 
+#include <lake/vulkan.h>
 #include <lake/bedrock/os.h>
-
-#include "vk_pelagia.h"
 
 #if defined(AMW_PLATFORM_APPLE)
 #include <stdlib.h> /* getenv, for MacOS */
 #endif
-
-AMWAPI s32 pelagia_vulkan_entry_point(struct pelagia *pelagia, struct ipomoeaalba *ia)
-{
-    (void)ia; // TODO
-
-    struct vulkan_instance_api api;
-    iazero(api);
-
-    if (vulkan_open_driver(&api) == false)
-        return result_error_missing_shared_library;
-
-    struct vulkan_backend *vk = (struct vulkan_backend *)malloc(sizeof(struct vulkan_backend));
-    assert_debug(vk);
-
-    iazerop(vk);
-    vk->api = api;
-
-    /* TODO */
-    //vk->allocator = (VkAllocationCallbacks){};
-
-    pelagia->backend_api = pelagia_backend_api_vulkan;
-    pelagia->backend_name = "vulkan";
-    pelagia->backend = (void *)vk;
-
-    pelagia->calls = (struct pelagia_calls){
-        .renderer_init = pelagia_vulkan_renderer_init,
-        .renderer_fini = pelagia_vulkan_renderer_fini,
-        .create_swapchain_surface = pelagia_vulkan_create_swapchain_surface,
-        .construct_devices = pelagia_vulkan_construct_devices,
-        .destroy_devices = pelagia_vulkan_destroy_devices,
-        .construct_swapchain_tear = pelagia_vulkan_construct_swapchain_tear__,
-    };
-
-    return result_success;
-}
-
-const char *vulkan_result_string(VkResult result)
-{
-    switch (result) {
-		case VK_ERROR_OUT_OF_HOST_MEMORY:
-			return "Host memory allocation has failed.";
-		case VK_ERROR_OUT_OF_DEVICE_MEMORY:
-			return "Device memory allocation has failed.";
-		case VK_ERROR_INITIALIZATION_FAILED:
-			return "Initialization of an object could not be completed for implementation-specific reasons.";
-		case VK_ERROR_DEVICE_LOST:
-			return "The logical or physical device has been lost.";
-		case VK_ERROR_MEMORY_MAP_FAILED:
-			return "Mapping of a memory object has failed.";
-		case VK_ERROR_LAYER_NOT_PRESENT:
-			return "A requested layer is not present or could not be loaded.";
-		case VK_ERROR_EXTENSION_NOT_PRESENT:
-			return "A requested extension is not supported.";
-		case VK_ERROR_FEATURE_NOT_PRESENT:
-			return "A requested feature is not supported.";
-		case VK_ERROR_INCOMPATIBLE_DRIVER:
-			return "The requested version of Vulkan is not supported by the driver or is otherwise "
-			       "incompatible for implementation-specific reasons.";
-		case VK_ERROR_TOO_MANY_OBJECTS:
-			return "Too many objects of the type have already been created.";
-		case VK_ERROR_FORMAT_NOT_SUPPORTED:
-			return "A requested format is not supported on this device.";
-		case VK_ERROR_FRAGMENTED_POOL:
-			return "A pool allocation has failed due to fragmentation of the pool's memory.";
-		case VK_ERROR_OUT_OF_POOL_MEMORY:
-			return "A pool memory allocation has failed.";
-		case VK_ERROR_INVALID_EXTERNAL_HANDLE:
-			return "An external handle is not a valid handle of the specified type.";
-		case VK_ERROR_FRAGMENTATION:
-			return "A descriptor pool creation has failed due to fragmentation.";
-		case VK_ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS:
-			return "A buffer creation or memory allocation failed because the requested address is not available.";
-		case VK_PIPELINE_COMPILE_REQUIRED:
-			return "A requested pipeline creation would have required compilation, but the application requested compilation to not be performed.";
-		case VK_ERROR_SURFACE_LOST_KHR:
-			return "A surface is no longer available.";
-		case VK_ERROR_NATIVE_WINDOW_IN_USE_KHR:
-			return "The requested window is already in use by Vulkan or another API in a manner which prevents it from being used again.";
-		case VK_SUBOPTIMAL_KHR:
-			return "A swapchain no longer matches the surface properties exactly, but can still be used to present"
-			       "to the surface successfully.";
-		case VK_ERROR_OUT_OF_DATE_KHR:
-			return "A surface has changed in such a way that it is no longer compatible with the swapchain, "
-			       "any further presentation requests using the swapchain will fail.";
-		case VK_ERROR_INCOMPATIBLE_DISPLAY_KHR:
-			return "The display used by a swapchain does not use the same presentable image layout, or is "
-			       "incompatible in a way that prevents sharing an image.";
-		case VK_ERROR_VALIDATION_FAILED_EXT:
-			return "VK_ERROR_VALIDATION_FAILED_EXT";
-		case VK_ERROR_INVALID_SHADER_NV:
-			return "one or more shaders failed to compile or link";
-		case VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT:
-			return "VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT";
-		case VK_ERROR_NOT_PERMITTED_KHR:
-			return "VK_ERROR_NOT_PERMITTED_KHR";
-		case VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT:
-			return "An operation on a swapchain created with VK_FULL_SCREEN_EXCLUSIVE_APPLICATION_CONTROLLED_EXT failed as "
-			       "it did not have exlusive full-screen access.";
-		case VK_THREAD_IDLE_KHR:
-			return "A deferred operation is not complete but there is currently no work for this thread to do at the time of this call.";
-		case VK_THREAD_DONE_KHR:
-			return "A deferred operation is not complete but there is no work remaining to assign to additional threads.";
-		case VK_OPERATION_DEFERRED_KHR:
-			return "A deferred operation was requested and at least some of the work was deferred.";
-		case VK_OPERATION_NOT_DEFERRED_KHR:
-			return "A deferred operation was requested and no operations were deferred.";
-		case VK_ERROR_COMPRESSION_EXHAUSTED_EXT:
-			return "An image creation failed because internal resources required for compression are exhausted."
-			       "This must only be returned when fixed-rate compression is requested.";
-        default:
-            return "An unknown error has occured.";
-    };
-}
 
 static PFN_vkVoidFunction instance_proc_address(struct vulkan_instance_api *api, VkInstance instance, const char *procname)
 {
@@ -141,7 +27,8 @@ static PFN_vkVoidFunction device_proc_address(struct vulkan_instance_api *api, V
     return address;
 }
 
-b32 vulkan_open_driver(struct vulkan_instance_api *api)
+/** Loads the Vulkan shared driver library and loads the global entry point procedures. */
+AMWAPI b32 vulkan_open_driver(struct vulkan_instance_api *api)
 {
     api->module = NULL;
 
@@ -198,18 +85,20 @@ b32 vulkan_open_driver(struct vulkan_instance_api *api)
     return true;
 }
 
-void vulkan_close_driver(struct vulkan_instance_api *vk)
+/** Unloads the Vulkan library, after this point none of the Vulkan backend calls are valid. */
+AMWAPI void vulkan_close_driver(struct vulkan_instance_api *api)
 {
-    if (vk->module)
-        bedrock_close_dll(vk->module);
-    vk->vkGetDeviceProcAddr = NULL;
-    vk->vkGetInstanceProcAddr = NULL;
-    vk->module = NULL;
+    if (api->module)
+        bedrock_close_dll(api->module);
+    api->vkGetDeviceProcAddr = NULL;
+    api->vkGetInstanceProcAddr = NULL;
+    api->module = NULL;
 }
 
-s32 vulkan_load_instance_api_procedures(
+/** Fills the pointers of procedures defined in struct vulkan_instance_api. */
+AMWAPI s32 vulkan_load_instance_api_procedures(
     struct vulkan_instance_api *api, 
-    VkInstance                  instance,
+    VkInstance                  instance, 
     u32                         instance_extensions)
 {
     api->vkCreateDevice = (PFN_vkCreateDevice)(void *)instance_proc_address(api, instance, "vkCreateDevice");
@@ -376,11 +265,12 @@ s32 vulkan_load_instance_api_procedures(
     return result_success;
 }
 
-s32 vulkan_load_device_api_procedures(
-    struct vulkan_instance_api *vk,
-    struct vulkan_device_api   *api,
-    VkDevice                    device,
-    u32                         device_api_version,
+/** Fills the pointers of procedures defined in struct vulkan_device_api. */
+AMWAPI s32 vulkan_load_device_api_procedures(
+    struct vulkan_instance_api *vk, 
+    struct vulkan_device_api   *api, 
+    VkDevice                    device, 
+    u32                         device_api_version, 
     u64                         device_extensions)
 {
     /* core 1.0 */
@@ -798,4 +688,83 @@ s32 vulkan_load_device_api_procedures(
     }
 #endif /* VK_KHR_acceleration_structure */
     return result_success;
+}
+
+/** Get a (very helpful) message of a given Vulkan error code. */
+AMWAPI const char *vulkan_result_string(VkResult result)
+{
+    switch (result) {
+		case VK_ERROR_OUT_OF_HOST_MEMORY:
+			return "Host memory allocation has failed.";
+		case VK_ERROR_OUT_OF_DEVICE_MEMORY:
+			return "Device memory allocation has failed.";
+		case VK_ERROR_INITIALIZATION_FAILED:
+			return "Initialization of an object could not be completed for implementation-specific reasons.";
+		case VK_ERROR_DEVICE_LOST:
+			return "The logical or physical device has been lost.";
+		case VK_ERROR_MEMORY_MAP_FAILED:
+			return "Mapping of a memory object has failed.";
+		case VK_ERROR_LAYER_NOT_PRESENT:
+			return "A requested layer is not present or could not be loaded.";
+		case VK_ERROR_EXTENSION_NOT_PRESENT:
+			return "A requested extension is not supported.";
+		case VK_ERROR_FEATURE_NOT_PRESENT:
+			return "A requested feature is not supported.";
+		case VK_ERROR_INCOMPATIBLE_DRIVER:
+			return "The requested version of Vulkan is not supported by the driver or is otherwise "
+			       "incompatible for implementation-specific reasons.";
+		case VK_ERROR_TOO_MANY_OBJECTS:
+			return "Too many objects of the type have already been created.";
+		case VK_ERROR_FORMAT_NOT_SUPPORTED:
+			return "A requested format is not supported on this device.";
+		case VK_ERROR_FRAGMENTED_POOL:
+			return "A pool allocation has failed due to fragmentation of the pool's memory.";
+		case VK_ERROR_OUT_OF_POOL_MEMORY:
+			return "A pool memory allocation has failed.";
+		case VK_ERROR_INVALID_EXTERNAL_HANDLE:
+			return "An external handle is not a valid handle of the specified type.";
+		case VK_ERROR_FRAGMENTATION:
+			return "A descriptor pool creation has failed due to fragmentation.";
+		case VK_ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS:
+			return "A buffer creation or memory allocation failed because the requested address is not available.";
+		case VK_PIPELINE_COMPILE_REQUIRED:
+			return "A requested pipeline creation would have required compilation, but the application requested compilation to not be performed.";
+		case VK_ERROR_SURFACE_LOST_KHR:
+			return "A surface is no longer available.";
+		case VK_ERROR_NATIVE_WINDOW_IN_USE_KHR:
+			return "The requested window is already in use by Vulkan or another API in a manner which prevents it from being used again.";
+		case VK_SUBOPTIMAL_KHR:
+			return "A swapchain no longer matches the surface properties exactly, but can still be used to present"
+			       "to the surface successfully.";
+		case VK_ERROR_OUT_OF_DATE_KHR:
+			return "A surface has changed in such a way that it is no longer compatible with the swapchain, "
+			       "any further presentation requests using the swapchain will fail.";
+		case VK_ERROR_INCOMPATIBLE_DISPLAY_KHR:
+			return "The display used by a swapchain does not use the same presentable image layout, or is "
+			       "incompatible in a way that prevents sharing an image.";
+		case VK_ERROR_VALIDATION_FAILED_EXT:
+			return "VK_ERROR_VALIDATION_FAILED_EXT";
+		case VK_ERROR_INVALID_SHADER_NV:
+			return "one or more shaders failed to compile or link";
+		case VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT:
+			return "VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT";
+		case VK_ERROR_NOT_PERMITTED_KHR:
+			return "VK_ERROR_NOT_PERMITTED_KHR";
+		case VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT:
+			return "An operation on a swapchain created with VK_FULL_SCREEN_EXCLUSIVE_APPLICATION_CONTROLLED_EXT failed as "
+			       "it did not have exlusive full-screen access.";
+		case VK_THREAD_IDLE_KHR:
+			return "A deferred operation is not complete but there is currently no work for this thread to do at the time of this call.";
+		case VK_THREAD_DONE_KHR:
+			return "A deferred operation is not complete but there is no work remaining to assign to additional threads.";
+		case VK_OPERATION_DEFERRED_KHR:
+			return "A deferred operation was requested and at least some of the work was deferred.";
+		case VK_OPERATION_NOT_DEFERRED_KHR:
+			return "A deferred operation was requested and no operations were deferred.";
+		case VK_ERROR_COMPRESSION_EXHAUSTED_EXT:
+			return "An image creation failed because internal resources required for compression are exhausted."
+			       "This must only be returned when fixed-rate compression is requested.";
+        default:
+            return "An unknown error has occured.";
+    };
 }

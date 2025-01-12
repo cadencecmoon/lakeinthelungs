@@ -27,4 +27,4 @@ option('pulse',     type : 'feature', value : 'auto', description : 'Build a Pul
 option('oss',       type : 'feature', value : 'auto', description : 'Build an OSS Unix audio backend')
 
 # Rendering backends
-option('vulkan',    type : 'feature', value : 'auto', description : 'Build the Vulkan rendering backend')
+option('vulkan',    type : 'feature', value : 'enabled', description : 'Build the Vulkan rendering backend')
