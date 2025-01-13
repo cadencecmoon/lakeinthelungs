@@ -629,11 +629,6 @@ static void construct_device(struct construct_device_work *work)
     assert_debug(device->transfer_queues[0] != VK_NULL_HANDLE);
 #endif /* AMW_DEBUG */
 
-    device->raw_descriptor_sets = (VkDescriptorSet *)malloc(sizeof(VkDescriptorSet) * (frames_buffering * render_pass_type_count));
-    for (i = 0; i < render_pass_type_count; i++) {
-        device->descriptor_sets[i] = &device->raw_descriptor_sets[i * frames_buffering];
-    }
-
     /* create the command cools per queue family */
     device->queue_command_pool_count = frames_buffering * thread_count;
     device->raw_command_pool_count = queue_family_count * device->queue_command_pool_count;
@@ -799,7 +794,7 @@ static void clear_swapchain(
     *swapchain = cleared;
 }
 
-AMWAPI void pelagia_reconstruct_swapchain(struct pelagia_reconstruct_swapchain_work *work)
+AMWAPI void pelagia_assemble_swapchain(struct pelagia_assemble_swapchain_work *work)
 {
     assert_debug(work && work->pelagia);
     assert_debug(work->pelagia->devices);
@@ -813,6 +808,8 @@ AMWAPI void pelagia_reconstruct_swapchain(struct pelagia_reconstruct_swapchain_w
     struct vulkan_device    *primary   = &pelagia->devices[0];
 
     assert_debug(primary->flags & pelagia_device_flag_primary);
+
+    /* TODO work->surface_lost ? */
 
     VkSwapchainKHR old_sc = swapchain->sc;
     u32 window_width = 0, window_height = 0;
@@ -993,9 +990,10 @@ AMWAPI void pelagia_renderer_init(struct pelagia_renderer_init_work *work)
 
     s32 result;
     struct pelagia *pelagia = work->pelagia;
+    struct riven   *riven   = work->riven;
 
     /* prepare the state, and fini will be called in case of errors. */
-    struct pelagia_renderer_fini_work fini = { pelagia };
+    struct pelagia_renderer_fini_work fini = { pelagia, riven };
 
     /* connect to vulkan */
     if (!vulkan_open_driver(&pelagia->vk.api)) {
@@ -1056,7 +1054,7 @@ AMWAPI void pelagia_renderer_init(struct pelagia_renderer_init_work *work)
     }
     *pelagia->arena.end = scratch;
 
-    struct pelagia_reconstruct_swapchain_work swapchain_work = {
+    struct pelagia_assemble_swapchain_work swapchain_work = {
         .pelagia = pelagia,
         .hadal = work->hadal,
         .use_vsync = work->enable_vsync,
@@ -1064,11 +1062,24 @@ AMWAPI void pelagia_renderer_init(struct pelagia_renderer_init_work *work)
     };
     arena_init(&pelagia->swapchain.arena, 234);
 
-    pelagia_reconstruct_swapchain(&swapchain_work);
+    pelagia_assemble_swapchain(&swapchain_work);
     if (swapchain_work.out_result != result_success) {
         log_error("Failed to create a swapchain at initialization.");
         pelagia_renderer_fini(&fini);
         work->out_result = swapchain_work.out_result;
+    }
+
+    /* TODO render targets, uniform buffers (first instance) */
+
+    struct pelagia_assemble_render_pass_pipelines_work render_pass_pipelines_work = {
+        .pelagia = pelagia,
+        .riven = riven,
+        .dissasemble = false,
+    };
+    pelagia_assemble_render_pass_pipelines(&render_pass_pipelines_work);
+    if (render_pass_pipelines_work.out_result != result_success) {
+        log_error("Failed to assemble all shader pipelines at initialization.");
+        pelagia_renderer_fini(&fini);
     }
 }
 
@@ -1077,26 +1088,32 @@ AMWAPI void pelagia_renderer_fini(struct pelagia_renderer_fini_work *work)
     if (!work) return;
 
     struct pelagia *pelagia = work->pelagia;
+    struct riven   *riven   = work->riven;
     if (!pelagia) return;
 
+    /* some tears expect to handle all available devices */
+    if (pelagia->devices) {
+        struct pelagia_assemble_render_pass_pipelines_work dissasemble_pipelines_work = {
+            .pelagia = pelagia,
+            .riven = riven,
+            .dissasemble = true,
+        };
+        pelagia_assemble_render_pass_pipelines(&dissasemble_pipelines_work);
+    }
+
+    /* handle individual devices */
     for (u32 i = 0; i < pelagia->device_count; i++) {
         struct vulkan_device *device = &pelagia->devices[i];
 
         if (device->logical == VK_NULL_HANDLE) continue;
 
         device->api.vkDeviceWaitIdle(device->logical);
-        
         if (at_read_relaxed(&device->flags) & pelagia_device_flag_primary) {
             if (pelagia->swapchain.sc != VK_NULL_HANDLE) {
                 clear_swapchain(&pelagia->swapchain, device);
                 device->api.vkDestroySwapchainKHR(device->logical, pelagia->swapchain.sc, NULL);
             }
         }
-
-        /* TODO destroy descriptor layouts, pipelines */
-
-        if (device->raw_descriptor_sets)
-            free(device->raw_descriptor_sets);
 
         if (device->raw_command_pools) {
             for (u32 j = 0; j < device->raw_command_pool_count; j++)

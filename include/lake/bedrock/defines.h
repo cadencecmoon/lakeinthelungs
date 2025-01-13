@@ -399,6 +399,11 @@ enum result_codes {
     result_feature_unsupported,
 };
 
+/** We target a parallelized workflow for no more than 4 frames at a time.
+ *  Increasing this limit doesn't really make sense, and it may not be save either
+ *  because a few things are designed with this limit in mind. */
+#define AMW_MAX_WORKLOAD 4
+
 #ifdef __cplusplus
 }
 #endif

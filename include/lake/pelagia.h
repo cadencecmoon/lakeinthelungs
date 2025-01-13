@@ -47,10 +47,10 @@ enum pelagia_flags {
 enum pelagia_frames_buffering {
     pelagia_frames_dual_buffering   = 2,
     pelagia_frames_triple_buffering = 3,
-    pelagia_frames_quad_buffering   = 4,
+    pelagia_frames_quad_buffering   = 4, /* AMW_MAX_WORKLOAD */
 };
 
-/** The renderer. */
+/** The renderers execution context. */
 struct pelagia {
     at_u32                   flags;             /**< Any write-modify operations must be externally synchronized. */
     u32                      frames_buffering;  /**< The amount of frames we are buffering for, corresponds to the swapchain image count. */
@@ -60,10 +60,10 @@ struct pelagia {
     u32                      device_count;      /**< How many devices are available in the renderer. This value will not change during the lifetime of a rendering backend. */
 
     struct vulkan_swapchain  swapchain;         /**< Holds images for presenting to the window, controlled by the primary device. */
-    struct vulkan_images    *render_targets;    /**< Render target type per frame, shared between devices. */
-    struct vulkan_buffers   *constant_buffers;  /**< Buffers holding frame constants per frame, shared between devices. */
+    struct vulkan_images     render_targets;    /**< Render target type per frame, shared between devices. */
+    struct vulkan_buffers    uniform_buffers;   /**< Buffers holding frame constants per frame, data shared between devices. */
 
-    struct arena_allocator   arena;  /**< XXX A memory pool for all image count dependent dynamic state, and for initialization. */
+    struct arena_allocator   arena;             /**< XXX A memory pool for temporary state. */
 };
 
 /** The information needed to create a renderer and a collection of rendering devices. */
@@ -86,64 +86,78 @@ struct pelagia_renderer_init_work {
     s32                 out_result;             /**< The result of this work. */
 };
 
-/** Create a renderer. */
-AMWAPI void pelagia_renderer_init(struct pelagia_renderer_init_work *work);
-
 /** The information needed to destroy the renderer. */
 struct pelagia_renderer_fini_work {
-    struct pelagia *pelagia;
+    struct pelagia     *pelagia;        /**< The renderers state to be finished. */
+    struct riven       *riven;          /**< Some of the state to be dissassembled can be done in parallel. */
 };
+
+/** An argument holding work for creating/recreating a swapchain. */
+struct pelagia_assemble_swapchain_work {
+    struct pelagia     *pelagia;        /**< Holds the swapchain and a device that controls it. */
+    struct hadopelagic *hadal;          /**< The display backend will provide necessary window info. */
+    s32                 out_result;     /**< A return code, check for errors. */
+    b32                 use_vsync;      /**< Whether to enable vertical synchronization. */
+    b32                 surface_lost;   /**< True on VK_ERROR_SURFACE_LOST_KHR or display backend fallback, handle approprietly. */
+};
+
+/** An argument for defining the render passes to be recreated. The pipelines are constructed
+ *  for all devices in the provided pelagia structure. */
+struct pelagia_assemble_render_pass_pipelines_work {
+    struct pelagia     *pelagia;            /**< Holds the devices for whom pipelines will be built. */
+    struct riven       *riven;              /**< Creating the pipelines can be parallelized. */
+    b32                 dissasemble;        /**< If true, the assembly will only cleanup the pipeline state instead. */
+    s32                 out_result;         /**< A return code, check for errors. */
+};
+
+/** TODO */
+struct pelagia_assemble_render_targets_work {
+    struct pelagia     *pelagia;            /**< Holds the devices for whom pipelines will be built. */
+    struct riven       *riven;              /**< Creating the pipelines can be parallelized. */
+    s32                 out_result;         /**< A return code, check for errors. */
+};
+
+/** TODO */
+struct pelagia_assemble_uniform_buffers_work {
+    struct pelagia     *pelagia;            /**< Holds the devices for whom pipelines will be built. */
+    s32                 out_result;         /**< A return code, check for errors. */
+};
+
+/** Create a renderer. */
+AMWAPI void pelagia_renderer_init(struct pelagia_renderer_init_work *work);
 
 /** Destroy a renderer. */
 AMWAPI void pelagia_renderer_fini(struct pelagia_renderer_fini_work *work);
 
-/** An argument holding work for creating/recreating a swapchain. */
-struct pelagia_reconstruct_swapchain_work {
-    struct pelagia     *pelagia;        /**< Holds the swapchain and a device that controls it. */
-    struct hadopelagic *hadal;          /**< The display backend will provide necessary window info. */
-    b32                 use_vsync;      /**< Whether to enable vertical synchronization. */
-    s32                 out_result;     /**< A return code, check for errors. */
-};
-
 /** Creates or recreates the swapchain, for a given display backend and main rendering device. */
-AMWAPI void pelagia_reconstruct_swapchain(struct pelagia_reconstruct_swapchain_work *work);
+AMWAPI void pelagia_assemble_swapchain(struct pelagia_assemble_swapchain_work *work);
 
-/** An argument for defining the render passes to be recreated. The pipelines are constructed
- *  for all devices in the provided pelagia structure. */
-struct pelagia_construct_shader_pipelines_work {
-    struct pelagia     *pelagia;        /**< Holds the devices for whom pipelines will be built. */
-    struct riven       *riven;          /**< Creating the pipelines can be parallelized. */
-    s32                 out_result;     /**< A return code, check for errors. */
-};
+/** Creates, recreates or destroys the defined render pass shader pipeline states. */
+AMWAPI void pelagia_assemble_render_pass_pipelines(struct pelagia_assemble_render_pass_pipelines_work *work);
 
-/** Creates or recreates the defined shader pipelines. */
-AMWAPI void pelagia_construct_shader_pipelines(struct pelagia_construct_shader_pipelines_work *work);
+/** Creates, updates or destroys render targets for each workload. */
+AMWAPI void pelagia_assemble_render_targets(struct pelagia_assemble_render_targets_work *work);
 
-struct pelagia_construct_render_targets_work {
-    struct pelagia     *pelagia;        /**< Holds the devices for whom pipelines will be built. */
-    struct riven       *riven;          /**< Creating the pipelines can be parallelized. */
-    s32                 out_result;     /**< A return code, check for errors. */
-};
-
-/** Create render targets for all the internal render passes. */
-AMWAPI void pelagia_construct_render_targets(struct pelagia_construct_render_targets_work *work);
+/** Creates an instance of uniform buffers for each workload. */
+AMWAPI void pelagia_assemble_uniform_buffers(struct pelagia_assemble_uniform_buffers_work *work);
 
 /** All renderer's work can be defined as tears, and at will parallelized. */
-#define PELAGIA_RIVENS_TEAR(proc) \
-    AMW_INLINE void pelagia_##proc##_tear__( \
-        struct pelagia_##proc##_work *work, \
-        struct rivens_tear *tear) \
-    { \
-        tear->procedure = (PFN_riven_work)pelagia_##proc; \
-        tear->argument = work; \
-        tear->name = "pelagia:" #proc; \
+#define PELAGIA_RIVENS_TEAR(proc)                           \
+    AMW_INLINE void pelagia_##proc##_tear__(                \
+        struct pelagia_##proc##_work *work,                 \
+        struct rivens_tear *tear)                           \
+    {                                                       \
+        tear->procedure = (PFN_riven_work)pelagia_##proc;   \
+        tear->argument = work;                              \
+        tear->name = "pelagia:" #proc;                      \
     }
 
 PELAGIA_RIVENS_TEAR(renderer_init);
 PELAGIA_RIVENS_TEAR(renderer_fini);
-PELAGIA_RIVENS_TEAR(reconstruct_swapchain);
-PELAGIA_RIVENS_TEAR(construct_shader_pipelines);
-PELAGIA_RIVENS_TEAR(construct_render_targets);
+PELAGIA_RIVENS_TEAR(assemble_swapchain);
+PELAGIA_RIVENS_TEAR(assemble_render_pass_pipelines);
+PELAGIA_RIVENS_TEAR(assemble_render_targets);
+PELAGIA_RIVENS_TEAR(assemble_uniform_buffers);
 
 #ifdef __cplusplus
 }

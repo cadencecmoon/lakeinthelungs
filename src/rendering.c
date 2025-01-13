@@ -16,7 +16,7 @@ static s32 prepare_the_rendering_state(struct amw_workload *work)
     /* TODO here i can do stuff like building the pipelines, hot reloading shaders, 
      * allocating the command buffers, prepare audio streams for the mixer, etc. */
 
-    struct pelagia_reconstruct_swapchain_work swapchain_work = {
+    struct pelagia_assemble_swapchain_work assemble_swapchain_work = {
         .pelagia = pelagia,
         .hadal = hadal,
         .use_vsync = (at_read_relaxed(&pelagia->flags) & pelagia_flag_vsync_enabled) ? true : false,
@@ -27,15 +27,15 @@ static s32 prepare_the_rendering_state(struct amw_workload *work)
     ssize idx = 0;
 
     if (at_read_explicit(&hadal->flags, memory_model_acquire) & hadal_flag_recreate_swapchain)
-        pelagia_reconstruct_swapchain_tear__(&swapchain_work, &tears[idx++]);
+        pelagia_assemble_swapchain_tear__(&assemble_swapchain_work, &tears[idx++]);
 
     /* execute the work */
     riven_split_and_unchain(riven, tears, idx);
 
     s32 result = result_success;
-    if (swapchain_work.out_result != result_success) {
-        log_error("pelagia_construct_swapchain failed with result code '%d'.", swapchain_work.out_result);
-        result = swapchain_work.out_result;
+    if (assemble_swapchain_work.out_result != result_success) {
+        log_error("pelagia_assemble_swapchain failed with result code '%d'.", assemble_swapchain_work.out_result);
+        result = assemble_swapchain_work.out_result;
     } /* else if... */
 
     return result;

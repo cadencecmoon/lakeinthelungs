@@ -1,9 +1,10 @@
 shaders_src = [
     'visibility_pass.frag.glsl',
     'visibility_pass.vert.glsl',
-    'shading_pass.frag.glsl',
-    'shading_pass.vert.glsl',
+    'lighting_pass.frag.glsl',
+    'lighting_pass.vert.glsl',
 ]
+
 glslang = find_program('glslangValidator', required : true) #get_option('vulkan'))
 if glslang.found()
     foreach shader : shaders_src

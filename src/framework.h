@@ -7,9 +7,6 @@
 
 #include <lake/a_moonlit_walk.h>
 
-/** Holds memory for a maximum of 4 frames at a time. */
-#define AMW_MAX_WORKLOAD 4
-
 #define AMW_SIMULATION_TEAR_IDX 0
 /** Entrypoint for the simulation stage of the mainloop. This stage will read any seed
  *  like the delta time, input or RNG and necessary data from the simulation stage of the last 

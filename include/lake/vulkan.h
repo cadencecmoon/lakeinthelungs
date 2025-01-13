@@ -452,6 +452,55 @@ struct vulkan_memory_allocator {
     struct vulkan_allocation todo; 
 };
 
+/** This structure combines a Vulkan image object with a view and some meta-data. */
+struct vulkan_image {
+    VkImage                     image;          /**< The vulkan object for the image. */
+    VkImageView                 view;           /**< A view onto the contents of this image or NULL if no view was requested. */
+    VkDeviceSize                offset;         /**< The offset of this image within the bound memory allocation in bytes. */
+    VkDeviceSize                size;           /**< The required size of the memory allocation for this image in bytes. */
+};
+
+/** Bundles arrays of Vulkan image objects with meta-data and image views.
+ *  Handles the device memory allocations for the images. */
+struct vulkan_images {
+    struct vulkan_allocation    allocation;     /**< The memory suballocation that serves all of the images. */
+    u32                         image_count;    /**< Number of images and meta-data in the arrays. */
+};
+
+/** Combines a buffer handle with offset and size. */
+struct vulkan_buffer {
+    VkBuffer                    buffer;         /**< The vulkan object for the buffer. */
+    VkDeviceSize                offset;         /**< The offset in the bound memory allocation in bytes. */
+    VkDeviceSize                size;           /**< The size of this buffer without padding in bytes. */
+};
+
+/** Bundles arrays of Vulkan buffer objects with information needed to access its memory. */
+struct vulkan_buffers {
+    struct vulkan_buffer       *buffers;
+    struct vulkan_allocation    allocation;     /**< The memory suballocation that serves all of the buffers. */
+    u32                         buffer_count;   /**< Number of buffers and meta-data in the arrays. */
+};
+
+/** Specifies a single descriptor layout. */
+struct vulkan_descriptor_set_request {
+    VkShaderStageFlagBits           stage_flags;            /**< the stageFlags of each entry of bindings is OR'ed with this value before using it */
+    u32                             min_descriptor_count;   /**< Setting this is a good way to avoid some redundant specifications. */
+    u32                             binding_count;          /**< Number of entries in bindings. */
+    /** A specification of the bindings in the layout. The member binding is overwritten
+     *  by the array index before use, stageFlags is OR'ed with stage_flags and descriptorCount 
+     *  is clamped to a minimum of min_descriptor_count. */
+    VkDescriptorSetLayoutBinding   *bindings;
+};
+
+/** Bundles the shader pipeline state with descriptor sets. */
+struct vulkan_pipeline {
+    VkDescriptorSetLayout   descriptor_set_layout;              /**< Descriptor layout used by the pipeline layout. */
+    VkPipelineLayout        pipeline_layout;                    /**< Pipeline layout used by the pipeline. */
+    VkDescriptorPool        descriptor_pool;                    /**< Pool used to allocate descriptor sets, it matches the descriptor set layout. */
+    VkDescriptorSet         descriptor_sets[AMW_MAX_WORKLOAD];  /**< A descriptor set per swapchain image (max 4). */
+    VkPipeline              pipeline;                           /**< The Vulkan pipeline state. */
+};
+
 /** The context of a rendering device, explicitly used within backend cobalt 
  *  calls and representing an individual GPU. */
 struct vulkan_device {
@@ -521,64 +570,16 @@ struct vulkan_device {
     u32                         compute_queue_family_idx;
     u32                         transfer_queue_family_idx;
 
-    /** Descriptor set layouts used by the pipelines. */
-    VkDescriptorSetLayout       descriptor_set_layouts[render_pass_type_count];
-    /** Pipeline layouts used by the pipelines. */
-    VkPipelineLayout            pipeline_layouts[render_pass_type_count];
-    /** An array of pipeline states. */
-    VkPipeline                  pipelines[render_pass_type_count];
-
-    /** There is one descriptor set per swapchain image (always between 2 to 4 in our case),
-     *  for every descriptor pool. Because we use 'render_pass_type_count' of descriptor pools, 
-     *  we just need to allocate a bunch of descriptor set pointers for every render pass type.
-     *  This raw variable will make destroying the descriptor sets easier, with a layout that 
-     *  corresponds to the descriptor_sets[render_pass_type_count] array. The descriptor set 
-     *  count can be calculated from the enum above, we don't rely on thread count. */
-    VkDescriptorSet            *raw_descriptor_sets;
-    /** An array with one descriptor set per swapchain image. The descriptor set host allocation is continuous. */
-    VkDescriptorSet            *descriptor_sets[render_pass_type_count]; 
-    /** A descriptor pool per pipeline state. */
-    VkDescriptorPool            descriptor_pools[render_pass_type_count];
+    /** An array of render pass pipeline states and bindings. This state is device dependend,
+     *  and we use this array to get the correct shader pipeline from a render pass, when a 
+     *  render pass is recorded to a command buffer. Using static indices makes this a constant
+     *  time lookup, and grouping the bindings may help with cache coherency - in context of 
+     *  recording a render pass that's all we need to access, really. */
+    struct vulkan_pipeline      pipelines[render_pass_type_count];
 
     /** Bits to check support for extensions that interest us. Set during device creation, and then read-only. */
     u64                         extensions;
     struct vulkan_device_api    api;
-};
-
-/** Bundles arrays of Vulkan image objects with meta-data and image views.
- *  Handles the device memory allocations for the images. */
-struct vulkan_images {
-    VkImage                    *images;         /**< An array of Vulkan objects for each image. */
-    VkImageView                *views;          /**< Views onto the contents of every image or NULL, if no view was requested. */
-    VkDeviceSize               *offsets;        /**< The offset in the bound memory allocation in bytes, for each buffer object. Used to calculate sizes of an image. */
-    struct vulkan_allocation    allocation;     /**< The memory suballocation that serves all of the images. */
-    u32                         image_count;    /**< Number of images and meta-data in the arrays. */
-};
-
-/** Bundles arrays of Vulkan buffer objects with information needed to access its memory. */
-struct vulkan_buffers {
-    VkBuffer                   *buffers;        /**< An array of Vulkan buffer objects. */
-    VkDeviceSize               *offsets;        /**< The offset in the bound memory allocation in bytes, for each buffer object. Used to calculate sizes of a buffer. */
-    struct vulkan_allocation    allocation;     /**< The memory suballocation that serves all of the buffers. */
-    u32                         buffer_count;   /**< Number of buffers and meta-data in the arrays. */
-};
-
-/** Bundles a Vulkan shader module with it's SPIR-V code. */
-struct vulkan_shader {
-    VkShaderModule      module;                 /**< The Vulkan compiled shader module. */
-    usize               spirv_size;             /**< The size of the compiled SPIR-V code in bytes. */
-    u32                *spirv_code;             /**< An array of the compiled SPIR-V code. */
-};
-
-/** Specifies a single descriptor layout. */
-struct vulkan_descriptor_set_request {
-    VkShaderStageFlagBits           stage_flags;            /**< the stageFlags of each entry of bindings is OR'ed with this value before using it */
-    u32                             min_descriptor_count;   /**< Setting this is a good way to avoid some redundant specifications. */
-    u32                             binding_count;          /**< Number of entries in bindings. */
-    /** A specification of the bindings in the layout. The member binding is overwritten
-     *  by the array index before use, stageFlags is OR'ed with stage_flags and descriptorCount 
-     *  is clamped to a minimum of min_descriptor_count. */
-    VkDescriptorSetLayoutBinding   *bindings;
 };
 
 /** Returns the aspect ratio for a given 2D extent. */

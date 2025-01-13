@@ -18,6 +18,20 @@ struct render_graph;
 /** A handle that represents a rendering resource - buffer, textures, pipelines. */
 typedef u64 render_resource_id;
 
+/** Types of render resources, they can be either render targets or data for drawing. */
+enum render_resource_type {
+    render_resource_type_buffer,
+    render_resource_type_texture,
+};
+
+/** Different command queues a render pass can use. */
+enum render_graph_queue {
+    render_graph_queue_graphics = 0x01, /**< Needs a graphics pipeline. */
+    render_graph_queue_compute  = 0x02, /**< May want an async compute pipeline. */
+    render_graph_queue_transfer = 0x04, /**< May want an async transfer queue. */
+    render_graph_queue_all      = 0x07, /**< Viable for all queues. */
+};
+
 /** A render pass can specify the scheduling, and also request transfers 
  *  in or out of the pass. The render graph controls them. */
 enum render_graph_schedule {
@@ -68,12 +82,18 @@ enum render_target_type {
 /** The different render passes implemented with Vulkan. Used for a constant-time lookup
  *  of shader pipeline states and descriptor sets. */
 enum render_pass_type {
+    /** The pass that produces the visibility buffer (the smallest conceivable G-buffer) 
+     *  by rasterizing all geometry once. Outputs a primitive triangle index. */
+    render_pass_type_visibility = 0u,
     /** The pass that renders a screen filling triangle to perform deferred shading. 
      *  This pass will be later expanded into multiple independent passes, for now I need 
      *  just anything that will work. */
-    render_pass_type_shading = 0u,
-    /** The pass that produces the visibility buffer by rasterizing all geometry once. */
-    render_pass_type_visibility,
+    render_pass_type_lighting,
+    /** A forward pass that draws from transparent and translucent materials. The forward pass
+     *  mitigates the limitation of the lighting pass, that only renders opaque triangles. */
+    render_pass_type_forward,
+    /** Renders the user interface of debug tools or in-game UI. */
+    render_pass_type_interface,
     /** The total amount of render passes. */
     render_pass_type_count,
 };
