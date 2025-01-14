@@ -1068,34 +1068,56 @@ AMWAPI void pelagia_renderer_init(struct pelagia_renderer_init_work *work)
     }
     arena_reset(&pelagia->scratch_arena);
 
-    /* a tear per device */
-    struct rivens_tear *tears = (struct rivens_tear *)arena_alloc(&pelagia->scratch_arena, sizeof(struct rivens_tear) * pelagia->device_count);
+    struct rivens_tear assemble_tears[2];
+    struct pelagia_assemble_render_targets_work assemble_render_targets = {
+        .pelagia = pelagia,
+        .dissasemble = false,
+    };
+    struct pelagia_assemble_uniform_buffers_work assemble_uniform_buffers = {
+        .pelagia = pelagia,
+        .dissasemble = false,
+    };
+    pelagia_assemble_render_targets_tear__(&assemble_render_targets, &assemble_tears[0]);
+    pelagia_assemble_uniform_buffers_tear__(&assemble_uniform_buffers, &assemble_tears[1]);
+    riven_split_and_unchain(riven, assemble_tears, 2);
 
-    /* TODO prepare render targets and uniform buffers */
+    /* validate the work */
+#define CHECKWORK(proc, idx) \
+    if (assemble_##proc.out_result != result_success) { \
+        log_error("Tear '%s' for primary device failed and returned %d.", assemble_tears[idx].name, assemble_##proc.out_result); \
+        work->out_result = assemble_##proc.out_result; \
+    }
+    CHECKWORK(uniform_buffers, 0)
+    CHECKWORK(render_targets, 1)
+#undef CHECKWORK
+    if (work->out_result != result_success) return;
+
+    /* a tear per device */
+    struct rivens_tear *device_tears = (struct rivens_tear *)arena_alloc(&pelagia->scratch_arena, sizeof(struct rivens_tear) * pelagia->device_count);
 
     /* A pipeline state is device-specific. We will handle one device at a time,
      * and assemble the pipelines for all available devices. */
-    struct pelagia_assemble_render_pass_pipelines_work *assemble_render_pass_pipelines_work = (struct pelagia_assemble_render_pass_pipelines_work *)
+    struct pelagia_assemble_render_pass_pipelines_work *assemble_render_pass_pipelines = (struct pelagia_assemble_render_pass_pipelines_work *)
         arena_alloc(&pelagia->scratch_arena, sizeof(struct pelagia_assemble_render_pass_pipelines_work) * pelagia->device_count);
 
     /* the pipelines can be assembled concurrently, so we do all devices at a time */
     for (u32 i = 0; i < pelagia->device_count; i++) {
-        assemble_render_pass_pipelines_work[i] = (struct pelagia_assemble_render_pass_pipelines_work){
+        assemble_render_pass_pipelines[i] = (struct pelagia_assemble_render_pass_pipelines_work){
             .pelagia = pelagia,
             .riven = riven,
             .render_pass_type_mask = UINT64_MAX, /* assemble all pipelines */
             .device_idx = i,
             .out_result = result_success,
         };
-        pelagia_assemble_render_pass_pipelines_tear__(&assemble_render_pass_pipelines_work[i], &tears[i]);
+        pelagia_assemble_render_pass_pipelines_tear__(&assemble_render_pass_pipelines[i], &device_tears[i]);
     }
-    riven_split_and_unchain(riven, tears, pelagia->device_count);
+    riven_split_and_unchain(riven, device_tears, pelagia->device_count);
 
     /* check work for errors */
     for (u32 i = 0; i < pelagia->device_count; i++) {
-        if (assemble_render_pass_pipelines_work[i].out_result != result_success) {
+        if (assemble_render_pass_pipelines[i].out_result != result_success) {
             log_error("Failed to assemble all shader pipelines at initialization.");
-            work->out_result = assemble_render_pass_pipelines_work[i].out_result;
+            work->out_result = assemble_render_pass_pipelines[i].out_result;
         }
     }
 }
@@ -1116,12 +1138,6 @@ AMWAPI void pelagia_renderer_fini(struct pelagia_renderer_fini_work *work)
         if (device->logical == VK_NULL_HANDLE) continue;
 
         device->api.vkDeviceWaitIdle(device->logical);
-        if (at_read_relaxed(&device->flags) & pelagia_device_flag_primary) {
-            if (pelagia->swapchain.sc != VK_NULL_HANDLE) {
-                clear_swapchain(&pelagia->swapchain, device);
-                device->api.vkDestroySwapchainKHR(device->logical, pelagia->swapchain.sc, NULL);
-            }
-        }
 
         struct pelagia_assemble_render_pass_pipelines_work dissasemble_pipelines_work = {
             .pelagia = pelagia,
@@ -1131,6 +1147,27 @@ AMWAPI void pelagia_renderer_fini(struct pelagia_renderer_fini_work *work)
             .device_idx = i,
         };
         pelagia_assemble_render_pass_pipelines(&dissasemble_pipelines_work);
+
+        if (at_read_relaxed(&device->flags) & pelagia_device_flag_primary) {
+            if (pelagia->swapchain.sc != VK_NULL_HANDLE) {
+                clear_swapchain(&pelagia->swapchain, device);
+                device->api.vkDestroySwapchainKHR(device->logical, pelagia->swapchain.sc, NULL);
+            }
+            struct rivens_tear disassemble_tears[2];
+            struct pelagia_assemble_render_targets_work disassemble_render_targets = {
+                .pelagia = pelagia,
+                .dissasemble = true,
+            };
+            struct pelagia_assemble_uniform_buffers_work disassemble_uniform_buffers = {
+                .pelagia = pelagia,
+                .dissasemble = true,
+            };
+            pelagia_assemble_render_targets_tear__(&disassemble_render_targets, &disassemble_tears[0]);
+            pelagia_assemble_uniform_buffers_tear__(&disassemble_uniform_buffers, &disassemble_tears[1]);
+            riven_split_and_unchain(riven, disassemble_tears, 2);
+        } else {
+            /* XXX handle secondary devices */
+        }
 
         if (device->raw_command_pools) {
             for (u32 j = 0; j < device->raw_command_pool_count; j++)
@@ -1161,95 +1198,4 @@ AMWAPI void pelagia_renderer_fini(struct pelagia_renderer_fini_work *work)
     arena_fini(&pelagia->scratch_arena);
 
     iazerop(pelagia);
-}
-
-AMWAPI void pelagia_assemble_uniform_buffers(struct pelagia_assemble_uniform_buffers_work *work)
-{
-    if (!work) {
-        return;
-    } else if (!work->pelagia || at_read_relaxed(&work->pelagia->flags) & pelagia_flag_initialized) {
-        work->out_result = result_error_invalid_engine_context;
-        return;
-    }
-
-    struct pelagia         *pelagia         = work->pelagia;
-    struct vulkan_buffers  *uniform_buffers = &pelagia->uniform_buffers;
-    struct vulkan_device   *primary_device = &pelagia->devices[0];
-    struct arena_allocator *scratch_arena  = &pelagia->scratch_arena;
-
-    if ((at_read_relaxed(&primary_device->flags) & (pelagia_device_flag_primary | pelagia_device_flag_is_valid))) {
-        s32 flags = at_read_relaxed(&primary_device->flags);
-        log_error("Trying to create uniform buffers, can't validate flags (primary:%u | is_valid:%u) of the expected primary device (idx 0).",
-            flags & pelagia_device_flag_primary ? 1 : 0, flags & pelagia_device_flag_is_valid ? 1 : 0);
-        work->out_result = result_error_invalid_engine_context;
-        return;
-    }
-
-    (void)uniform_buffers;
-    (void)scratch_arena;
-}
-
-AMWAPI void pelagia_assemble_render_targets(struct pelagia_assemble_render_targets_work *work)
-{
-    if (!work) {
-        return;
-    } else if (!work->pelagia || at_read_relaxed(&work->pelagia->flags) & pelagia_flag_initialized) {
-        work->out_result = result_error_invalid_engine_context;
-        return;
-    }
-
-    struct pelagia         *pelagia        = work->pelagia;
-    struct vulkan_textures *render_targets = &pelagia->render_targets;
-    struct vulkan_device   *primary_device = &pelagia->devices[0];
-    struct arena_allocator *scratch_arena  = &pelagia->scratch_arena;
-    u32                     image_count    = pelagia->frames_buffering;
-
-    struct vulkan_texture_request requests[render_target_type_count];
-    u32 idx;
-
-    if (image_count <= 1) {
-        log_error("Trying to create render targets, %u is not a valid swapchain image count.", image_count);
-        work->out_result = result_error_invalid_engine_context;
-        return;
-    } else if ((at_read_relaxed(&primary_device->flags) & (pelagia_device_flag_primary | pelagia_device_flag_is_valid))) {
-        s32 flags = at_read_relaxed(&primary_device->flags);
-        log_error("Trying to create render targets, can't validate flags (primary:%u | is_valid:%u) of the expected primary device (idx 0).",
-            flags & pelagia_device_flag_primary ? 1 : 0, flags & pelagia_device_flag_is_valid ? 1 : 0);
-        work->out_result = result_error_invalid_engine_context;
-        return;
-    }
-
-    vulkan_destroy_textures(render_targets, primary_device);
-
-    /* setup default values */
-    for (idx = 0; idx < render_target_type_count; idx++) {
-        requests[idx].image_info = (VkImageCreateInfo){
-            .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-            .imageType = VK_IMAGE_TYPE_2D,
-            .extent = {pelagia->swapchain.extent.width, pelagia->swapchain.extent.height, 1},
-            .mipLevels = 1, 
-            .arrayLayers = 1,
-            .samples = 1,
-        };
-        requests[idx].view_info = (VkImageViewCreateInfo){
-            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-            .viewType = VK_IMAGE_VIEW_TYPE_2D,
-        };
-    }
-
-    idx = render_target_type_depth_buffer;
-    requests[idx].image_info.format = VK_FORMAT_D32_SFLOAT;
-    requests[idx].image_info.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-    requests[idx].view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-
-    idx = render_target_type_visibility_buffer;
-    requests[idx].image_info.format = VK_FORMAT_R32_UINT;
-    requests[idx].image_info.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
-    requests[idx].view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-
-    /* duplicate the image requests per swapchain image */
-    struct vulkan_texture_request *all_requests = (struct vulkan_texture_request *)
-        arena_alloc(scratch_arena, sizeof(requests) * image_count);
-    for (idx = 0; idx < image_count; idx++)
-        memcpy(all_requests + idx * image_count, requests, sizeof(requests));
 }

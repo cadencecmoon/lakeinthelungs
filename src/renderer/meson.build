@@ -3,7 +3,9 @@
 # The source code is licensed under a standard MIT license.
 
 engine += files(
+    'buffers.c',
     'drivers.c',
+    'gpu_allocator.c',
     'pelagia.c',
     'pipelines.c',
     'spirv_shaders.c',

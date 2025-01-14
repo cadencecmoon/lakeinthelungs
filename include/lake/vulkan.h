@@ -353,42 +353,6 @@ struct vulkan_device_api {
 #endif /* VK_KHR_acceleration_structure */
 };
 
-/** Loads the Vulkan shared driver library and loads the global entry point procedures. */
-AMWAPI b32 vulkan_open_driver(struct vulkan_instance_api *vk);
-
-/** Unloads the Vulkan library, after this point none of the Vulkan backend calls are valid. */
-AMWAPI void vulkan_close_driver(struct vulkan_instance_api *vk);
-
-/** Fills the pointers of procedures defined in struct vulkan_instance_api. */
-AMWAPI s32 vulkan_load_instance_api_procedures(
-    struct vulkan_instance_api *vk, 
-    VkInstance                  instance, 
-    u32                         instance_extensions);
-
-/** Fills the pointers of procedures defined in struct vulkan_device_api. */
-AMWAPI s32 vulkan_load_device_api_procedures(
-    struct vulkan_instance_api *vk, 
-    struct vulkan_device_api   *api, 
-    VkDevice                    device, 
-    u32                         device_api_version, 
-    u64                         device_extensions);
-
-/** Get a (very helpful) message of a given Vulkan error code. */
-AMWAPI const char *vulkan_result_string(VkResult result);
-
-#if !defined(AMW_NDEBUG)
-    #define VERIFY_VK(x) { \
-        VkResult res__ = (x); \
-        if (res__ != VK_SUCCESS) { \
-            log_error("Failed to assert VK_SUCCESS for: %s", #x); \
-            log_error("The Vulkan error message: %s", vulkan_result_string(res__)); \
-            assert_debug(!"VkResult assertion"); \
-        } \
-    }
-#else
-    #define VERIFY_VK(x) (void)(x)
-#endif
-
 /** Holds Vulkan objects that are related to the swapchain. This includes the swapchain handle 
  *  itself, our window surface and image views for images in the swapchain. The swapchain depends
  *  on the device, but we only need one, thus the main device will be responsible for controlling
@@ -622,6 +586,42 @@ struct vulkan_device {
     struct vulkan_device_api    api;
 };
 
+/** Loads the Vulkan shared driver library and loads the global entry point procedures. */
+AMWAPI b32 vulkan_open_driver(struct vulkan_instance_api *vk);
+
+/** Unloads the Vulkan library, after this point none of the Vulkan backend calls are valid. */
+AMWAPI void vulkan_close_driver(struct vulkan_instance_api *vk);
+
+/** Fills the pointers of procedures defined in struct vulkan_instance_api. */
+AMWAPI s32 vulkan_load_instance_api_procedures(
+    struct vulkan_instance_api *vk, 
+    VkInstance                  instance, 
+    u32                         instance_extensions);
+
+/** Fills the pointers of procedures defined in struct vulkan_device_api. */
+AMWAPI s32 vulkan_load_device_api_procedures(
+    struct vulkan_instance_api *vk, 
+    struct vulkan_device_api   *api, 
+    VkDevice                    device, 
+    u32                         device_api_version, 
+    u64                         device_extensions);
+
+/** Get a (very helpful) message of a given Vulkan error code. */
+AMWAPI const char *vulkan_result_string(VkResult result);
+
+#if !defined(AMW_NDEBUG)
+    #define VERIFY_VK(x) { \
+        VkResult res__ = (x); \
+        if (res__ != VK_SUCCESS) { \
+            log_error("Failed to assert VK_SUCCESS for: %s", #x); \
+            log_error("The Vulkan error message: %s", vulkan_result_string(res__)); \
+            assert_debug(!"VkResult assertion"); \
+        } \
+    }
+#else
+    #define VERIFY_VK(x) (void)(x)
+#endif
+
 /** Returns the aspect ratio for a given 2D extent. */
 AMW_INLINE f32 vulkan_get_aspect_ratio(const VkExtent2D *extent) {
     return ((f32) extent->width) / ((f32) extent->height);
@@ -630,6 +630,17 @@ AMW_INLINE f32 vulkan_get_aspect_ratio(const VkExtent2D *extent) {
 /** Returns the smallest number that is greater equal offset and a multiple of the given positive integer. */
 AMW_INLINE VkDeviceSize vulkan_align_memory_offset(VkDeviceSize offset, VkDeviceSize alignment) {
     return ((offset + alignment - 1) / alignment) * alignment;
+}
+
+/** Computes the size parameter for VkMappedMemoryRange when the goal is to 
+ *  specify the whole range of the buffer with index buffer_idx in vulkan_buffers. */
+AMW_INLINE VkDeviceSize vulkan_get_mapped_memory_range_size(
+    const struct vulkan_device *device, 
+    struct vulkan_buffers      *buffers,
+    u32                         buffer_idx)
+{
+    VkDeviceSize size = vulkan_align_memory_offset(buffers->buffers[buffer_idx].size, device->physical_properties.limits.nonCoherentAtomSize);
+    return (buffers->buffers[buffer_idx].offset + size >= buffers->allocation.size) ? VK_WHOLE_SIZE : size;
 }
 
 /** Compute the number of mipmap levels needed to get from a resource of the given size to one texel.
@@ -658,11 +669,38 @@ AMW_INLINE u32 vulkan_get_mipmap_count_3d(VkExtent3D extent) {
     return result;
 }
 
+/** Goes through memory types available from device and identifies the lowest
+ *  index that satisfies all given requirements. */
+AMWAPI s32 vulkan_find_memory_type(
+    u32                             *out_type_idx, 
+    VkPhysicalDeviceMemoryProperties memory_properties, 
+    u32                              memory_type_bits,
+    VkMemoryPropertyFlags            property_mask);
+
+/** Creates a single descriptor set layout with a pipeline layout using only that 
+ *  layout, and creates the requested number of descriptor sets by means of a newly 
+ *  created descriptor pool. The pipeline is not created and assumed to be not created 
+ *  yet. The layout is defined by the given request. */
+AMWAPI s32 vulkan_create_descriptor_sets(
+    struct vulkan_pipeline                     *pipeline,
+    struct vulkan_device                       *device,
+    const struct vulkan_descriptor_set_request *descriptor_request,
+    u32                                         descriptor_set_count);
+
+/** An utility for writing to descriptor sets. For each entry of the given writes array:
+ *  - sets sType to VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+ *  - sets descriptorType to the corresponding value in request (based on dstBinding, if any),
+ *  - sets descriptorCount to the corresponding value in request or to request->min_descriptor_count if bigger. */
+AMWAPI void vulkan_complete_descriptor_set_writes(
+    VkWriteDescriptorSet                       *writes,
+    const struct vulkan_descriptor_set_request *descriptor_request,
+    u32                                         write_count);
+
 /** Prints debug information about each of the given requested textures on multiple lines. */
 AMWAPI void vulkan_print_texture_requests(const struct vulkan_texture_request *texture_requests, u32 texture_count);
 
 /** Used to cleanup images. */
-AMWAPI void vulkan_destroy_textures(struct vulkan_textures *textures, const struct vulkan_device *device);
+AMWAPI void vulkan_destroy_textures(struct vulkan_textures *textures, struct vulkan_device *device);
 
 /** Creates images sharing a single memory allocation, according to all of the given requests.
  *  Creates views for them and allocates GPU memory using the provided device. */
@@ -672,5 +710,106 @@ AMWAPI s32 vulkan_create_textures(
     const struct vulkan_texture_request   *texture_requests,
     u32                                    texture_count,
     const struct vulkan_allocation_request allocation_request);
+
+/** Used to cleanup buffers. */
+AMWAPI void vulkan_destroy_buffers(struct vulkan_buffers *buffers, struct vulkan_device *device);
+
+/** Creates one or more buffers according to the given specification, performs 
+ *  a single memory allocation for all of them and binds it. Allows to specify
+ *  alignment rules for the buffers. */
+AMWAPI s32 vulkan_create_aligned_buffers(
+    struct vulkan_buffers                 *buffers,
+    struct vulkan_device                  *device,
+    const VkBufferCreateInfo              *buffer_infos,
+    u32                                    buffer_count,
+    const struct vulkan_allocation_request allocation_request,
+    VkDeviceSize                           alignment);
+
+/** Creates buffers without alignment rules. */
+AMW_INLINE s32 vulkan_create_buffers(
+    struct vulkan_buffers                 *buffers,
+    struct vulkan_device                  *device,
+    const VkBufferCreateInfo              *buffer_infos,
+    u32                                    buffer_count,
+    const struct vulkan_allocation_request allocation_request)
+{
+    return vulkan_create_aligned_buffers(buffers, device, buffer_infos, buffer_count, allocation_request, 1);
+}
+
+/** Implements vulkan_copy_buffers(), vulkan_copy_images() and vulkan_copy_buffers_to_images()
+ *  and records transfer commands to the single provided command buffer. The command buffer can 
+ *  be either referenced by a primary buffer, or submitted directly to the transfer queue, but 
+ *  this work will be done externally from the GPUexec gameloop stage. */
+AMWAPI s32 vulkan_copy_buffers_and_images(
+    const struct vulkan_device *device,
+    VkCommandBuffer             command_buffer,
+    u32                         buffer_count, 
+    const VkBuffer             *source_buffers,
+    const VkBuffer             *destination_buffers,
+    VkBufferCopy               *buffer_regions,
+    u32                         image_count,
+    const VkImage              *source_images,
+    const VkImage              *destination_images,
+    VkImageLayout               source_layout,
+    VkImageLayout               destination_layout_before,
+    VkImageLayout               destination_layout_after,
+    VkImageCopy                *image_regions,
+    u32                         buffer_to_image_count,
+    const VkBuffer             *image_source_buffers,
+    const VkImage              *buffer_destination_images,
+    VkImageLayout               buffer_destination_layout_before,
+    VkImageLayout               buffer_destination_layout_after,
+    VkBufferImageCopy          *buffer_to_image_regions);
+
+/** Copies data between buffers, e.g. to get data from staging buffers into device local buffers.
+ *  Upon successful return, the copying transfer commands have been recorded to the command buffer. */
+AMW_INLINE s32 vulkan_copy_buffers(
+    const struct vulkan_device *device,
+    VkCommandBuffer             command_buffer,
+    u32                         buffer_count, 
+    const VkBuffer             *source_buffers,
+    const VkBuffer             *destination_buffers,
+    VkBufferCopy               *buffer_regions) 
+{
+    return vulkan_copy_buffers_and_images(device, command_buffer, buffer_count, source_buffers, destination_buffers, buffer_regions,
+        0, NULL, NULL, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_UNDEFINED, NULL,
+        0, NULL, NULL, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_UNDEFINED, NULL);
+}
+
+/** Copies data between images, e.g. to get data from staging images into device local images. 
+ *  Upon successful return, the copying transfer commands have been recorded to the command buffer. */
+AMW_INLINE s32 vulkan_copy_images(
+    const struct vulkan_device *device,
+    VkCommandBuffer             command_buffer,
+    u32                         image_count,
+    const VkImage              *source_images,
+    const VkImage              *destination_images,
+    VkImageLayout               source_layout,
+    VkImageLayout               destination_layout_before,
+    VkImageLayout               destination_layout_after,
+    VkImageCopy                *image_regions)
+{
+    return vulkan_copy_buffers_and_images(device, command_buffer, 0, NULL, NULL, NULL,
+        image_count, source_images, destination_images, source_layout, destination_layout_before, destination_layout_after, image_regions,
+        0, NULL, NULL, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_UNDEFINED, NULL);
+}
+
+/** Copies data from buffers to images, e.g. to fill textures with binary data from staging buffers.
+ *  Upon successful return, the copying transfer commands have been recorded to the command buffer. */
+AMW_INLINE s32 vulkan_copy_buffers_to_images(
+    const struct vulkan_device *device,
+    VkCommandBuffer             command_buffer,
+    u32                         buffer_to_image_count,
+    const VkBuffer             *image_source_buffers,
+    const VkImage              *buffer_destination_images,
+    VkImageLayout               buffer_destination_layout_before,
+    VkImageLayout               buffer_destination_layout_after,
+    VkBufferImageCopy          *buffer_to_image_regions)
+{
+    return vulkan_copy_buffers_and_images(device, command_buffer, 0, NULL, NULL, NULL,
+        0, NULL, NULL, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_UNDEFINED, NULL,
+        buffer_to_image_count, image_source_buffers, buffer_destination_images, 
+        buffer_destination_layout_before, buffer_destination_layout_after, buffer_to_image_regions);
+}
 
 #endif /* _AMW_VULKAN_H */

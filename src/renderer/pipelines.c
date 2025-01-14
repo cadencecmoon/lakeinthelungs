@@ -4,6 +4,29 @@
 
 #include <lake/pelagia.h>
 
+AMWAPI s32 vulkan_create_descriptor_sets(
+    struct vulkan_pipeline                     *pipeline,
+    struct vulkan_device                       *device,
+    const struct vulkan_descriptor_set_request *descriptor_set_request,
+    u32                                         descriptor_set_count)
+{
+    (void)pipeline;
+    (void)device;
+    (void)descriptor_set_request;
+    (void)descriptor_set_count;
+    return result_error_undefined;
+}
+
+AMWAPI void vulkan_complete_descriptor_set_writes(
+    VkWriteDescriptorSet                       *writes,
+    const struct vulkan_descriptor_set_request *descriptor_set_request,
+    u32                                         write_count)
+{
+    (void)writes;
+    (void)descriptor_set_request;
+    (void)write_count;
+}
+
 /* The implementation for a specific render pass will know what index to pull from 
  * pipeline state. Pipelines can be created concurrently, and all the render targets
  * or uniform buffers, and other data needed to assemble the pipelines, is not mutable

@@ -88,31 +88,32 @@ struct pelagia_renderer_init_work {
 
 /** The information needed to destroy the renderer. */
 struct pelagia_renderer_fini_work {
-    struct pelagia     *pelagia;        /**< The renderers state to be finished. */
-    struct riven       *riven;          /**< Some of the state to be dissassembled can be done in parallel. */
+    struct pelagia     *pelagia;                /**< The renderers state to be finished. */
+    struct riven       *riven;                  /**< Some of the state to be dissassembled can be done in parallel. */
 };
 
 /** An argument holding work for creating/recreating a swapchain. */
 struct pelagia_assemble_swapchain_work {
-    struct pelagia     *pelagia;        /**< Holds the swapchain and a device that controls it. */
-    struct hadopelagic *hadal;          /**< The display backend will provide necessary window info. */
-    s32                 out_result;     /**< A return code, check for errors. */
-    b32                 use_vsync;      /**< Whether to enable vertical synchronization. */
-    b32                 surface_lost;   /**< True on VK_ERROR_SURFACE_LOST_KHR or display backend fallback, handle approprietly. */
+    struct pelagia     *pelagia;                /**< Holds the swapchain and a device that controls it. */
+    struct hadopelagic *hadal;                  /**< The display backend will provide necessary window info. */
+    s32                 out_result;             /**< A return code, check for errors. */
+    b32                 use_vsync;              /**< Whether to enable vertical synchronization. */
+    b32                 surface_lost;           /**< True on VK_ERROR_SURFACE_LOST_KHR or display backend fallback, handle approprietly. */
 };
 
 /** TODO */
 struct pelagia_assemble_uniform_buffers_work {
-    struct pelagia     *pelagia;            /**< Uniform buffers will be built for the primary device, for each swapchain image. */
-    b32                 dissasemble;        /**< If true, the assembly will only cleanup the uniform buffers instead. */
-    s32                 out_result;         /**< A return code, check for errors. */
+    struct pelagia     *pelagia;                /**< Uniform buffers will be built for the primary device, for each swapchain image. */
+    b32                 dissasemble;            /**< If true, the assembly will only cleanup the uniform buffers instead. */
+    s32                 out_result;             /**< A return code, check for errors. */
 };
 
-/** TODO */
+
+/** */
 struct pelagia_assemble_render_targets_work {
-    struct pelagia     *pelagia;            /**< Render targets will be built for the primary device, for each swapchain image. */
-    b32                 dissasemble;        /**< If true, the assembly will only cleanup the render target textures instead. */
-    s32                 out_result;         /**< A return code, check for errors. */
+    struct pelagia     *pelagia;                /**< Render targets will be built for the primary device, for each swapchain image. */
+    b32                 dissasemble;            /**< If true, the assembly will only cleanup the render target textures instead. */
+    s32                 out_result;             /**< A return code, check for errors. */
 };
 
 /** An argument for defining the render passes to be recreated. The pipelines are constructed
