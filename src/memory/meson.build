@@ -3,5 +3,7 @@
 # The source code is licensed under a standard MIT license.
 
 engine += files(
+    'arena.c',
+    'tagged_heap.c',
     'utility.c',
 )

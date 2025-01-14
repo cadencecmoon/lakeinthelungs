@@ -18,12 +18,15 @@ struct ipomoeaalba {
 
 AMWAPI s32 iainit(struct ipomoeaalba *ia);
 AMWAPI void iafini(struct ipomoeaalba *ia);
-AMWAPI void *iaalloc(struct ipomoeaalba *ia, ssize size, ssize alignment, u64 tag);
-AMWAPI void *iarealloc(struct ipomoeaalba *ia, void *alloc, ssize size, ssize alignment, u64 tag);
+AMWAPI void *iaalloc(struct ipomoeaalba *ia, usize size, usize alignment, u64 tag);
+AMWAPI void *iarealloc(struct ipomoeaalba *ia, void *alloc, usize size, usize alignment, u64 tag);
 AMWAPI void iafree(struct ipomoeaalba *ia, u64 tag);
 
-/** Sets bits of a memory region of size n as c. */
-AMWAPI void *iamemset(void *dest, s32 c, ssize n);
+/** Copies a memory region of size bytes from dest to src. */
+AMWAPI void *iamemcpy(void *restrict dest, const void *restrict src, usize n);
+
+/** Sets bits of a memory region of size bytes as c. */
+AMWAPI void *iamemset(void *restrict dest, s32 c, usize n);
 
 #define iazero(mem)  iamemset(&(mem), 0, sizeof((mem)))
 #define iazerop(mem) iamemset((mem), 0, sizeof(*(mem)))

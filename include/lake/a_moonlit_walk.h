@@ -48,6 +48,7 @@ struct amw_workload {
     u32                         idx;
     f64                         dt;
     struct render_graph         render_graph;
+    /* TODO put command buffers here */
 
     struct a_moonlit_walk      *AMW;
     const struct amw_workload  *last_work;

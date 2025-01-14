@@ -32,6 +32,8 @@
 #include <lake/datastructures/arena_allocator.h>
 #include <lake/datastructures/render_graph.h>
 
+struct hadopelagic;
+
 /** Collects bits for checking used vulkan extensions. The bits are set only during initialization, 
  *  and then are read-only after. If an extension was promoted to core, the corresponding bit will be 
  *  set to indicate that this feature is available on a device. Instance extensions are represented
@@ -621,6 +623,18 @@ AMWAPI const char *vulkan_result_string(VkResult result);
 #else
     #define VERIFY_VK(x) (void)(x)
 #endif
+
+/** Calls the display backend to create a Vulkan surface we can draw to.
+ *  This surface is directly used within the swapchain. */
+AMWAPI s32 vulkan_create_swapchain_surface(
+    struct vulkan_backend   *vk,
+    struct vulkan_swapchain *swapchain, 
+    struct hadopelagic      *hadal);
+
+/** Destroys the swapchain image views and prepares the swapchain to be recreated or destroyed. */
+AMWAPI void vulkan_clear_swapchain(
+    struct vulkan_swapchain *swapchain,
+    struct vulkan_device    *primary_device);
 
 /** Returns the aspect ratio for a given 2D extent. */
 AMW_INLINE f32 vulkan_get_aspect_ratio(const VkExtent2D *extent) {

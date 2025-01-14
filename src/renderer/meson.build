@@ -9,6 +9,7 @@ engine += files(
     'pelagia.c',
     'pipelines.c',
     'spirv_shaders.c',
+    'swapchain.c',
     'textures.c',
 )
 

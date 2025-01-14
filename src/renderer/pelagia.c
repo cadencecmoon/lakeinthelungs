@@ -230,7 +230,8 @@ static const char *vendor_name_string(u32 vendor_id)
 
 static void select_rendering_devices(struct pelagia_renderer_init_work *work)
 {
-    struct pelagia *pelagia = work->pelagia;
+    struct pelagia         *pelagia       = work->pelagia;
+    struct arena_allocator *scratch_arena = &pelagia->scratch_arena;
 
     u32 physical_device_count = 0;
     u32 device_count = 0;
@@ -246,13 +247,13 @@ static void select_rendering_devices(struct pelagia_renderer_init_work *work)
         work->out_result = result_error_undefined; /* TODO */
         return;
     }
-    VkPhysicalDevice *physical_devices = (VkPhysicalDevice *)arena_alloc(&pelagia->scratch_arena, sizeof(VkPhysicalDevice) * physical_device_count);
+    VkPhysicalDevice *physical_devices = (VkPhysicalDevice *)arena_alloc(scratch_arena, sizeof(VkPhysicalDevice) * physical_device_count);
     VERIFY_VK(pelagia->vk.api.vkEnumeratePhysicalDevices(pelagia->vk.instance, &physical_device_count, physical_devices));
 
     preferred_primary_device_idx = preferred_primary_device_idx < (s32)physical_device_count ? preferred_primary_device_idx : -1;
     max_device_count = min(max_device_count, (s32)physical_device_count);
     
-    s32 *physical_device_indices = (s32 *)arena_alloc(&pelagia->scratch_arena, sizeof(s32) * 2 * physical_device_count);
+    s32 *physical_device_indices = (s32 *)arena_alloc(scratch_arena, sizeof(s32) * 2 * physical_device_count);
     u32 *extension_bits = (u32 *)physical_device_indices + sizeof(s32) * physical_device_count;
 
     struct region scratch = *pelagia->scratch_arena.end;
@@ -274,7 +275,7 @@ static void select_rendering_devices(struct pelagia_renderer_init_work *work)
         pelagia->vk.api.vkGetPhysicalDeviceQueueFamilyProperties(physical_devices[i], &queue_family_count, NULL);
         if (queue_family_count == 0) continue;
 
-        queue_family_properties = (VkQueueFamilyProperties *)arena_alloc(&pelagia->scratch_arena, queue_family_count * sizeof(VkQueueFamilyProperties) * queue_family_count);
+        queue_family_properties = (VkQueueFamilyProperties *)arena_alloc(scratch_arena, queue_family_count * sizeof(VkQueueFamilyProperties) * queue_family_count);
         pelagia->vk.api.vkGetPhysicalDeviceQueueFamilyProperties(physical_devices[i], &queue_family_count, queue_family_properties);
 
         u32 graphics_family_idx = 0u, command_support = 0u;
@@ -296,7 +297,7 @@ static void select_rendering_devices(struct pelagia_renderer_init_work *work)
         pelagia->vk.api.vkEnumerateDeviceExtensionProperties(physical_devices[i], NULL, &extension_count, NULL);
         if (extension_count == 0) continue;
 
-        extension_properties = (VkExtensionProperties *)arena_alloc(&pelagia->scratch_arena, sizeof(VkExtensionProperties) * extension_count);
+        extension_properties = (VkExtensionProperties *)arena_alloc(scratch_arena, sizeof(VkExtensionProperties) * extension_count);
         pelagia->vk.api.vkEnumerateDeviceExtensionProperties(physical_devices[i], NULL, &extension_count, extension_properties);
 
         for (u32 j = 0; j < extension_count; j++) {
@@ -378,7 +379,7 @@ static void select_rendering_devices(struct pelagia_renderer_init_work *work)
     u32 frames_buffering = max(min(work->max_frames_buffering, pelagia_frames_quad_buffering), pelagia_frames_dual_buffering);
     if (frames_buffering < min_image_count) frames_buffering = min_image_count;
     if (frames_buffering > max_image_count && max_image_count != 0) frames_buffering = max_image_count;
-    log_info("Swapchain %u min image count, %u max image count: requested %u-buffering, but decided on %u-buffering.", 
+    log_debug("Swapchain %u min image count, %u max image count: requested %u-buffering, decided on %u-buffering.", 
         min_image_count, max_image_count, work->max_frames_buffering, frames_buffering);
     pelagia->frames_buffering = frames_buffering;
 
@@ -415,7 +416,7 @@ static void select_rendering_devices(struct pelagia_renderer_init_work *work)
 struct construct_device_work {
     struct vulkan_backend  *vk;
     struct vulkan_device   *device;
-    struct arena_allocator *temp_arena;
+    struct arena_allocator *scratch_arena;
     u32                     frames_buffering;
     u32                     thread_count;
     u32                     device_idx;
@@ -431,7 +432,7 @@ static void construct_device(struct construct_device_work *work)
 
     struct vulkan_backend  *vk               = work->vk;
     struct vulkan_device   *device           = work->device;
-    struct arena_allocator *temp_arena       = work->temp_arena;
+    struct arena_allocator *scratch_arena    = work->scratch_arena;
     u32                     frames_buffering = work->frames_buffering;
     u32                     thread_count     = work->thread_count;
     u32                     device_idx       = work->device_idx;
@@ -442,7 +443,7 @@ static void construct_device(struct construct_device_work *work)
 
     /* we already made sure the GPU in question supports the command queues we need */
     vk->api.vkGetPhysicalDeviceQueueFamilyProperties(device->physical, &queue_family_count, NULL);
-    queue_family_properties = (VkQueueFamilyProperties *)arena_alloc(temp_arena, queue_family_count * sizeof(VkQueueFamilyProperties) * queue_family_count);
+    queue_family_properties = (VkQueueFamilyProperties *)arena_alloc(scratch_arena, queue_family_count * sizeof(VkQueueFamilyProperties) * queue_family_count);
     vk->api.vkGetPhysicalDeviceQueueFamilyProperties(device->physical, &queue_family_count, queue_family_properties);
 
     /* query command queue families */
@@ -522,7 +523,7 @@ static void construct_device(struct construct_device_work *work)
     }
 
     i = 0; extension_count = count_bits32(device->extensions);
-    extensions = (char **)arena_alloc(temp_arena, sizeof(char *) * extension_count);
+    extensions = (char **)arena_alloc(scratch_arena, sizeof(char *) * extension_count);
     if (device->extensions & vulkan_extension_swapchain_bit)
         extensions[i++] = "VK_KHR_swapchain";
     if (device->extensions & vulkan_extension_device_fault_bit)
@@ -696,296 +697,6 @@ static void construct_device(struct construct_device_work *work)
     }
 }
 
-#ifdef AMW_PLATFORM_WINDOW
-#endif /* AMW_PLATFORM_WINDOW */
-
-#ifdef AMW_PLATFORM_APPLE
-#endif /* AMW_PLATFORM_APPLE */
-
-#ifdef AMW_PLATFORM_ANDROID
-#endif /* AMW_PLATFORM_ANDROID */
-
-#ifdef AMW_NATIVE_WAYLAND
-static s32 create_surface_wayland(
-    struct vulkan_backend   *vk, 
-    struct vulkan_swapchain *swapchain,
-    struct wl_display       *display, 
-    struct wl_surface       *surface)
-{
-    VkWaylandSurfaceCreateInfoKHR wayland_surface_info = {
-        .sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR,
-        .pNext = NULL,
-        .flags = 0,
-        .display = display,
-        .surface = surface,
-    };
-    VkResult res = vk->api.vkCreateWaylandSurfaceKHR(vk->instance, &wayland_surface_info, NULL, &swapchain->surface);
-    if (res != VK_SUCCESS)
-        return result_error_undefined; /* TODO */
-    return result_success;
-}
-#endif /* AMW_NATIVE_WAYLAND */
-
-#ifdef AMW_NATIVE_XCB
-#endif /* AMW_NATIVE_XCB */
-
-#ifdef AMW_NATIVE_DRM
-#endif /* AMW_NATIVE_DRM */
-
-static s32 create_swapchain_surface(
-    struct vulkan_backend   *vk,
-    struct vulkan_swapchain *swapchain, 
-    struct hadopelagic      *hadal)
-{
-    if (vk->instance == VK_NULL_HANDLE || !hadal->calls.expose_native_window)
-        return result_error_invalid_engine_context;
-    swapchain->surface = VK_NULL_HANDLE;
-
-    void *display, *window;
-    hadal->calls.expose_native_window(hadal, &display, &window);
-
-    switch (hadal->backend_api) {
-#ifdef AMW_PLATFORM_WINDOW
-    case hadal_backend_api_win32: 
-        break;
-#endif /* AMW_PLATFORM_WINDOW */
-#ifdef AMW_PLATFORM_APPLE
-    case hadal_backend_api_cocoa:
-    case hadal_backend_api_ios:
-        break;
-#endif /* AMW_PLATFORM_APPLE */
-#ifdef AMW_PLATFORM_ANDROID
-    case hadal_backend_api_android:
-        break;
-#endif /* AMW_PLATFORM_ANDROID */
-#ifdef AMW_NATIVE_WAYLAND
-    case hadal_backend_api_wayland:
-        return create_surface_wayland(vk, swapchain, (struct wl_display *)display, (struct wl_surface *)window);
-#endif /* AMW_NATIVE_WAYLAND */
-#ifdef AMW_NATIVE_XCB
-    case hadal_backend_api_xcb:
-        break;
-#endif /* AMW_NATIVE_XCB */
-#ifdef AMW_NATIVE_DRM
-    case hadal_backend_api_drm:
-        break;
-#endif /* AMW_NATIVE_DRM */
-    case hadal_backend_api_headless:
-        break;
-    default:
-        break;
-    }
-    return result_error_invalid_engine_context;
-}
-
-static void clear_swapchain(
-    struct vulkan_swapchain *swapchain,
-    struct vulkan_device    *primary)
-{
-    for (u32 i = 0; i < swapchain->image_count; i++)
-        if (swapchain->image_views[i] != VK_NULL_HANDLE)
-            primary->api.vkDestroyImageView(primary->logical, swapchain->image_views[i], NULL);
-    arena_reset(&swapchain->arena);
-
-    struct vulkan_swapchain cleared = {
-        .sc = swapchain->sc,
-        .surface = swapchain->surface,
-        .surface_capabilities = swapchain->surface_capabilities,
-        .arena = swapchain->arena,
-    };
-    *swapchain = cleared;
-}
-
-AMWAPI void pelagia_assemble_swapchain(struct pelagia_assemble_swapchain_work *work)
-{
-    assert_debug(work && work->pelagia);
-    assert_debug(work->pelagia->devices);
-
-    struct pelagia     *pelagia   = work->pelagia;
-    struct hadopelagic *hadal     = work->hadal;
-    b32                 use_vsync = work->use_vsync; 
-
-    struct vulkan_backend   *vk        = &pelagia->vk;
-    struct vulkan_swapchain *swapchain = &pelagia->swapchain;
-    struct vulkan_device    *primary   = &pelagia->devices[0];
-
-    assert_debug(primary->flags & pelagia_device_flag_primary);
-
-    /* TODO work->surface_lost ? */
-
-    VkSwapchainKHR old_sc = swapchain->sc;
-    u32 window_width = 0, window_height = 0;
-    u32 set_pelagia_flags = 0;
-
-    if (old_sc != VK_NULL_HANDLE)
-        clear_swapchain(swapchain, primary);
-
-    VERIFY_VK(vk->api.vkGetPhysicalDeviceSurfaceFormatsKHR(primary->physical, swapchain->surface, &swapchain->surface_format_count, NULL));
-    swapchain->surface_formats = (VkSurfaceFormatKHR *)arena_alloc(&swapchain->arena, sizeof(VkSurfaceFormatKHR) * swapchain->surface_format_count);
-    VERIFY_VK(vk->api.vkGetPhysicalDeviceSurfaceFormatsKHR(primary->physical, swapchain->surface, &swapchain->surface_format_count, swapchain->surface_formats));
-
-    VERIFY_VK(vk->api.vkGetPhysicalDeviceSurfacePresentModesKHR(primary->physical, swapchain->surface, &swapchain->present_mode_count, NULL));
-    swapchain->present_modes = (VkPresentModeKHR *)arena_alloc(&swapchain->arena, sizeof(VkPresentModeKHR) * swapchain->present_mode_count);
-    VERIFY_VK(vk->api.vkGetPhysicalDeviceSurfacePresentModesKHR(primary->physical, swapchain->surface, &swapchain->present_mode_count, swapchain->present_modes));
-
-    swapchain->format = VK_FORMAT_UNDEFINED;
-    if (swapchain->surface_format_count == 1 && swapchain->surface_formats[0].format == VK_FORMAT_UNDEFINED)
-        swapchain->format = VK_FORMAT_B8G8R8A8_UNORM;
-    for (u32 i = 0; i < swapchain->surface_format_count; i++) {
-        if (swapchain->surface_formats[i].colorSpace != VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
-            continue;
-        VkFormat format = swapchain->surface_formats[i].format;
-        if (format == VK_FORMAT_R8G8B8A8_UNORM ||
-            format == VK_FORMAT_R8G8B8A8_SRGB ||
-            format == VK_FORMAT_B8G8R8A8_UNORM ||
-            format == VK_FORMAT_B8G8R8A8_SRGB ||
-            format == VK_FORMAT_A2B10G10R10_UNORM_PACK32 ||
-            format == VK_FORMAT_A2R10G10B10_UNORM_PACK32) 
-        {
-            swapchain->format = format;
-        }
-    }
-    if (swapchain->format == VK_FORMAT_UNDEFINED) {
-        log_error("Unable to determine an appropriate surface format. Only R8G8B8A8, B8G8R8A8, A2R10G10B10 or A2B10G10R10 formats are supported.");
-        if (old_sc != VK_NULL_HANDLE)
-            primary->api.vkDestroySwapchainKHR(primary->logical, old_sc, NULL);
-        clear_swapchain(swapchain, primary);
-        work->out_result = result_error_undefined; /* TODO */
-        return;
-    }
-
-    hadal_framebuffer_size(hadal, &window_width, &window_height);
-    swapchain->extent.width = (swapchain->surface_capabilities.currentExtent.width != 0xFFFFFFFF) ? swapchain->surface_capabilities.currentExtent.width : window_width;
-    swapchain->extent.height = (swapchain->surface_capabilities.currentExtent.height != 0xFFFFFFFF) ? swapchain->surface_capabilities.currentExtent.height : window_height;
-    if (window_width != swapchain->extent.width || window_height != swapchain->extent.height) {
-        log_trace("The swapchain resolution is %ux%u.", swapchain->extent.width, swapchain->extent.height);
-    }
-
-    /* find a supported composite alpha mode (one of these is guaranteed to be set) */
-    VkCompositeAlphaFlagBitsKHR composite_alpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-    VkCompositeAlphaFlagBitsKHR composite_alpha_flags[4] = {
-        VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-        VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR,
-        VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR,
-        VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR,
-    };
-    for (u32 i = 0; i < arraysize(composite_alpha_flags); i++) {
-        if (swapchain->surface_capabilities.supportedCompositeAlpha & composite_alpha_flags[i]) {
-            composite_alpha = composite_alpha_flags[i];
-            break;
-        }
-    }
-    VkPresentModeKHR no_vsync_present_mode = VK_PRESENT_MODE_FIFO_KHR;
-    for (u32 i = 0; i < swapchain->present_mode_count; i++) {
-        if (swapchain->present_modes[i] == VK_PRESENT_MODE_IMMEDIATE_KHR && no_vsync_present_mode == VK_PRESENT_MODE_FIFO_KHR)
-            no_vsync_present_mode = VK_PRESENT_MODE_IMMEDIATE_KHR;
-        if (swapchain->present_modes[i] == VK_PRESENT_MODE_MAILBOX_KHR)
-            no_vsync_present_mode = VK_PRESENT_MODE_MAILBOX_KHR;
-    }
-    if (no_vsync_present_mode == VK_PRESENT_MODE_FIFO_KHR && !use_vsync) {
-        log_warn("No presentation mode without vertical synchronization is available. Enabling v-sync instead.");
-    }
-
-    VkImageUsageFlags image_usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-    if (swapchain->surface_capabilities.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) {
-        image_usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-        set_pelagia_flags |= pelagia_flag_screenshot_supported;
-    }
-
-    VkSharingMode sharing_mode = VK_SHARING_MODE_CONCURRENT;
-    u32 queue_family_count = 3;
-    u32 queue_family_indices[3] = {
-        primary->graphics_queue_family_idx,
-        primary->compute_queue_family_idx,
-        primary->transfer_queue_family_idx,
-    };
-    if (primary->compute_queue_family_idx != primary->graphics_queue_family_idx 
-            && primary->transfer_queue_family_idx == primary->graphics_queue_family_idx) {
-        queue_family_count = 2;
-    } else if (primary->compute_queue_family_idx == primary->graphics_queue_family_idx 
-            && primary->transfer_queue_family_idx != primary->graphics_queue_family_idx) 
-    {
-        queue_family_indices[1] = primary->transfer_queue_family_idx;
-        queue_family_count = 2;
-    } else if (primary->compute_queue_count == 0 && primary->transfer_queue_count == 0) {
-        sharing_mode = VK_SHARING_MODE_EXCLUSIVE;
-        queue_family_count = 1;
-    }
-
-    VkSwapchainCreateInfoKHR swapchain_create_info = {
-        .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-        .pNext = NULL,
-        .flags = 0,
-        .surface = swapchain->surface,
-        .minImageCount = pelagia->frames_buffering,
-        .imageFormat = swapchain->format,
-        .imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
-        .imageExtent = swapchain->extent,
-        .imageArrayLayers = 1,
-        .imageUsage = image_usage,
-        .imageSharingMode = sharing_mode,
-        .queueFamilyIndexCount = queue_family_count,
-        .pQueueFamilyIndices = queue_family_indices,
-        .preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
-        .compositeAlpha = composite_alpha,
-        .presentMode = use_vsync ? VK_PRESENT_MODE_FIFO_KHR : no_vsync_present_mode,
-        .clipped = VK_FALSE,
-        .oldSwapchain = old_sc,
-    };
-    VkResult result = primary->api.vkCreateSwapchainKHR(primary->logical, &swapchain_create_info, NULL, &swapchain->sc);
-
-    if (old_sc != VK_NULL_HANDLE)
-        primary->api.vkDestroySwapchainKHR(primary->logical, old_sc, NULL);
-    if (result != VK_SUCCESS) {
-        log_error("Failed to construct a swap chain: %s", vulkan_result_string(result));
-        clear_swapchain(swapchain, primary);
-        work->out_result = result_error_undefined; /* TODO */
-        return;
-    }
-
-    VERIFY_VK(primary->api.vkGetSwapchainImagesKHR(primary->logical, swapchain->sc, &swapchain->image_count, NULL));
-    swapchain->images = (VkImage *)arena_alloc(&swapchain->arena, sizeof(VkImage) * swapchain->image_count);
-    VERIFY_VK(primary->api.vkGetSwapchainImagesKHR(primary->logical, swapchain->sc, &swapchain->image_count, swapchain->images));
-    swapchain->image_views = (VkImageView *)arena_alloc(&swapchain->arena, sizeof(VkImageView) * swapchain->image_count);
-    for (u32 i = 0; i < swapchain->image_count; i++) {
-        VkImageViewCreateInfo color_image_view = {
-            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-            .image = swapchain->images[i],
-            .viewType = VK_IMAGE_VIEW_TYPE_2D,
-            .format = swapchain->format,
-            .components = {
-                .r = VK_COMPONENT_SWIZZLE_R,
-                .g = VK_COMPONENT_SWIZZLE_G,
-                .b = VK_COMPONENT_SWIZZLE_B,
-                .a = VK_COMPONENT_SWIZZLE_A,
-            },
-            .subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-            .subresourceRange.levelCount = 1,
-            .subresourceRange.layerCount = 1,
-        };
-        result = primary->api.vkCreateImageView(primary->logical, &color_image_view, NULL, &swapchain->image_views[i]);
-        if (result != VK_SUCCESS) {
-            log_error("Failed to create a view onto swapchain image: %s", vulkan_result_string(result));
-            clear_swapchain(swapchain, primary);
-            work->out_result = result_error_undefined; /* TODO */
-            return;
-        }
-    }
-
-#if AMW_DEBUG
-    if (swapchain->image_count != pelagia->frames_buffering) 
-        log_warn("Swapchain image count (%u) is different than frame buffering (%u).", swapchain->image_count, pelagia->frames_buffering);
-#endif /* AMW_DEBUG */
-
-    if (use_vsync || no_vsync_present_mode == VK_PRESENT_MODE_FIFO_KHR)
-        set_pelagia_flags |= pelagia_flag_vsync_enabled;
-
-    at_fetch_and_explicit(&work->hadal->flags, ~hadal_flag_recreate_swapchain, memory_model_seq_cst);
-    at_fetch_and_explicit(&work->pelagia->flags, ~(pelagia_flag_vsync_enabled | pelagia_flag_screenshot_supported), memory_model_seq_cst);
-    at_fetch_or_explicit(&work->pelagia->flags, set_pelagia_flags, memory_model_seq_cst);
-    work->out_result = result_success;
-}
-
 AMWAPI void pelagia_renderer_init(struct pelagia_renderer_init_work *work)
 {
     if (!work) return;
@@ -1017,7 +728,7 @@ AMWAPI void pelagia_renderer_init(struct pelagia_renderer_init_work *work)
     *pelagia->scratch_arena.end = scratch;
 
     /* connect the renderer with the display backend */
-    result = create_swapchain_surface(&pelagia->vk, &pelagia->swapchain, work->hadal);
+    result = vulkan_create_swapchain_surface(&pelagia->vk, &pelagia->swapchain, work->hadal);
     if (result != result_success) {
         log_error("Failed to create a Vulkan surface for the '%s' display backend.", work->hadal->backend_name);
         work->out_result = result; 
@@ -1030,7 +741,7 @@ AMWAPI void pelagia_renderer_init(struct pelagia_renderer_init_work *work)
 
     struct construct_device_work device_work = {
         .vk = &pelagia->vk,
-        .temp_arena = &pelagia->scratch_arena,
+        .scratch_arena = &pelagia->scratch_arena,
         .frames_buffering = pelagia->frames_buffering,
         .thread_count = work->thread_count,
         .out_result = result_success,
@@ -1066,16 +777,18 @@ AMWAPI void pelagia_renderer_init(struct pelagia_renderer_init_work *work)
         work->out_result = assemble_swapchain_work.out_result;
         return;
     }
-    arena_reset(&pelagia->scratch_arena);
+    *pelagia->scratch_arena.end = scratch;
 
     struct rivens_tear assemble_tears[2];
     struct pelagia_assemble_render_targets_work assemble_render_targets = {
         .pelagia = pelagia,
         .dissasemble = false,
+        .out_result = result_success,
     };
     struct pelagia_assemble_uniform_buffers_work assemble_uniform_buffers = {
         .pelagia = pelagia,
         .dissasemble = false,
+        .out_result = result_success,
     };
     pelagia_assemble_render_targets_tear__(&assemble_render_targets, &assemble_tears[0]);
     pelagia_assemble_uniform_buffers_tear__(&assemble_uniform_buffers, &assemble_tears[1]);
@@ -1084,13 +797,14 @@ AMWAPI void pelagia_renderer_init(struct pelagia_renderer_init_work *work)
     /* validate the work */
 #define CHECKWORK(proc, idx) \
     if (assemble_##proc.out_result != result_success) { \
-        log_error("Tear '%s' for primary device failed and returned %d.", assemble_tears[idx].name, assemble_##proc.out_result); \
+        log_error("Tear '%s' for primary device failed and returned %d.", assemble_tears[idx].name, assemble_##proc .out_result); \
         work->out_result = assemble_##proc.out_result; \
     }
     CHECKWORK(uniform_buffers, 0)
     CHECKWORK(render_targets, 1)
 #undef CHECKWORK
     if (work->out_result != result_success) return;
+    *pelagia->scratch_arena.end = scratch;
 
     /* a tear per device */
     struct rivens_tear *device_tears = (struct rivens_tear *)arena_alloc(&pelagia->scratch_arena, sizeof(struct rivens_tear) * pelagia->device_count);
@@ -1120,6 +834,7 @@ AMWAPI void pelagia_renderer_init(struct pelagia_renderer_init_work *work)
             work->out_result = assemble_render_pass_pipelines[i].out_result;
         }
     }
+    *pelagia->scratch_arena.end = scratch;
 }
 
 AMWAPI void pelagia_renderer_fini(struct pelagia_renderer_fini_work *work)
@@ -1148,9 +863,10 @@ AMWAPI void pelagia_renderer_fini(struct pelagia_renderer_fini_work *work)
         };
         pelagia_assemble_render_pass_pipelines(&dissasemble_pipelines_work);
 
+        /* only relevant for the primary device */
         if (at_read_relaxed(&device->flags) & pelagia_device_flag_primary) {
             if (pelagia->swapchain.sc != VK_NULL_HANDLE) {
-                clear_swapchain(&pelagia->swapchain, device);
+                vulkan_clear_swapchain(&pelagia->swapchain, device);
                 device->api.vkDestroySwapchainKHR(device->logical, pelagia->swapchain.sc, NULL);
             }
             struct rivens_tear disassemble_tears[2];

@@ -1,3 +1,7 @@
+/*  Lake in the Lungs
+ *  Copyright (c) 2025 Cadence C. Moon
+ *  The source code is licensed under a standard MIT license. */
+
 #include <lake/pelagia.h>
 #include <lake/vulkan.h>
 
@@ -53,7 +57,7 @@ AMWAPI void pelagia_assemble_render_targets(struct pelagia_assemble_render_targe
 {
     if (!work) {
         return;
-    } else if (!work->pelagia || at_read_relaxed(&work->pelagia->flags) & pelagia_flag_initialized) {
+    } else if (!work->pelagia || (at_read_relaxed(&work->pelagia->flags) & pelagia_flag_initialized) == 0) {
         work->out_result = result_error_invalid_engine_context;
         return;
     }
@@ -71,7 +75,7 @@ AMWAPI void pelagia_assemble_render_targets(struct pelagia_assemble_render_targe
         log_error("Trying to create render targets, %u is not a valid swapchain image count.", image_count);
         work->out_result = result_error_invalid_engine_context;
         return;
-    } else if ((at_read_relaxed(&primary_device->flags) & (pelagia_device_flag_primary | pelagia_device_flag_is_valid))) {
+    } else if ((at_read_relaxed(&primary_device->flags) & (pelagia_device_flag_primary | pelagia_device_flag_is_valid)) == 0) {
         s32 flags = at_read_relaxed(&primary_device->flags);
         log_error("Trying to create render targets, can't validate flags (primary:%u | is_valid:%u) of the expected primary device (idx 0).",
             flags & pelagia_device_flag_primary ? 1 : 0, flags & pelagia_device_flag_is_valid ? 1 : 0);
@@ -113,7 +117,9 @@ AMWAPI void pelagia_assemble_render_targets(struct pelagia_assemble_render_targe
     struct vulkan_texture_request *all_requests = (struct vulkan_texture_request *)
         arena_alloc(scratch_arena, sizeof(requests) * image_count);
     for (idx = 0; idx < image_count; idx++)
-        memcpy(all_requests + idx * image_count, requests, sizeof(requests));
+        iamemcpy(all_requests + idx * image_count, requests, sizeof(requests));
+
+    /* TODO */
 
     work->out_result = result_error_undefined; /* TODO */
 }
