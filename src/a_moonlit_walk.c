@@ -11,7 +11,7 @@
 static void a_moonlit_walk_cleanup__(
     struct a_moonlit_walk *AMW)
 {
-    struct pelagia_renderer_fini_work renderer_fini = { &AMW->pelagia };
+    struct pelagia_renderer_fini_work renderer_fini = { &AMW->pelagia, AMW->riven };
 
     pelagia_renderer_fini(&renderer_fini);
     hadal_fini(&AMW->hadal);
@@ -174,8 +174,8 @@ AMWAPI s32 a_moonlit_walk(
         .riven_thread_count = 0,
         .riven_fiber_count = 128,
         .riven_stack_size = 64 * 1024,
-        .riven_log_2_tears = 12,
-        .pelagia_max_devices = 1, /* if 0, use all available GPUs */
+        .riven_log_2_tears = 12, /* (1u << log_2_tears) work queue size */
+        .pelagia_max_devices = 0, /* if 0, use all available GPUs */
         .pelagia_virtual_devices = 0, /* if 0, no virtual devices */
         .pelagia_preferred_primary_device = -1, /* select the most appropriate GPU as the main device */
         .pelagia_frames_buffering = pelagia_frames_triple_buffering,
@@ -205,6 +205,13 @@ AMWAPI s32 a_moonlit_walk(
         a_moonlit_walk_main__,          /* Main riven tear, serves as the entry point. */
         &AMW);                          /* The engine context as the argument. */
     void *riven_memory = malloc(riven_bytes);
+
+    log_info("Constructing the Riven structure for a parallel workflow:");
+    log_info("      memory buffer - %lu bytes (%luKB)", riven_bytes, riven_bytes/(1024));
+    log_info("    stack per fiber - %u bytes (%uKB)", hints.riven_stack_size, hints.riven_stack_size/1024);
+    log_info("    tear queue size - %u tears, %u log2", (1 << hints.riven_log_2_tears), hints.riven_log_2_tears);
+    log_info("        fiber count - %u fibers", hints.riven_fiber_count);
+    log_info("       thread count - %d threads", hints.riven_thread_count);
 
     riven_unveil_rift(
         riven_memory,

@@ -7,6 +7,7 @@ engine += files(
     'pelagia.c',
     'pipelines.c',
     'spirv_shaders.c',
+    'textures.c',
 )
 
 dep_vulkan = dependency('vulkan', required : true) #get_option('vulkan'))

@@ -9,11 +9,9 @@
 
 #include <lake/riven.h>
 
+/* forward declarations */
 struct pelagia;
 struct silver;
-
-/* TODO */
-struct render_graph;
 
 /** A handle that represents a rendering resource - buffer, textures, pipelines. */
 typedef u64 render_resource_id;

@@ -453,7 +453,7 @@ struct vulkan_memory_allocator {
 };
 
 /** This structure combines a Vulkan image object with a view and some meta-data. */
-struct vulkan_image {
+struct vulkan_texture {
     VkImage                     image;          /**< The vulkan object for the image. */
     VkImageView                 view;           /**< A view onto the contents of this image or NULL if no view was requested. */
     VkDeviceSize                offset;         /**< The offset of this image within the bound memory allocation in bytes. */
@@ -462,9 +462,22 @@ struct vulkan_image {
 
 /** Bundles arrays of Vulkan image objects with meta-data and image views.
  *  Handles the device memory allocations for the images. */
-struct vulkan_images {
+struct vulkan_textures {
+    struct vulkan_texture      *textures;       /**< The texture data with an image, view and meta-data to handle the data. */
     struct vulkan_allocation    allocation;     /**< The memory suballocation that serves all of the images. */
     u32                         image_count;    /**< Number of images and meta-data in the arrays. */
+};
+
+/** Bundles information needed to construct an image and view. */
+struct vulkan_texture_request {
+    /** Complete image creation info. If the number of mip levels is set to zero,
+     *  it will be automatically set using vulkan_get_mipmap_count_3d(). */
+    VkImageCreateInfo           image_info;
+    /** Description of the view that is to be created. Format and image do not need 
+     *  to be set. If the layer count or mip count are zero, they are set to match 
+     *  the corresponding values of the image. If sType is not 
+     *  VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO, creation of a view is skipped. */
+    VkImageViewCreateInfo       view_info;
 };
 
 /** Combines a buffer handle with offset and size. */
@@ -496,24 +509,44 @@ struct vulkan_descriptor_set_request {
 struct vulkan_pipeline {
     VkDescriptorSetLayout   descriptor_set_layout;              /**< Descriptor layout used by the pipeline layout. */
     VkPipelineLayout        pipeline_layout;                    /**< Pipeline layout used by the pipeline. */
+    VkPipelineCache         pipeline_cache;                     /**< A handle to the cache pipeline data used for this pipeline. */
     VkDescriptorPool        descriptor_pool;                    /**< Pool used to allocate descriptor sets, it matches the descriptor set layout. */
     VkDescriptorSet         descriptor_sets[AMW_MAX_WORKLOAD];  /**< A descriptor set per swapchain image (max 4). */
     VkPipeline              pipeline;                           /**< The Vulkan pipeline state. */
 };
 
+/** When serializing pipeline cache data to a file, we will use this header that is 
+ *  filled with enough information to be able to validate the data, with a pipeline cache 
+ *  following immediately afterwards. The hash of the pipeline cache data will allow us to 
+ *  validate the integrity of the data. To reduce the chance of an I/O error actually
+ *  causing an integrity issue, we create a temporary file, write this header to the file 
+ *  followed by the pipeline cache data, and then move the file to the target location. */
+struct vulkan_pipeline_cache_prefix_header {
+    u32 magic;              /**< An arbitrary magic header to make sure this is actually our cache file. */
+    u32 data_size;          /**< Equal to *pDataSize returned by vkGetPipelineCacheData. */
+    u32 data_hash;          /**< A hash of pipeline cache data, including the header. */
+
+    u32 vendor_id;          /**< Equal to VkPhysicalDeviceProperties::vendorID. */
+    u32 device_id;          /**< Equal to VkPhysicalDeviceProperties::deviceID. */
+    u32 driver_version;     /**< Equal to VkPhysicalDeviceProperties::driverVersion. */
+    u32 driver_abi;         /**< Equal to sizeof(void*). */
+
+    u8  uuid[VK_UUID_SIZE]; /**< Equal to VkPhysicalDeviceProperties::pipelineCacheUUID */
+};
+
 /** The context of a rendering device, explicitly used within backend cobalt 
  *  calls and representing an individual GPU. */
 struct vulkan_device {
-    at_u64                              flags;
+    at_u64                                              flags;
 
     /** The vulkan object for the physical device below. */
-    VkDevice                            logical;
+    VkDevice                                            logical;
     /** The physical device (GPU) that is being used in this context. */
-    VkPhysicalDevice                    physical;
+    VkPhysicalDevice                                    physical;
     /** Information about Vulkan features supported by the used physical device. */
-    VkPhysicalDeviceFeatures            physical_features;
+    VkPhysicalDeviceFeatures                            physical_features;
     /** Information about hardware properties of the used physical device. */
-    VkPhysicalDeviceProperties          physical_properties;
+    VkPhysicalDeviceProperties                          physical_properties;
 #if defined(VK_KHR_acceleration_structure)
     /** Information about the support for ray tracing acceleration structures. */
     VkPhysicalDeviceAccelerationStructurePropertiesKHR  acceleration_structure_properties;
@@ -525,20 +558,20 @@ struct vulkan_device {
     VkPhysicalDeviceMemoryBudgetPropertiesEXT           memory_budget;
 #endif
     /** A GPU memory allocator to track all device allocations. */
-    struct vulkan_memory_allocator      allocator;
+    struct vulkan_memory_allocator                      allocator;
 
     /** Command pools are shared between queue families. The total amount of allocated command pools 
      *  is equal to: max images X queue families in use X threads, and are unique to the VkDevice.
      *  The max swapchain images will be equal to 3, that's also due to the parallel gameloop workload.
      *  The individual pointers (graphics, compute, transfer) point inside the array, and the command 
      *  pools will be shared between queues of the same queue family idx. */
-    VkCommandPool      *raw_command_pools;          
-    u32                 raw_command_pool_count;     /**< Number of total command pools in this device. */
-    u32                 queue_command_pool_count;   /**< Used to iterate through <queue>_command_pools. */
+    VkCommandPool              *raw_command_pools;          
+    u32                         raw_command_pool_count;     /**< Number of total command pools in this device. */
+    u32                         queue_command_pool_count;   /**< Used to iterate through <queue>_command_pools. */
 
-    VkCommandPool      *graphics_command_pools;     /**< Command pools used by the graphics queue family. */
-    VkCommandPool      *compute_command_pools;      /**< Command pools used by the compute queue family. */
-    VkCommandPool      *transfer_command_pools;     /**< Command pools used by the transfer queue family. */
+    VkCommandPool              *graphics_command_pools;     /**< Command pools used by the graphics queue family. */
+    VkCommandPool              *compute_command_pools;      /**< Command pools used by the compute queue family. */
+    VkCommandPool              *transfer_command_pools;     /**< Command pools used by the transfer queue family. */
 
     /** Command queues supporting the features we'll be using. The Vulkan spec guarantees, that if 
      *  a GPU supports draw commands (no reason why wouldn't it??), atleast one queue with graphics, 
@@ -558,8 +591,8 @@ struct vulkan_device {
     VkQueue                    *compute_queues;
     /** We will request a transfer-only queue family, or use the graphics queue instead. */
     VkQueue                    *transfer_queues;
-    u32                         compute_queue_count;  /**< If 0, the compute queue shares the graphics queue. */
-    u32                         transfer_queue_count; /**< If 0, the transfer queue shares the graphics queue. */
+    u32                         compute_queue_count;        /**< If 0, the compute queue shares the graphics queue. */
+    u32                         transfer_queue_count;       /**< If 0, the transfer queue shares the graphics queue. */
 
     /** Indices of different queue families where our queues were created. For comparing if 
      *  compute or transfer are using an unique async queue family, it's enough to just compare 
@@ -576,6 +609,13 @@ struct vulkan_device {
      *  time lookup, and grouping the bindings may help with cache coherency - in context of 
      *  recording a render pass that's all we need to access, really. */
     struct vulkan_pipeline      pipelines[render_pass_type_count];
+    /** Pipeline cache data is a (mostly) opaque blob, that specifies driver- and device-specific
+     *  information tha typically contains bits of shader microcode, the format of which depends 
+     *  on the GPU, and auxiliary data that may containt arbitrary driver defined structures. We 
+     *  can use this cache to speedup pipeline creation (or recreation even) across different 
+     *  lifetimes of this application - the data is saved into disk, and is valid until driver 
+     *  updates or changing the GPU device. */
+    VkPipelineCache             VkPipelineCache;
 
     /** Bits to check support for extensions that interest us. Set during device creation, and then read-only. */
     u64                         extensions;
@@ -617,5 +657,20 @@ AMW_INLINE u32 vulkan_get_mipmap_count_3d(VkExtent3D extent) {
     result = (result < counts[2]) ? counts[2] : result;
     return result;
 }
+
+/** Prints debug information about each of the given requested textures on multiple lines. */
+AMWAPI void vulkan_print_texture_requests(const struct vulkan_texture_request *texture_requests, u32 texture_count);
+
+/** Used to cleanup images. */
+AMWAPI void vulkan_destroy_textures(struct vulkan_textures *textures, const struct vulkan_device *device);
+
+/** Creates images sharing a single memory allocation, according to all of the given requests.
+ *  Creates views for them and allocates GPU memory using the provided device. */
+AMWAPI s32 vulkan_create_textures(
+    struct vulkan_textures                *textures,
+    struct vulkan_device                  *device,
+    const struct vulkan_texture_request   *texture_requests,
+    u32                                    texture_count,
+    const struct vulkan_allocation_request allocation_request);
 
 #endif /* _AMW_VULKAN_H */

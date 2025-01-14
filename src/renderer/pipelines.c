@@ -9,14 +9,20 @@
  * or uniform buffers, and other data needed to assemble the pipelines, is not mutable
  * here. No external synchronization is needed, so we will *sure* exploit this here :) */
 struct assemble_pipeline_work {
+    struct vulkan_backend  *vk;
     struct vulkan_device   *device; 
+    VkPipelineCache         cache;
     b32                     dissasemble;
     s32                     out_result;
 };
 
-/* Shared dissassemble code. */
-AMW_INLINE void dissasemble(const struct vulkan_device *device, struct vulkan_pipeline *pipeline)
+/* Shared cleanup code. */
+static void dissasemble(
+    const struct vulkan_backend *vk, 
+    const struct vulkan_device  *device, 
+    struct vulkan_pipeline      *pipeline)
 {
+    (void)vk; // TODO &vk->allocator
     if (pipeline->pipeline)
         device->api.vkDestroyPipeline(device->logical, pipeline->pipeline, NULL); /* TODO allocation callbacks */
     if (pipeline->descriptor_pool)
@@ -29,14 +35,20 @@ AMW_INLINE void dissasemble(const struct vulkan_device *device, struct vulkan_pi
 }
 
 /* XXX copy-paste template for an assemble_pipeline_render_pass procedure:
- *
+
 static void assemble_pipeline_render_pass(struct assemble_pipeline_work *work)
 {
-    const struct vulkan_device *device   = work->device; 
-    struct vulkan_pipeline     *pipeline = &work->device->pipelines[render_pass_type];
+    if (!work) return;
+
+    const struct vulkan_backend *vk       = work->vk; 
+    const struct vulkan_device  *device   = work->device; 
+    struct vulkan_pipeline      *pipeline = &work->device->pipelines[render_pass_type];
+    VkPipelineCache              cache    = work->cache;
 
     dissasemble(device, pipeline);
     if (work->dissasemble) return;
+
+    // DO THE WORK
 
     work->out_result = result_error_undefined;
 }
@@ -44,44 +56,68 @@ static void assemble_pipeline_render_pass(struct assemble_pipeline_work *work)
 
 static void assemble_pipeline_visibility_pass(struct assemble_pipeline_work *work)
 {
-    const struct vulkan_device *device   = work->device; 
-    struct vulkan_pipeline     *pipeline = &work->device->pipelines[render_pass_type_visibility];
+    if (!work) return;
 
-    dissasemble(device, pipeline);
+    const struct vulkan_backend *vk       = work->vk; 
+    const struct vulkan_device  *device   = work->device; 
+    struct vulkan_pipeline      *pipeline = &work->device->pipelines[render_pass_type_visibility];
+    VkPipelineCache              cache    = work->cache;
+
+    dissasemble(vk, device, pipeline);
     if (work->dissasemble) return;
+
+    (void)cache;
 
     work->out_result = result_error_undefined; /* TODO */
 }
 
 static void assemble_pipeline_lighting_pass(struct assemble_pipeline_work *work)
 {
-    const struct vulkan_device *device   = work->device; 
-    struct vulkan_pipeline     *pipeline = &work->device->pipelines[render_pass_type_lighting];
+    if (!work) return;
 
-    dissasemble(device, pipeline);
+    const struct vulkan_backend *vk       = work->vk; 
+    const struct vulkan_device  *device   = work->device; 
+    struct vulkan_pipeline      *pipeline = &work->device->pipelines[render_pass_type_lighting];
+    VkPipelineCache              cache    = work->cache;
+
+    dissasemble(vk, device, pipeline);
     if (work->dissasemble) return;
+
+    (void)cache;
 
     work->out_result = result_error_undefined; /* TODO */
 }
 
 static void assemble_pipeline_forward_pass(struct assemble_pipeline_work *work)
 {
-    const struct vulkan_device *device   = work->device; 
-    struct vulkan_pipeline     *pipeline = &work->device->pipelines[render_pass_type_forward];
+    if (!work) return;
 
-    dissasemble(device, pipeline);
+    const struct vulkan_backend *vk       = work->vk; 
+    const struct vulkan_device  *device   = work->device; 
+    struct vulkan_pipeline      *pipeline = &work->device->pipelines[render_pass_type_forward];
+    VkPipelineCache              cache    = work->cache;
+
+    dissasemble(vk, device, pipeline);
     if (work->dissasemble) return;
+
+    (void)cache;
 
     work->out_result = result_error_undefined; /* TODO */
 }
 
 static void assemble_pipeline_interface_pass(struct assemble_pipeline_work *work)
 {
-    const struct vulkan_device *device   = work->device; 
-    struct vulkan_pipeline     *pipeline = &work->device->pipelines[render_pass_type_interface];
+    if (!work) return;
 
-    dissasemble(device, pipeline);
+    const struct vulkan_backend *vk       = work->vk; 
+    const struct vulkan_device  *device   = work->device; 
+    struct vulkan_pipeline      *pipeline = &work->device->pipelines[render_pass_type_interface];
+    VkPipelineCache              cache    = work->cache;
+
+    dissasemble(vk, device, pipeline);
     if (work->dissasemble) return;
+
+    (void)cache;
 
     work->out_result = result_error_undefined; /* TODO */
 }
@@ -103,7 +139,7 @@ static const char *render_pass_name_from_idx(enum render_pass_type idx)
 }
 
 #define ASSEMBLE_PIPELINE_TEAR_PROCEDURE(proc) \
-    AMW_INLINE void assemble_pipeline_##proc##_pass_tear__( \
+    static AMW_INLINE void assemble_pipeline_##proc##_pass_tear__( \
         struct assemble_pipeline_work *work, \
         struct rivens_tear *tear) \
     { \
@@ -119,46 +155,50 @@ ASSEMBLE_PIPELINE_TEAR_PROCEDURE(interface)
 
 AMWAPI void pelagia_assemble_render_pass_pipelines(struct pelagia_assemble_render_pass_pipelines_work *work)
 {
-    struct pelagia               *pelagia = work->pelagia;
+    if (!work || work->render_pass_type_mask == 0llu) {
+        return;
+    } else if (!work->pelagia->devices || work->device_idx >= work->pelagia->device_count) {
+        work->out_result = result_error_invalid_engine_context;
+        return;
+    }
+
+    struct vulkan_backend        *vk      = &work->pelagia->vk;
+    struct vulkan_device         *device  = &work->pelagia->devices[work->device_idx];
     struct riven                 *riven   = work->riven;
+
     struct rivens_tear            tears[render_pass_type_count];
     struct assemble_pipeline_work pipeline_work[render_pass_type_count];
 
-    /* XXX i could control if a specific pipeline should be touched or not
-     * by passing a flags value in the work, and retrieving the state of those 
-     * bits with (flags >> j) check, where j is a render_pass_type. Another
-     * optimization would be to ignore assigning a tear, depending on if the 
-     * bit for this specific render pass pipeline is set or not. */
+    /* We want to filter out the work in a case where only explicit pipelines are to be assembled.
+     * If it was not requested, the work argument in the tear will be NULL and return immediately. */
 #define ASSEMBLE_PIPELINE_TEAR(proc) \
-    assemble_pipeline_##proc##_pass_tear__(&pipeline_work[render_pass_type_##proc], &tears[render_pass_type_##proc]);
+    assemble_pipeline_##proc##_pass_tear__((work->render_pass_type_mask & (1llu << render_pass_type_##proc)) != 0 ? &pipeline_work[render_pass_type_##proc] : NULL, &tears[render_pass_type_##proc]);
     ASSEMBLE_PIPELINE_TEAR(visibility)
     ASSEMBLE_PIPELINE_TEAR(lighting)
     ASSEMBLE_PIPELINE_TEAR(forward)
     ASSEMBLE_PIPELINE_TEAR(interface)
 #undef ASSEMBLE_PIPELINE_TEAR
 
-    /* A pipeline state is device-specific. We will handle one device at a time,
-     * and assemble the pipelines for all available devices. */
-    for (u32 i = 0; i < pelagia->device_count; i++) {
-        struct vulkan_device *device = &pelagia->devices[i];
+    /* TODO implement a pipeline cache */
+    VkPipelineCache cache = VK_NULL_HANDLE;
 
-        assert_debug(device->logical != VK_NULL_HANDLE);
+    (void)cache;
 
-        /* prepare the arguments */
-        for (u32 j = 0; j < render_pass_type_count; j++) {
-            pipeline_work[j].device      = device;
-            pipeline_work[j].dissasemble = work->dissasemble;
-            pipeline_work[j].out_result  = result_success;
-        }
-        /* execute the tears */
-        riven_split_and_unchain(riven, tears, render_pass_type_count);
+    /* prepare the arguments */
+    for (u32 j = 0; j < render_pass_type_count; j++) {
+        pipeline_work[j].vk          = vk;
+        pipeline_work[j].device      = device;
+        pipeline_work[j].dissasemble = work->dissasemble;
+        pipeline_work[j].out_result  = result_success;
+    }
+    /* assemble the pipelines */
+    riven_split_and_unchain(riven, tears, render_pass_type_count);
 
-        /* check results */
-        for (u32 j = 0; j < render_pass_type_count; j++) {
-            if (pipeline_work[j].out_result != result_success) {
-                log_error("Tear %s failed to resolve a conflict and returned %d. The pipeline state of the %s render pass is invalid.", tears[j].name, pipeline_work[j].out_result, render_pass_name_from_idx(j));
-                work->out_result = pipeline_work[j].out_result; /* return the last error code */
-            }
+    /* check results */
+    for (u32 j = 0; j < render_pass_type_count; j++) {
+        if (pipeline_work[j].out_result != result_success) {
+            log_error("Tear '%s' for device '%u' failed to resolve a conflict and returned %d. The pipeline state of the %s render pass is invalid.", tears[j].name, work->device_idx, pipeline_work[j].out_result, render_pass_name_from_idx(j));
+            work->out_result = pipeline_work[j].out_result; /* return the last error code */
         }
     }
 }

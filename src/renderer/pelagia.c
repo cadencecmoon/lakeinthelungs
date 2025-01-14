@@ -8,6 +8,8 @@
 #include <lake/hadopelagic.h>
 #include <lake/pelagia.h>
 
+#include <string.h> /* memcpy */
+
 #if !defined(AMW_NDEBUG) && defined(VK_EXT_debug_utils)
 static VKAPI_ATTR VkBool32 VKAPI_CALL 
 debug_utils_callback(
@@ -244,16 +246,16 @@ static void select_rendering_devices(struct pelagia_renderer_init_work *work)
         work->out_result = result_error_undefined; /* TODO */
         return;
     }
-    VkPhysicalDevice *physical_devices = (VkPhysicalDevice *)arena_alloc(&pelagia->arena, sizeof(VkPhysicalDevice) * physical_device_count);
+    VkPhysicalDevice *physical_devices = (VkPhysicalDevice *)arena_alloc(&pelagia->scratch_arena, sizeof(VkPhysicalDevice) * physical_device_count);
     VERIFY_VK(pelagia->vk.api.vkEnumeratePhysicalDevices(pelagia->vk.instance, &physical_device_count, physical_devices));
 
     preferred_primary_device_idx = preferred_primary_device_idx < (s32)physical_device_count ? preferred_primary_device_idx : -1;
     max_device_count = min(max_device_count, (s32)physical_device_count);
     
-    s32 *physical_device_indices = (s32 *)arena_alloc(&pelagia->arena, sizeof(s32) * 2 * physical_device_count);
+    s32 *physical_device_indices = (s32 *)arena_alloc(&pelagia->scratch_arena, sizeof(s32) * 2 * physical_device_count);
     u32 *extension_bits = (u32 *)physical_device_indices + sizeof(s32) * physical_device_count;
 
-    struct region scratch = *pelagia->arena.end;
+    struct region scratch = *pelagia->scratch_arena.end;
     for (u32 i = 0; (i < physical_device_count) && (max_device_count > 0 ? max_device_count : true); i++) {
         VkPhysicalDeviceProperties physical_device_properties;
         VkQueueFamilyProperties *queue_family_properties;
@@ -262,7 +264,7 @@ static void select_rendering_devices(struct pelagia_renderer_init_work *work)
 
         physical_device_indices[i] = -1;
         extension_bits[i] = 0u;
-        *pelagia->arena.end = scratch;
+        *pelagia->scratch_arena.end = scratch;
 
         /* too old drivers? */
         pelagia->vk.api.vkGetPhysicalDeviceProperties(physical_devices[i], &physical_device_properties);
@@ -272,7 +274,7 @@ static void select_rendering_devices(struct pelagia_renderer_init_work *work)
         pelagia->vk.api.vkGetPhysicalDeviceQueueFamilyProperties(physical_devices[i], &queue_family_count, NULL);
         if (queue_family_count == 0) continue;
 
-        queue_family_properties = (VkQueueFamilyProperties *)arena_alloc(&pelagia->arena, queue_family_count * sizeof(VkQueueFamilyProperties) * queue_family_count);
+        queue_family_properties = (VkQueueFamilyProperties *)arena_alloc(&pelagia->scratch_arena, queue_family_count * sizeof(VkQueueFamilyProperties) * queue_family_count);
         pelagia->vk.api.vkGetPhysicalDeviceQueueFamilyProperties(physical_devices[i], &queue_family_count, queue_family_properties);
 
         u32 graphics_family_idx = 0u, command_support = 0u;
@@ -294,7 +296,7 @@ static void select_rendering_devices(struct pelagia_renderer_init_work *work)
         pelagia->vk.api.vkEnumerateDeviceExtensionProperties(physical_devices[i], NULL, &extension_count, NULL);
         if (extension_count == 0) continue;
 
-        extension_properties = (VkExtensionProperties *)arena_alloc(&pelagia->arena, sizeof(VkExtensionProperties) * extension_count);
+        extension_properties = (VkExtensionProperties *)arena_alloc(&pelagia->scratch_arena, sizeof(VkExtensionProperties) * extension_count);
         pelagia->vk.api.vkEnumerateDeviceExtensionProperties(physical_devices[i], NULL, &extension_count, extension_properties);
 
         for (u32 j = 0; j < extension_count; j++) {
@@ -344,7 +346,7 @@ static void select_rendering_devices(struct pelagia_renderer_init_work *work)
             device_count++;
         }
     }
-    *pelagia->arena.end = scratch;
+    *pelagia->scratch_arena.end = scratch;
 
     /* no device was found ? */
     if (device_count == 0) {
@@ -994,6 +996,7 @@ AMWAPI void pelagia_renderer_init(struct pelagia_renderer_init_work *work)
 
     /* prepare the state, and fini will be called in case of errors. */
     struct pelagia_renderer_fini_work fini = { pelagia, riven };
+    pelagia_renderer_fini(&fini);
 
     /* connect to vulkan */
     if (!vulkan_open_driver(&pelagia->vk.api)) {
@@ -1001,38 +1004,33 @@ AMWAPI void pelagia_renderer_init(struct pelagia_renderer_init_work *work)
         return;
     }
 
-    arena_init(&pelagia->arena, 16 * 1024);
-    struct region scratch = *pelagia->arena.end;
+    arena_init(&pelagia->scratch_arena, 16 * 1024);
+    struct region scratch = *pelagia->scratch_arena.end;
 
     /* initialize the instance */
-    result = create_instance(&pelagia->vk, &pelagia->arena, work->application_name, work->application_version);
+    result = create_instance(&pelagia->vk, &pelagia->scratch_arena, work->application_name, work->application_version);
     if (result != result_success) {
         log_error("Failed to create a Vulkan instance and load API procedures.");
-        pelagia_renderer_fini(&fini);
         work->out_result = result;
         return;
     }
-    *pelagia->arena.end = scratch;
+    *pelagia->scratch_arena.end = scratch;
 
     /* connect the renderer with the display backend */
     result = create_swapchain_surface(&pelagia->vk, &pelagia->swapchain, work->hadal);
     if (result != result_success) {
         log_error("Failed to create a Vulkan surface for the '%s' display backend.", work->hadal->backend_name);
-        pelagia_renderer_fini(&fini);
-        work->out_result = result;
+        work->out_result = result; 
         return;
     }
 
     /* query physical devices and decide which are to be used */
     select_rendering_devices(work);
-    if (work->out_result != result_success) {
-        pelagia_renderer_fini(&fini);
-        return;
-    }
+    if (work->out_result != result_success) return;
 
     struct construct_device_work device_work = {
         .vk = &pelagia->vk,
-        .temp_arena = &pelagia->arena,
+        .temp_arena = &pelagia->scratch_arena,
         .frames_buffering = pelagia->frames_buffering,
         .thread_count = work->thread_count,
         .out_result = result_success,
@@ -1040,21 +1038,21 @@ AMWAPI void pelagia_renderer_init(struct pelagia_renderer_init_work *work)
 
     /* create the logical rendering devices */
     for (u32 i = 0; i < pelagia->device_count; i++) {
-        *pelagia->arena.end = scratch;
+        *pelagia->scratch_arena.end = scratch;
         device_work.device = &pelagia->devices[i];
         device_work.device_idx = i;
         construct_device(&device_work);
 
         if (device_work.out_result != result_success) {
             log_error("Creating device of idx '%d' failed, aborting.", i);
-            pelagia_renderer_fini(&fini);
             work->out_result = device_work.out_result;
             return;
         }
     }
-    *pelagia->arena.end = scratch;
+    *pelagia->scratch_arena.end = scratch;
+    at_fetch_or_relaxed(&pelagia->flags, pelagia_flag_initialized);
 
-    struct pelagia_assemble_swapchain_work swapchain_work = {
+    struct pelagia_assemble_swapchain_work assemble_swapchain_work = {
         .pelagia = pelagia,
         .hadal = work->hadal,
         .use_vsync = work->enable_vsync,
@@ -1062,24 +1060,43 @@ AMWAPI void pelagia_renderer_init(struct pelagia_renderer_init_work *work)
     };
     arena_init(&pelagia->swapchain.arena, 234);
 
-    pelagia_assemble_swapchain(&swapchain_work);
-    if (swapchain_work.out_result != result_success) {
+    pelagia_assemble_swapchain(&assemble_swapchain_work);
+    if (assemble_swapchain_work.out_result != result_success) {
         log_error("Failed to create a swapchain at initialization.");
-        pelagia_renderer_fini(&fini);
-        work->out_result = swapchain_work.out_result;
+        work->out_result = assemble_swapchain_work.out_result;
+        return;
     }
+    arena_reset(&pelagia->scratch_arena);
 
-    /* TODO render targets, uniform buffers (first instance) */
+    /* a tear per device */
+    struct rivens_tear *tears = (struct rivens_tear *)arena_alloc(&pelagia->scratch_arena, sizeof(struct rivens_tear) * pelagia->device_count);
 
-    struct pelagia_assemble_render_pass_pipelines_work render_pass_pipelines_work = {
-        .pelagia = pelagia,
-        .riven = riven,
-        .dissasemble = false,
-    };
-    pelagia_assemble_render_pass_pipelines(&render_pass_pipelines_work);
-    if (render_pass_pipelines_work.out_result != result_success) {
-        log_error("Failed to assemble all shader pipelines at initialization.");
-        pelagia_renderer_fini(&fini);
+    /* TODO prepare render targets and uniform buffers */
+
+    /* A pipeline state is device-specific. We will handle one device at a time,
+     * and assemble the pipelines for all available devices. */
+    struct pelagia_assemble_render_pass_pipelines_work *assemble_render_pass_pipelines_work = (struct pelagia_assemble_render_pass_pipelines_work *)
+        arena_alloc(&pelagia->scratch_arena, sizeof(struct pelagia_assemble_render_pass_pipelines_work) * pelagia->device_count);
+
+    /* the pipelines can be assembled concurrently, so we do all devices at a time */
+    for (u32 i = 0; i < pelagia->device_count; i++) {
+        assemble_render_pass_pipelines_work[i] = (struct pelagia_assemble_render_pass_pipelines_work){
+            .pelagia = pelagia,
+            .riven = riven,
+            .render_pass_type_mask = UINT64_MAX, /* assemble all pipelines */
+            .device_idx = i,
+            .out_result = result_success,
+        };
+        pelagia_assemble_render_pass_pipelines_tear__(&assemble_render_pass_pipelines_work[i], &tears[i]);
+    }
+    riven_split_and_unchain(riven, tears, pelagia->device_count);
+
+    /* check work for errors */
+    for (u32 i = 0; i < pelagia->device_count; i++) {
+        if (assemble_render_pass_pipelines_work[i].out_result != result_success) {
+            log_error("Failed to assemble all shader pipelines at initialization.");
+            work->out_result = assemble_render_pass_pipelines_work[i].out_result;
+        }
     }
 }
 
@@ -1091,20 +1108,11 @@ AMWAPI void pelagia_renderer_fini(struct pelagia_renderer_fini_work *work)
     struct riven   *riven   = work->riven;
     if (!pelagia) return;
 
-    /* some tears expect to handle all available devices */
-    if (pelagia->devices) {
-        struct pelagia_assemble_render_pass_pipelines_work dissasemble_pipelines_work = {
-            .pelagia = pelagia,
-            .riven = riven,
-            .dissasemble = true,
-        };
-        pelagia_assemble_render_pass_pipelines(&dissasemble_pipelines_work);
-    }
-
-    /* handle individual devices */
-    for (u32 i = 0; i < pelagia->device_count; i++) {
+    /* handle individual devices in reverse order */
+    for (s32 i = pelagia->device_count-1; i >= 0; i--) {
         struct vulkan_device *device = &pelagia->devices[i];
 
+        /* if no device was created, we can skip this step */
         if (device->logical == VK_NULL_HANDLE) continue;
 
         device->api.vkDeviceWaitIdle(device->logical);
@@ -1114,6 +1122,15 @@ AMWAPI void pelagia_renderer_fini(struct pelagia_renderer_fini_work *work)
                 device->api.vkDestroySwapchainKHR(device->logical, pelagia->swapchain.sc, NULL);
             }
         }
+
+        struct pelagia_assemble_render_pass_pipelines_work dissasemble_pipelines_work = {
+            .pelagia = pelagia,
+            .riven = riven,
+            .render_pass_type_mask = UINT64_MAX, /* dissasemble all pipelines */
+            .dissasemble = true,
+            .device_idx = i,
+        };
+        pelagia_assemble_render_pass_pipelines(&dissasemble_pipelines_work);
 
         if (device->raw_command_pools) {
             for (u32 j = 0; j < device->raw_command_pool_count; j++)
@@ -1128,6 +1145,7 @@ AMWAPI void pelagia_renderer_fini(struct pelagia_renderer_fini_work *work)
 
         log_info("Destroying a Vulkan rendering device idx %u: %s", i, device->physical_properties.deviceName);
         device->api.vkDestroyDevice(device->logical, NULL);
+        iazerop(device);
     }
 
     if (pelagia->swapchain.surface != VK_NULL_HANDLE)
@@ -1140,7 +1158,98 @@ AMWAPI void pelagia_renderer_fini(struct pelagia_renderer_fini_work *work)
 
     if (pelagia->vk.instance)
         pelagia->vk.api.vkDestroyInstance(pelagia->vk.instance, NULL);
-    arena_fini(&pelagia->arena);
+    arena_fini(&pelagia->scratch_arena);
 
     iazerop(pelagia);
+}
+
+AMWAPI void pelagia_assemble_uniform_buffers(struct pelagia_assemble_uniform_buffers_work *work)
+{
+    if (!work) {
+        return;
+    } else if (!work->pelagia || at_read_relaxed(&work->pelagia->flags) & pelagia_flag_initialized) {
+        work->out_result = result_error_invalid_engine_context;
+        return;
+    }
+
+    struct pelagia         *pelagia         = work->pelagia;
+    struct vulkan_buffers  *uniform_buffers = &pelagia->uniform_buffers;
+    struct vulkan_device   *primary_device = &pelagia->devices[0];
+    struct arena_allocator *scratch_arena  = &pelagia->scratch_arena;
+
+    if ((at_read_relaxed(&primary_device->flags) & (pelagia_device_flag_primary | pelagia_device_flag_is_valid))) {
+        s32 flags = at_read_relaxed(&primary_device->flags);
+        log_error("Trying to create uniform buffers, can't validate flags (primary:%u | is_valid:%u) of the expected primary device (idx 0).",
+            flags & pelagia_device_flag_primary ? 1 : 0, flags & pelagia_device_flag_is_valid ? 1 : 0);
+        work->out_result = result_error_invalid_engine_context;
+        return;
+    }
+
+    (void)uniform_buffers;
+    (void)scratch_arena;
+}
+
+AMWAPI void pelagia_assemble_render_targets(struct pelagia_assemble_render_targets_work *work)
+{
+    if (!work) {
+        return;
+    } else if (!work->pelagia || at_read_relaxed(&work->pelagia->flags) & pelagia_flag_initialized) {
+        work->out_result = result_error_invalid_engine_context;
+        return;
+    }
+
+    struct pelagia         *pelagia        = work->pelagia;
+    struct vulkan_textures *render_targets = &pelagia->render_targets;
+    struct vulkan_device   *primary_device = &pelagia->devices[0];
+    struct arena_allocator *scratch_arena  = &pelagia->scratch_arena;
+    u32                     image_count    = pelagia->frames_buffering;
+
+    struct vulkan_texture_request requests[render_target_type_count];
+    u32 idx;
+
+    if (image_count <= 1) {
+        log_error("Trying to create render targets, %u is not a valid swapchain image count.", image_count);
+        work->out_result = result_error_invalid_engine_context;
+        return;
+    } else if ((at_read_relaxed(&primary_device->flags) & (pelagia_device_flag_primary | pelagia_device_flag_is_valid))) {
+        s32 flags = at_read_relaxed(&primary_device->flags);
+        log_error("Trying to create render targets, can't validate flags (primary:%u | is_valid:%u) of the expected primary device (idx 0).",
+            flags & pelagia_device_flag_primary ? 1 : 0, flags & pelagia_device_flag_is_valid ? 1 : 0);
+        work->out_result = result_error_invalid_engine_context;
+        return;
+    }
+
+    vulkan_destroy_textures(render_targets, primary_device);
+
+    /* setup default values */
+    for (idx = 0; idx < render_target_type_count; idx++) {
+        requests[idx].image_info = (VkImageCreateInfo){
+            .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+            .imageType = VK_IMAGE_TYPE_2D,
+            .extent = {pelagia->swapchain.extent.width, pelagia->swapchain.extent.height, 1},
+            .mipLevels = 1, 
+            .arrayLayers = 1,
+            .samples = 1,
+        };
+        requests[idx].view_info = (VkImageViewCreateInfo){
+            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        };
+    }
+
+    idx = render_target_type_depth_buffer;
+    requests[idx].image_info.format = VK_FORMAT_D32_SFLOAT;
+    requests[idx].image_info.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    requests[idx].view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+
+    idx = render_target_type_visibility_buffer;
+    requests[idx].image_info.format = VK_FORMAT_R32_UINT;
+    requests[idx].image_info.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+    requests[idx].view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+
+    /* duplicate the image requests per swapchain image */
+    struct vulkan_texture_request *all_requests = (struct vulkan_texture_request *)
+        arena_alloc(scratch_arena, sizeof(requests) * image_count);
+    for (idx = 0; idx < image_count; idx++)
+        memcpy(all_requests + idx * image_count, requests, sizeof(requests));
 }
