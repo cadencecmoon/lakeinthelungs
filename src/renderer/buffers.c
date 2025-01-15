@@ -5,10 +5,14 @@
 #include <lake/pelagia.h>
 #include <lake/vulkan.h>
 
-AMWAPI void vulkan_destroy_buffers(struct vulkan_buffers *buffers, struct vulkan_device *device)
+AMWAPI void vulkan_destroy_buffers(
+    struct vulkan_buffers *buffers, 
+    struct vulkan_device  *device,
+    struct vulkan_backend *vk)
 {
     (void)buffers;
     (void)device;
+    (void)vk;
 }
 
 AMWAPI s32 vulkan_create_aligned_buffers(
@@ -73,28 +77,16 @@ AMWAPI s32 vulkan_copy_buffers_and_images(
 
 AMWAPI void pelagia_assemble_uniform_buffers(struct pelagia_assemble_uniform_buffers_work *work)
 {
-    if (!work) {
-        return;
-    } else if (!work->pelagia || (at_read_relaxed(&work->pelagia->flags) & pelagia_flag_initialized) == 0) {
-        work->out_result = result_error_invalid_engine_context;
-        return;
-    }
+    PELAGIA_WORK_INITIALIZED_OR_RETURN
 
     struct pelagia         *pelagia         = work->pelagia;
     struct vulkan_buffers  *uniform_buffers = &pelagia->uniform_buffers;
-    struct vulkan_device   *primary_device  = &pelagia->devices[0];
+    struct vulkan_device   *device          = &pelagia->device;
+    struct vulkan_backend  *vk              = &pelagia->vk;
     struct arena_allocator *scratch_arena   = &pelagia->scratch_arena;
 
-    if ((at_read_relaxed(&primary_device->flags) & (pelagia_device_flag_primary | pelagia_device_flag_is_valid)) == 0) {
-        s32 flags = at_read_relaxed(&primary_device->flags);
-        log_error("Trying to create uniform buffers, can't validate flags (primary:%u | is_valid:%u) of the expected primary device (idx 0).",
-            flags & pelagia_device_flag_primary ? 1 : 0, flags & pelagia_device_flag_is_valid ? 1 : 0);
-        work->out_result = result_error_invalid_engine_context;
-        return;
-    }
-
     /* cleanup the uniform buffers */
-    vulkan_destroy_buffers(uniform_buffers, primary_device);
+    vulkan_destroy_buffers(uniform_buffers, device, vk);
     if (work->dissasemble) return;
 
     (void)uniform_buffers;

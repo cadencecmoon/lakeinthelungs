@@ -8,7 +8,7 @@
 #include <lake/hadopelagic.h>
 #include <lake/pelagia.h>
 
-#include <string.h> /* memcpy */
+#include <string.h> /* strcmp */
 
 #if !defined(AMW_NDEBUG) && defined(VK_EXT_debug_utils)
 static VKAPI_ATTR VkBool32 VKAPI_CALL 
@@ -62,7 +62,7 @@ static void create_validation_layers(struct vulkan_backend *vk)
         vk->extensions &= ~(vulkan_extension_layer_validation_bit | vulkan_extension_debug_utils_bit);
         return;
     }
-    log_debug("Created Vulkan validation layers.");
+    log_trace("Created Vulkan validation layers.");
 }
 
 static void destroy_validation_layers(struct vulkan_backend *vk)
@@ -72,7 +72,7 @@ static void destroy_validation_layers(struct vulkan_backend *vk)
 
     vk->api.vkDestroyDebugUtilsMessengerEXT(vk->instance, vk->messenger, NULL);
     vk->messenger = VK_NULL_HANDLE;
-    log_debug("Destroyed Vulkan validation layers.");
+    log_trace("Destroyed Vulkan validation layers.");
 }
 #endif /* validation layers */
 
@@ -228,18 +228,13 @@ static const char *vendor_name_string(u32 vendor_id)
     }
 }
 
-static void select_rendering_devices(struct pelagia_renderer_init_work *work)
+static void select_rendering_device(struct pelagia_renderer_init_work *work)
 {
     struct pelagia         *pelagia       = work->pelagia;
     struct arena_allocator *scratch_arena = &pelagia->scratch_arena;
 
     u32 physical_device_count = 0;
-    u32 device_count = 0;
-    u32 virtual_device_count = max(0, work->virtual_device_count);
-    s32 max_device_count = work->max_physical_device_count;
-    s32 preferred_primary_device_idx = work->preferred_primary_device_idx;
-    s32 primary_device_idx = -1;
-    u32 primary_device_graphics_queue_family_idx = 0;
+    s32 preferred_device_idx = work->preferred_device_idx;
 
     VERIFY_VK(pelagia->vk.api.vkEnumeratePhysicalDevices(pelagia->vk.instance, &physical_device_count, NULL));
     if (physical_device_count == 0) {
@@ -250,21 +245,15 @@ static void select_rendering_devices(struct pelagia_renderer_init_work *work)
     VkPhysicalDevice *physical_devices = (VkPhysicalDevice *)arena_alloc(scratch_arena, sizeof(VkPhysicalDevice) * physical_device_count);
     VERIFY_VK(pelagia->vk.api.vkEnumeratePhysicalDevices(pelagia->vk.instance, &physical_device_count, physical_devices));
 
-    preferred_primary_device_idx = preferred_primary_device_idx < (s32)physical_device_count ? preferred_primary_device_idx : -1;
-    max_device_count = min(max_device_count, (s32)physical_device_count);
-    
-    s32 *physical_device_indices = (s32 *)arena_alloc(scratch_arena, sizeof(s32) * 2 * physical_device_count);
-    u32 *extension_bits = (u32 *)physical_device_indices + sizeof(s32) * physical_device_count;
+    pelagia->device.physical = VK_NULL_HANDLE;
+    preferred_device_idx = preferred_device_idx < (s32)physical_device_count ? preferred_device_idx : -1;
 
     struct region scratch = *pelagia->scratch_arena.end;
-    for (u32 i = 0; (i < physical_device_count) && (max_device_count > 0 ? max_device_count : true); i++) {
+    for (u32 i = 0; i < physical_device_count && pelagia->device.physical == VK_NULL_HANDLE; i++) {
         VkPhysicalDeviceProperties physical_device_properties;
         VkQueueFamilyProperties *queue_family_properties;
         VkExtensionProperties *extension_properties;
-        u32 queue_family_count = 0, extension_count = 0;
-
-        physical_device_indices[i] = -1;
-        extension_bits[i] = 0u;
+        u32 queue_family_count = 0, extension_count = 0, extension_bits = 0;
         *pelagia->scratch_arena.end = scratch;
 
         /* too old drivers? */
@@ -280,8 +269,7 @@ static void select_rendering_devices(struct pelagia_renderer_init_work *work)
 
         u32 graphics_family_idx = 0u, command_support = 0u;
         for (u32 j = 0; j < queue_family_count; j++) {
-            if (graphics_family_idx == 0 && queue_family_properties[j].queueCount > 0 && (queue_family_properties[j].queueFlags & VK_QUEUE_GRAPHICS_BIT)) {
-                graphics_family_idx = j;
+            if (queue_family_properties[j].queueCount > 0 && (queue_family_properties[j].queueFlags & VK_QUEUE_GRAPHICS_BIT)) {
                 command_support |= (1u << 0);
             }
             if (queue_family_properties[j].queueCount > 0 && (queue_family_properties[j].queueFlags & VK_QUEUE_COMPUTE_BIT))
@@ -297,145 +285,88 @@ static void select_rendering_devices(struct pelagia_renderer_init_work *work)
         pelagia->vk.api.vkEnumerateDeviceExtensionProperties(physical_devices[i], NULL, &extension_count, NULL);
         if (extension_count == 0) continue;
 
-        extension_properties = (VkExtensionProperties *)arena_alloc(scratch_arena, sizeof(VkExtensionProperties) * extension_count);
-        pelagia->vk.api.vkEnumerateDeviceExtensionProperties(physical_devices[i], NULL, &extension_count, extension_properties);
+        /* pick this as a main device? */
+        if (preferred_device_idx == (s32)i || (physical_device_properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU && preferred_device_idx < 0) || physical_device_count == 1) {
+            extension_properties = (VkExtensionProperties *)arena_alloc(scratch_arena, sizeof(VkExtensionProperties) * extension_count);
+            pelagia->vk.api.vkEnumerateDeviceExtensionProperties(physical_devices[i], NULL, &extension_count, extension_properties);
 
-        for (u32 j = 0; j < extension_count; j++) {
-            if (!strcmp(extension_properties[j].extensionName, "VK_KHR_swapchain")) {
-                extension_bits[i] |= vulkan_extension_swapchain_bit;
-            } else if (!strcmp(extension_properties[j].extensionName, "VK_EXT_device_fault")) {
-                extension_bits[i] |= vulkan_extension_device_fault_bit;
-            } else if (!strcmp(extension_properties[j].extensionName, "VK_EXT_memory_budget")) {
-                extension_bits[i] |= vulkan_extension_memory_budget_bit;
-            } else if (!strcmp(extension_properties[j].extensionName, "VK_EXT_memory_priority")) {
-                extension_bits[i] |= vulkan_extension_memory_priority_bit;
-            } else if (!strcmp(extension_properties[j].extensionName, "VK_AMD_device_coherent_memory")) {
-                extension_bits[i] |= vulkan_extension_amd_device_coherent_memory_bit;
-            } else if (!strcmp(extension_properties[j].extensionName, "VK_KHR_deferred_host_operations")) {
-                extension_bits[i] |= vulkan_extension_deferred_host_operations_bit;
-            } else if (!strcmp(extension_properties[j].extensionName, "VK_KHR_acceleration_structure")) {
-                extension_bits[i] |= vulkan_extension_acceleration_structure_bit;
-            } else if (!strcmp(extension_properties[j].extensionName, "VK_KHR_ray_query")) {
-                extension_bits[i] |= vulkan_extension_ray_query_bit;
-            }
-            if (physical_device_properties.apiVersion < VK_MAKE_API_VERSION(0,1,4,0)) {
-                if (!strcmp(extension_properties[j].extensionName, "VK_KHR_dynamic_rendering_local_read")) {
-                    extension_bits[i] |= vulkan_extension_dynamic_rendering_local_read_bit;
+            for (u32 j = 0; j < extension_count; j++) {
+                if (!strcmp(extension_properties[j].extensionName, "VK_KHR_swapchain")) {
+                    extension_bits |= vulkan_extension_swapchain_bit;
+                } else if (!strcmp(extension_properties[j].extensionName, "VK_EXT_device_fault")) {
+                    extension_bits |= vulkan_extension_device_fault_bit;
+                } else if (!strcmp(extension_properties[j].extensionName, "VK_EXT_memory_budget")) {
+                    extension_bits |= vulkan_extension_memory_budget_bit;
+                } else if (!strcmp(extension_properties[j].extensionName, "VK_EXT_memory_priority")) {
+                    extension_bits |= vulkan_extension_memory_priority_bit;
+                } else if (!strcmp(extension_properties[j].extensionName, "VK_AMD_device_coherent_memory")) {
+                    extension_bits |= vulkan_extension_amd_device_coherent_memory_bit;
+                } else if (!strcmp(extension_properties[j].extensionName, "VK_KHR_deferred_host_operations")) {
+                    extension_bits |= vulkan_extension_deferred_host_operations_bit;
+                } else if (!strcmp(extension_properties[j].extensionName, "VK_KHR_acceleration_structure")) {
+                    extension_bits |= vulkan_extension_acceleration_structure_bit;
+                } else if (!strcmp(extension_properties[j].extensionName, "VK_KHR_ray_query")) {
+                    extension_bits |= vulkan_extension_ray_query_bit;
+                }
+                if (physical_device_properties.apiVersion < VK_MAKE_API_VERSION(0,1,4,0)) {
+                    if (!strcmp(extension_properties[j].extensionName, "VK_KHR_dynamic_rendering_local_read")) {
+                        extension_bits |= vulkan_extension_dynamic_rendering_local_read_bit;
+                    }
+                }
+                if (physical_device_properties.apiVersion < VK_MAKE_API_VERSION(0,1,3,0)) {
+                    if (!strcmp(extension_properties[j].extensionName, "VK_KHR_dynamic_rendering")) {
+                        extension_bits |= vulkan_extension_dynamic_rendering_bit;
+                    }
                 }
             }
-            if (physical_device_properties.apiVersion < VK_MAKE_API_VERSION(0,1,3,0)) {
-                if (!strcmp(extension_properties[j].extensionName, "VK_KHR_dynamic_rendering")) {
-                    extension_bits[i] |= vulkan_extension_dynamic_rendering_bit;
-                }
-            }
-        }
 
-        /* check if suitable for use as a main device */
-        if (preferred_primary_device_idx == (s32)i || (physical_device_properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU 
-                && preferred_primary_device_idx < 0 && primary_device_idx < 0) || physical_device_count == 1) 
-        {
-            /* check if suitable for use as a primary device */
-            if (extension_bits[i] & vulkan_extension_swapchain_bit) {
-                primary_device_idx = i;
-                primary_device_graphics_queue_family_idx = graphics_family_idx;
-            } else if (preferred_primary_device_idx >= 0 && preferred_primary_device_idx == (s32)i)
-                preferred_primary_device_idx = -1;
-            physical_device_indices[i] = i;
-            device_count++;
-        } else if ((max_device_count <= 0) || (primary_device_idx >= 0 ? max_device_count > (s32)device_count : max_device_count > (s32)(device_count - 1))) {
-            physical_device_indices[i] = i;
-            device_count++;
+            VkBool32 presentation_supported = VK_FALSE;
+            VkResult res = pelagia->vk.api.vkGetPhysicalDeviceSurfaceSupportKHR(physical_devices[i], graphics_family_idx, pelagia->swapchain.surface, &presentation_supported);
+            if (res != VK_SUCCESS) {
+                log_warn("The selected rendering device does not support presentation to the window surface: %s.", vulkan_result_string(res));
+                continue;
+            }
+
+            pelagia->device.physical = physical_devices[i];
+            pelagia->device.graphics_queue_family_idx = graphics_family_idx;
+            pelagia->device.extensions = extension_bits;
         }
     }
     *pelagia->scratch_arena.end = scratch;
 
     /* no device was found ? */
-    if (device_count == 0) {
-        log_error("Could not query a single physical device that meets our requirements.");
+    if (pelagia->device.physical == VK_NULL_HANDLE) {
+        log_error("Could not query a physical device that meets our requirements.");
         work->out_result = result_error_undefined; /* TODO */
         return;
-    } else if (primary_device_idx < 0 || primary_device_idx >= (s32)physical_device_count) {
-        primary_device_idx = 0;
     }
 
-    /* add the virtual device count */
-    device_count += virtual_device_count;
-
-    /* decide on the frames buffering count */
-    VkBool32 presentation_supported = VK_FALSE;
-    if (pelagia->vk.api.vkGetPhysicalDeviceSurfaceSupportKHR(
-            physical_devices[primary_device_idx], 
-            primary_device_graphics_queue_family_idx, 
-            pelagia->swapchain.surface, 
-            &presentation_supported) != VK_SUCCESS) 
-    {
-        log_error("The primary device does not support presenting to the window.");
-        work->out_result = result_error_undefined; /* TODO */
-    }
-
-    pelagia->vk.api.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_devices[primary_device_idx], pelagia->swapchain.surface, &pelagia->swapchain.surface_capabilities);
+    /* decide on the workload buffering count */
+    pelagia->vk.api.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(pelagia->device.physical, pelagia->swapchain.surface, &pelagia->swapchain.surface_capabilities);
     u32 min_image_count = pelagia->swapchain.surface_capabilities.minImageCount;
     u32 max_image_count = pelagia->swapchain.surface_capabilities.maxImageCount;
-    u32 frames_buffering = max(min(work->max_frames_buffering, pelagia_frames_quad_buffering), pelagia_frames_dual_buffering);
-    if (frames_buffering < min_image_count) frames_buffering = min_image_count;
-    if (frames_buffering > max_image_count && max_image_count != 0) frames_buffering = max_image_count;
+    u32 workload_buffering = max(min(work->target_workload_buffering, pelagia_workload_buffering_quad), pelagia_workload_buffering_dual);
+    if (workload_buffering < min_image_count) workload_buffering = min_image_count;
+    if (workload_buffering > max_image_count && max_image_count != 0) workload_buffering = max_image_count;
     log_debug("Swapchain %u min image count, %u max image count: requested %u-buffering, decided on %u-buffering.", 
-        min_image_count, max_image_count, work->max_frames_buffering, frames_buffering);
-    pelagia->frames_buffering = frames_buffering;
-
-    struct vulkan_device *devices = (struct vulkan_device *)malloc(sizeof(struct vulkan_device) * device_count);
-    iamemset(devices, 0u, sizeof(struct vulkan_device) * device_count);
-    pelagia->devices = devices;
-    pelagia->device_count = device_count;
-
-    /* resolve physical device indices */
-    devices[0].physical = physical_devices[primary_device_idx];
-    devices[0].extensions = extension_bits[primary_device_idx];
-    devices[0].flags |= (pelagia_device_flag_primary | pelagia_device_flag_is_valid);
-    primary_device_idx = physical_device_indices[primary_device_idx] = -1; /* we don't need that anymore */
-    for (u32 i = 1; i < device_count; i++) {
-        if (i >= device_count - virtual_device_count) {
-            devices[i].physical = devices[0].physical;
-            devices[i].extensions = devices[0].extensions;
-            devices[i].flags |= (pelagia_device_flag_virtual | pelagia_device_flag_is_valid);
-            continue;
-        }
-        devices[i].physical = VK_NULL_HANDLE;
-        for (u32 j = 0; j < physical_device_count && devices[i].physical == VK_NULL_HANDLE; j++) {
-            s32 idx = physical_device_indices[j];
-            if (idx < 0) continue;
-
-            devices[i].physical = physical_devices[idx]; 
-            devices[i].extensions = extension_bits[idx];
-            devices[i].flags |= pelagia_device_flag_is_valid;
-            physical_device_indices[j] = -1;
-        }
-    }
+        min_image_count, max_image_count, work->target_workload_buffering, workload_buffering);
+    pelagia->workload_buffering = workload_buffering;
 };
 
-struct construct_device_work {
-    struct vulkan_backend  *vk;
-    struct vulkan_device   *device;
-    struct arena_allocator *scratch_arena;
-    u32                     frames_buffering;
-    u32                     thread_count;
-    u32                     device_idx;
-    s32                     out_result;
-};
-
-static void construct_device(struct construct_device_work *work) 
+static s32 construct_rendering_device(
+    struct pelagia *pelagia,
+    u32             thread_count)
 {
+    struct vulkan_backend  *vk            = &pelagia->vk;
+    struct vulkan_device   *device        = &pelagia->device;
+    struct arena_allocator *scratch_arena = &pelagia->scratch_arena;
+
     u32 extension_count = 0, i;
     u32 queue_family_count = 0;
+    u32 workload_buffering = pelagia->workload_buffering;
     VkQueueFamilyProperties *queue_family_properties;
     char **extensions = NULL;
-
-    struct vulkan_backend  *vk               = work->vk;
-    struct vulkan_device   *device           = work->device;
-    struct arena_allocator *scratch_arena    = work->scratch_arena;
-    u32                     frames_buffering = work->frames_buffering;
-    u32                     thread_count     = work->thread_count;
-    u32                     device_idx       = work->device_idx;
+    s32 result;
 
     vk->api.vkGetPhysicalDeviceProperties(device->physical, &device->physical_properties);
     vk->api.vkGetPhysicalDeviceFeatures(device->physical, &device->physical_features);
@@ -599,14 +530,13 @@ static void construct_device(struct construct_device_work *work)
 
     /* create the logical device */
     if (vk->api.vkCreateDevice(device->physical, &device_create_info, NULL, &device->logical) != VK_SUCCESS) {
-        log_error("Can't create a Vulkan logical device idx %d.", device_idx);
-        work->out_result = result_error_undefined; /* TODO */
-        return;
+        log_error("Can't create a Vulkan logical device.");
+        return result_error_undefined; /* TODO */
     }
-    work->out_result = vulkan_load_device_api_procedures(&vk->api, &device->api, device->logical, device->physical_properties.apiVersion, device->extensions);
-    if (work->out_result != result_success) {
-        log_error("Can't load the Vulkan API procedures for device idx %d.", device_idx);
-        return;
+    result = vulkan_load_device_api_procedures(&vk->api, &device->api, device->logical, device->physical_properties.apiVersion, device->extensions);
+    if (result != result_success) {
+        log_error("Can't load the Vulkan API procedures for device idx.");
+        return result;
     }
 
     /* grab the command queues */
@@ -633,7 +563,7 @@ static void construct_device(struct construct_device_work *work)
 #endif /* AMW_DEBUG */
 
     /* create the command cools per queue family */
-    device->queue_command_pool_count = frames_buffering * thread_count;
+    device->queue_command_pool_count = workload_buffering * thread_count;
     device->raw_command_pool_count = queue_family_count * device->queue_command_pool_count;
     device->raw_command_pools = (VkCommandPool *)malloc(sizeof(VkCommandPool) * device->raw_command_pool_count);
     iamemset(device->raw_command_pools, 0u, sizeof(VkCommandPool) * device->raw_command_pool_count);
@@ -670,18 +600,18 @@ static void construct_device(struct construct_device_work *work)
         assert_debug(device->raw_command_pools[j] != VK_NULL_HANDLE);
 #endif /* AMW_DEBUG */
 
-    log_info("Created a Vulkan rendering device, idx %d:", device_idx);
+    log_info("Created a Vulkan rendering device:");
     log_info("              Name : %s", device->physical_properties.deviceName);
     log_info("              Type : %s, ID: %X", device_type_string(device->physical_properties.deviceType), device->physical_properties.deviceID);
     log_info("            Vendor : %s, ID: %X", vendor_name_string(device->physical_properties.vendorID), device->physical_properties.vendorID);
     log_info("       Api version : %u.%u.%u", (device->physical_properties.apiVersion >> 22U), (device->physical_properties.apiVersion >> 12U) & 0x3ffU, (device->physical_properties.apiVersion & 0xfffU));
     log_info("    Driver version : %u.%u.%u", (device->physical_properties.driverVersion >> 22U), (device->physical_properties.driverVersion >> 12U) & 0x3ffU, (device->physical_properties.driverVersion & 0xfffU));
 
-    log_info("Device idx %d created %d command queue families and %u command pools (%u per thread):", device_idx, queue_family_count, device->raw_command_pool_count, frames_buffering);
-    log_info("    graphics queues : 1   graphics queue family idx : %d   command pools : %u", device->graphics_queue_family_idx, device->queue_command_pool_count);
-    log_info("     compute queues : %u    compute queue family idx : %d   command pools : %u",
+    log_debug("Device created %d command queue families and %u command pools (%u per thread):", queue_family_count, device->raw_command_pool_count, workload_buffering);
+    log_debug("    graphics queues : 1   graphics queue family idx : %d   command pools : %u", device->graphics_queue_family_idx, device->queue_command_pool_count);
+    log_debug("     compute queues : %u    compute queue family idx : %d   command pools : %u",
             device->compute_queue_count, device->compute_queue_family_idx, device->compute_queue_count ? device->queue_command_pool_count : 0);
-    log_info("    transfer queues : %u   transfer queue family idx : %d   command pools : %u",
+    log_debug("    transfer queues : %u   transfer queue family idx : %d   command pools : %u",
             device->transfer_queue_count, device->transfer_queue_family_idx, device->transfer_queue_count ? device->queue_command_pool_count : 0);
 
     /* ray tracing mesh support */
@@ -692,21 +622,22 @@ static void construct_device(struct construct_device_work *work)
             .pNext = &device->acceleration_structure_properties,
         };
         vk->api.vkGetPhysicalDeviceProperties2(device->physical, &physical_device_properties2);
-        device->flags |= pelagia_device_flag_accelerated_ray_tracing_supported;
+        at_fetch_or_relaxed(&pelagia->flags, pelagia_flag_accelerated_ray_tracing_supported);
         log_info("This device has hardware support for accelerated ray tracing.");
     }
+
+    return result_success;
 }
 
 AMWAPI void pelagia_renderer_init(struct pelagia_renderer_init_work *work)
 {
     if (!work) return;
 
-    s32 result;
     struct pelagia *pelagia = work->pelagia;
     struct riven   *riven   = work->riven;
 
     /* prepare the state, and fini will be called in case of errors. */
-    struct pelagia_renderer_fini_work fini = { pelagia, riven };
+    struct pelagia_renderer_fini_work fini = { .pelagia = pelagia, .riven = riven };
     pelagia_renderer_fini(&fini);
 
     /* connect to vulkan */
@@ -717,6 +648,7 @@ AMWAPI void pelagia_renderer_init(struct pelagia_renderer_init_work *work)
 
     arena_init(&pelagia->scratch_arena, 16 * 1024);
     struct region scratch = *pelagia->scratch_arena.end;
+    s32 result;
 
     /* initialize the instance */
     result = create_instance(&pelagia->vk, &pelagia->scratch_arena, work->application_name, work->application_version);
@@ -736,29 +668,13 @@ AMWAPI void pelagia_renderer_init(struct pelagia_renderer_init_work *work)
     }
 
     /* query physical devices and decide which are to be used */
-    select_rendering_devices(work);
+    select_rendering_device(work);
     if (work->out_result != result_success) return;
-
-    struct construct_device_work device_work = {
-        .vk = &pelagia->vk,
-        .scratch_arena = &pelagia->scratch_arena,
-        .frames_buffering = pelagia->frames_buffering,
-        .thread_count = work->thread_count,
-        .out_result = result_success,
-    };
-
-    /* create the logical rendering devices */
-    for (u32 i = 0; i < pelagia->device_count; i++) {
-        *pelagia->scratch_arena.end = scratch;
-        device_work.device = &pelagia->devices[i];
-        device_work.device_idx = i;
-        construct_device(&device_work);
-
-        if (device_work.out_result != result_success) {
-            log_error("Creating device of idx '%d' failed, aborting.", i);
-            work->out_result = device_work.out_result;
-            return;
-        }
+    result = construct_rendering_device(pelagia, work->thread_count);
+    if (result != result_success) {
+        log_error("Failed to create a logical Vulkan device.");
+        work->out_result = result;
+        return;
     }
     *pelagia->scratch_arena.end = scratch;
     at_fetch_or_relaxed(&pelagia->flags, pelagia_flag_initialized);
@@ -779,7 +695,7 @@ AMWAPI void pelagia_renderer_init(struct pelagia_renderer_init_work *work)
     }
     *pelagia->scratch_arena.end = scratch;
 
-    struct rivens_tear assemble_tears[2];
+    struct rivens_tear assemble_tears[3];
     struct pelagia_assemble_render_targets_work assemble_render_targets = {
         .pelagia = pelagia,
         .dissasemble = false,
@@ -790,9 +706,19 @@ AMWAPI void pelagia_renderer_init(struct pelagia_renderer_init_work *work)
         .dissasemble = false,
         .out_result = result_success,
     };
-    pelagia_assemble_render_targets_tear__(&assemble_render_targets, &assemble_tears[0]);
-    pelagia_assemble_uniform_buffers_tear__(&assemble_uniform_buffers, &assemble_tears[1]);
-    riven_split_and_unchain(riven, assemble_tears, 2);
+    struct pelagia_assemble_shader_pipelines_work assemble_shader_pipelines = {
+        .pelagia = pelagia,
+        .riven = riven,
+        .dissasemble = true,
+    };
+
+    s32 i = 0;
+    pelagia_assemble_render_targets_tear__(&assemble_render_targets, &assemble_tears[i++]);
+    pelagia_assemble_uniform_buffers_tear__(&assemble_uniform_buffers, &assemble_tears[i++]);
+    pelagia_assemble_shader_pipelines_tear__(&assemble_shader_pipelines, &assemble_tears[i++]);
+    riven_split_and_unchain(riven, assemble_tears, i);
+    *pelagia->scratch_arena.end = scratch;
+    i = 0;
 
     /* validate the work */
 #define CHECKWORK(proc, idx) \
@@ -800,90 +726,51 @@ AMWAPI void pelagia_renderer_init(struct pelagia_renderer_init_work *work)
         log_error("Tear '%s' for primary device failed and returned %d.", assemble_tears[idx].name, assemble_##proc .out_result); \
         work->out_result = assemble_##proc.out_result; \
     }
-    CHECKWORK(uniform_buffers, 0)
-    CHECKWORK(render_targets, 1)
+    CHECKWORK(uniform_buffers, i++)
+    CHECKWORK(render_targets, i++)
+    CHECKWORK(shader_pipelines, i++)
 #undef CHECKWORK
     if (work->out_result != result_success) return;
-    *pelagia->scratch_arena.end = scratch;
-
-    /* a tear per device */
-    struct rivens_tear *device_tears = (struct rivens_tear *)arena_alloc(&pelagia->scratch_arena, sizeof(struct rivens_tear) * pelagia->device_count);
-
-    /* A pipeline state is device-specific. We will handle one device at a time,
-     * and assemble the pipelines for all available devices. */
-    struct pelagia_assemble_render_pass_pipelines_work *assemble_render_pass_pipelines = (struct pelagia_assemble_render_pass_pipelines_work *)
-        arena_alloc(&pelagia->scratch_arena, sizeof(struct pelagia_assemble_render_pass_pipelines_work) * pelagia->device_count);
-
-    /* the pipelines can be assembled concurrently, so we do all devices at a time */
-    for (u32 i = 0; i < pelagia->device_count; i++) {
-        assemble_render_pass_pipelines[i] = (struct pelagia_assemble_render_pass_pipelines_work){
-            .pelagia = pelagia,
-            .riven = riven,
-            .render_pass_type_mask = UINT64_MAX, /* assemble all pipelines */
-            .device_idx = i,
-            .out_result = result_success,
-        };
-        pelagia_assemble_render_pass_pipelines_tear__(&assemble_render_pass_pipelines[i], &device_tears[i]);
-    }
-    riven_split_and_unchain(riven, device_tears, pelagia->device_count);
-
-    /* check work for errors */
-    for (u32 i = 0; i < pelagia->device_count; i++) {
-        if (assemble_render_pass_pipelines[i].out_result != result_success) {
-            log_error("Failed to assemble all shader pipelines at initialization.");
-            work->out_result = assemble_render_pass_pipelines[i].out_result;
-        }
-    }
     *pelagia->scratch_arena.end = scratch;
 }
 
 AMWAPI void pelagia_renderer_fini(struct pelagia_renderer_fini_work *work)
 {
-    if (!work) return;
+    PELAGIA_WORK_INITIALIZED_OR_RETURN
 
-    struct pelagia *pelagia = work->pelagia;
-    struct riven   *riven   = work->riven;
-    if (!pelagia) return;
+    struct pelagia       *pelagia = work->pelagia;
+    struct riven         *riven   = work->riven;
+    struct vulkan_device *device = &pelagia->device;
 
-    /* handle individual devices in reverse order */
-    for (s32 i = pelagia->device_count-1; i >= 0; i--) {
-        struct vulkan_device *device = &pelagia->devices[i];
-
-        /* if no device was created, we can skip this step */
-        if (device->logical == VK_NULL_HANDLE) continue;
-
+    /* if no device was created, we can skip this step */
+    if (device->logical != VK_NULL_HANDLE) {
         device->api.vkDeviceWaitIdle(device->logical);
 
-        struct pelagia_assemble_render_pass_pipelines_work dissasemble_pipelines_work = {
+        if (pelagia->swapchain.sc != VK_NULL_HANDLE) {
+            vulkan_clear_swapchain(&pelagia->swapchain, device);
+            device->api.vkDestroySwapchainKHR(device->logical, pelagia->swapchain.sc, NULL);
+        }
+
+        struct rivens_tear disassemble_tears[3];
+        struct pelagia_assemble_render_targets_work disassemble_render_targets = {
+            .pelagia = pelagia,
+            .dissasemble = true,
+        };
+        struct pelagia_assemble_uniform_buffers_work disassemble_uniform_buffers = {
+            .pelagia = pelagia,
+            .dissasemble = true,
+        };
+        struct pelagia_assemble_shader_pipelines_work disassemble_shader_pipelines = {
             .pelagia = pelagia,
             .riven = riven,
-            .render_pass_type_mask = UINT64_MAX, /* dissasemble all pipelines */
             .dissasemble = true,
-            .device_idx = i,
         };
-        pelagia_assemble_render_pass_pipelines(&dissasemble_pipelines_work);
 
-        /* only relevant for the primary device */
-        if (at_read_relaxed(&device->flags) & pelagia_device_flag_primary) {
-            if (pelagia->swapchain.sc != VK_NULL_HANDLE) {
-                vulkan_clear_swapchain(&pelagia->swapchain, device);
-                device->api.vkDestroySwapchainKHR(device->logical, pelagia->swapchain.sc, NULL);
-            }
-            struct rivens_tear disassemble_tears[2];
-            struct pelagia_assemble_render_targets_work disassemble_render_targets = {
-                .pelagia = pelagia,
-                .dissasemble = true,
-            };
-            struct pelagia_assemble_uniform_buffers_work disassemble_uniform_buffers = {
-                .pelagia = pelagia,
-                .dissasemble = true,
-            };
-            pelagia_assemble_render_targets_tear__(&disassemble_render_targets, &disassemble_tears[0]);
-            pelagia_assemble_uniform_buffers_tear__(&disassemble_uniform_buffers, &disassemble_tears[1]);
-            riven_split_and_unchain(riven, disassemble_tears, 2);
-        } else {
-            /* XXX handle secondary devices */
-        }
+        s32 i = 0;
+        pelagia_assemble_render_targets_tear__(&disassemble_render_targets, &disassemble_tears[i++]);
+        pelagia_assemble_uniform_buffers_tear__(&disassemble_uniform_buffers, &disassemble_tears[i++]);
+        pelagia_assemble_shader_pipelines_tear__(&disassemble_shader_pipelines, &disassemble_tears[i++]);
+        riven_split_and_unchain(riven, disassemble_tears, i);
 
         if (device->raw_command_pools) {
             for (u32 j = 0; j < device->raw_command_pool_count; j++)
@@ -896,7 +783,7 @@ AMWAPI void pelagia_renderer_fini(struct pelagia_renderer_fini_work *work)
         if (device->transfer_queues && device->transfer_queue_family_idx != device->graphics_queue_family_idx)
             free(device->transfer_queues);
 
-        log_info("Destroying a Vulkan rendering device idx %u: %s", i, device->physical_properties.deviceName);
+        log_info("Destroying a Vulkan rendering device: %s", device->physical_properties.deviceName);
         device->api.vkDestroyDevice(device->logical, NULL);
         iazerop(device);
     }

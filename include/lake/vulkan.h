@@ -30,7 +30,6 @@
 #include <lake/bedrock/assert.h>
 
 #include <lake/datastructures/arena_allocator.h>
-#include <lake/datastructures/render_graph.h>
 
 struct hadopelagic;
 
@@ -471,13 +470,25 @@ struct vulkan_descriptor_set_request {
     VkDescriptorSetLayoutBinding   *bindings;
 };
 
+/** Specifies a single pipeline object configuration. */
+struct vulkan_pipeline_request {
+    u32                                     shader_stage_count;
+    VkPipelineShaderStageCreateInfo        *shader_stages;
+    VkPipelineVertexInputStateCreateInfo    vertex_input;
+    VkPipelineInputAssemblyStateCreateInfo  input_assembly;
+    VkPipelineRasterizationStateCreateInfo  rasterization;
+    VkPipelineMultisampleStateCreateInfo    multisampling;
+    VkPipelineDepthStencilStateCreateInfo   depth_stencil;
+    VkPipelineColorBlendAttachmentState     color_blend_attachment;
+    VkPipelineRenderingCreateInfo           rendering;
+    VkPipelineLayout                        pipeline_layout;
+};
+
 /** Bundles the shader pipeline state with descriptor sets. */
 struct vulkan_pipeline {
     VkDescriptorSetLayout   descriptor_set_layout;              /**< Descriptor layout used by the pipeline layout. */
     VkPipelineLayout        pipeline_layout;                    /**< Pipeline layout used by the pipeline. */
     VkPipelineCache         pipeline_cache;                     /**< A handle to the cache pipeline data used for this pipeline. */
-    VkDescriptorPool        descriptor_pool;                    /**< Pool used to allocate descriptor sets, it matches the descriptor set layout. */
-    VkDescriptorSet         descriptor_sets[AMW_MAX_WORKLOAD];  /**< A descriptor set per swapchain image (max 4). */
     VkPipeline              pipeline;                           /**< The Vulkan pipeline state. */
 };
 
@@ -503,8 +514,6 @@ struct vulkan_pipeline_cache_prefix_header {
 /** The context of a rendering device, explicitly used within backend cobalt 
  *  calls and representing an individual GPU. */
 struct vulkan_device {
-    at_u64                                              flags;
-
     /** The vulkan object for the physical device below. */
     VkDevice                                            logical;
     /** The physical device (GPU) that is being used in this context. */
@@ -573,8 +582,11 @@ struct vulkan_device {
      *  and we use this array to get the correct shader pipeline from a render pass, when a 
      *  render pass is recorded to a command buffer. Using static indices makes this a constant
      *  time lookup, and grouping the bindings may help with cache coherency - in context of 
-     *  recording a render pass that's all we need to access, really. */
-    struct vulkan_pipeline      pipelines[render_pass_type_count];
+     *  recording a render pass that's all we need to access, really. TODO A pipeline configuration
+     *  should be hashed and a collection of pipelines will be built for each hash provided. */
+    struct vulkan_pipeline     *pipelines;
+    u32                         pipeline_count;
+
     /** Pipeline cache data is a (mostly) opaque blob, that specifies driver- and device-specific
      *  information tha typically contains bits of shader microcode, the format of which depends 
      *  on the GPU, and auxiliary data that may containt arbitrary driver defined structures. We 
@@ -699,6 +711,7 @@ AMWAPI s32 vulkan_create_descriptor_sets(
     struct vulkan_pipeline                     *pipeline,
     struct vulkan_device                       *device,
     const struct vulkan_descriptor_set_request *descriptor_request,
+    VkDescriptorSet                            *descriptor_sets,
     u32                                         descriptor_set_count);
 
 /** An utility for writing to descriptor sets. For each entry of the given writes array:
@@ -714,7 +727,10 @@ AMWAPI void vulkan_complete_descriptor_set_writes(
 AMWAPI void vulkan_print_texture_requests(const struct vulkan_texture_request *texture_requests, u32 texture_count);
 
 /** Used to cleanup images. */
-AMWAPI void vulkan_destroy_textures(struct vulkan_textures *textures, struct vulkan_device *device);
+AMWAPI void vulkan_destroy_textures(
+    struct vulkan_textures *textures, 
+    struct vulkan_device   *device,
+    struct vulkan_backend  *vk);
 
 /** Creates images sharing a single memory allocation, according to all of the given requests.
  *  Creates views for them and allocates GPU memory using the provided device. */
@@ -726,7 +742,10 @@ AMWAPI s32 vulkan_create_textures(
     const struct vulkan_allocation_request allocation_request);
 
 /** Used to cleanup buffers. */
-AMWAPI void vulkan_destroy_buffers(struct vulkan_buffers *buffers, struct vulkan_device *device);
+AMWAPI void vulkan_destroy_buffers(
+    struct vulkan_buffers *buffers, 
+    struct vulkan_device  *device,
+    struct vulkan_backend *vk);
 
 /** Creates one or more buffers according to the given specification, performs 
  *  a single memory allocation for all of them and binds it. Allows to specify

@@ -19,8 +19,13 @@ AMWAPI void vulkan_print_texture_requests(const struct vulkan_texture_request *t
     }
 }
 
-AMWAPI void vulkan_destroy_textures(struct vulkan_textures *textures, struct vulkan_device *device)
+AMWAPI void vulkan_destroy_textures(
+    struct vulkan_textures *textures, 
+    struct vulkan_device   *device,
+    struct vulkan_backend  *vk)
 {
+    (void)vk;
+
     for (u32 i = 0; i < textures->image_count; i++) {
         struct vulkan_texture *texture = &textures->textures[i];
         if (texture->view) 
@@ -55,40 +60,24 @@ AMWAPI s32 vulkan_create_textures(
 
 AMWAPI void pelagia_assemble_render_targets(struct pelagia_assemble_render_targets_work *work)
 {
-    if (!work) {
-        return;
-    } else if (!work->pelagia || (at_read_relaxed(&work->pelagia->flags) & pelagia_flag_initialized) == 0) {
-        work->out_result = result_error_invalid_engine_context;
-        return;
-    }
+    PELAGIA_WORK_INITIALIZED_OR_RETURN
 
     struct pelagia         *pelagia        = work->pelagia;
     struct vulkan_textures *render_targets = &pelagia->render_targets;
-    struct vulkan_device   *primary_device = &pelagia->devices[0];
+    struct vulkan_device   *device         = &pelagia->device;
+    struct vulkan_backend  *vk             = &pelagia->vk;
     struct arena_allocator *scratch_arena  = &pelagia->scratch_arena;
-    u32                     image_count    = pelagia->frames_buffering;
+    u32                     workload_count = pelagia->workload_buffering;
 
-    struct vulkan_texture_request requests[render_target_type_count];
-    u32 idx;
-
-    if (image_count <= 1) {
-        log_error("Trying to create render targets, %u is not a valid swapchain image count.", image_count);
-        work->out_result = result_error_invalid_engine_context;
-        return;
-    } else if ((at_read_relaxed(&primary_device->flags) & (pelagia_device_flag_primary | pelagia_device_flag_is_valid)) == 0) {
-        s32 flags = at_read_relaxed(&primary_device->flags);
-        log_error("Trying to create render targets, can't validate flags (primary:%u | is_valid:%u) of the expected primary device (idx 0).",
-            flags & pelagia_device_flag_primary ? 1 : 0, flags & pelagia_device_flag_is_valid ? 1 : 0);
-        work->out_result = result_error_invalid_engine_context;
-        return;
-    }
+    struct vulkan_texture_request requests[pelagia_render_target_type_count];
 
     /* cleanup the render targets */
-    vulkan_destroy_textures(render_targets, primary_device);
+    vulkan_destroy_textures(render_targets, device, vk);
     if (work->dissasemble) return;
 
     /* setup default values */
-    for (idx = 0; idx < render_target_type_count; idx++) {
+    u32 idx;
+    for (idx = 0; idx < pelagia_render_target_type_count; idx++) {
         requests[idx].image_info = (VkImageCreateInfo){
             .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
             .imageType = VK_IMAGE_TYPE_2D,
@@ -103,21 +92,21 @@ AMWAPI void pelagia_assemble_render_targets(struct pelagia_assemble_render_targe
         };
     }
 
-    idx = render_target_type_depth_buffer;
+    idx = pelagia_render_target_type_depth_buffer;
     requests[idx].image_info.format = VK_FORMAT_D32_SFLOAT;
     requests[idx].image_info.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
     requests[idx].view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 
-    idx = render_target_type_visibility_buffer;
+    idx = pelagia_render_target_type_visibility_buffer;
     requests[idx].image_info.format = VK_FORMAT_R32_UINT;
     requests[idx].image_info.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
     requests[idx].view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 
     /* duplicate the image requests per swapchain image */
     struct vulkan_texture_request *all_requests = (struct vulkan_texture_request *)
-        arena_alloc(scratch_arena, sizeof(requests) * image_count);
-    for (idx = 0; idx < image_count; idx++)
-        iamemcpy(all_requests + idx * image_count, requests, sizeof(requests));
+        arena_alloc(scratch_arena, sizeof(requests) * workload_count);
+    for (idx = 0; idx < workload_count; idx++)
+        iamemcpy(all_requests + idx * workload_count, requests, sizeof(requests));
 
     /* TODO */
 

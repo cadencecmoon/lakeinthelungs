@@ -11,7 +11,7 @@
 static void a_moonlit_walk_cleanup__(
     struct a_moonlit_walk *AMW)
 {
-    struct pelagia_renderer_fini_work renderer_fini = { &AMW->pelagia, AMW->riven };
+    struct pelagia_renderer_fini_work renderer_fini = { .pelagia = &AMW->pelagia, .riven = AMW->riven };
 
     pelagia_renderer_fini(&renderer_fini);
     hadal_fini(&AMW->hadal);
@@ -60,10 +60,8 @@ static void a_moonlit_walk_main__(
             .riven = riven,
             .threads = threads,
             .thread_count = thread_count,
-            .max_frames_buffering = AMW->hints->pelagia_frames_buffering,
-            .preferred_primary_device_idx = AMW->hints->pelagia_preferred_primary_device,
-            .max_physical_device_count = AMW->hints->pelagia_max_devices,
-            .virtual_device_count = AMW->hints->pelagia_virtual_devices,
+            .target_workload_buffering = AMW->hints->pelagia_workload_buffering,
+            .preferred_device_idx = AMW->hints->pelagia_preferred_device_idx,
             .enable_vsync = AMW->hints->pelagia_enable_vsync,
             .out_result = result_success,
         };
@@ -129,14 +127,13 @@ static void a_moonlit_walk_main__(
             /* TODO */
         }
 
-        /* execute the mainloop tears */
+        /* execute the mainloop stages */
         riven_split_and_unchain(riven, tears, 3);
 
         /* increment the frame counter */
         gpuexec_workload = rendering_workload;
         rendering_workload = simulation_workload;
-        simulation_workload = (at_read_relaxed(&AMW->flags) & amw_flag_finalize_gameloop) 
-            == amw_flag_finalize_gameloop ? NULL : &work[(++frame_idx) % AMW_MAX_WORKLOAD];
+        simulation_workload = (at_read_relaxed(&AMW->flags) & amw_flag_finalize_gameloop) != 0 ? NULL : &work[(++frame_idx) % AMW_MAX_WORKLOAD];
 
         /* TODO run X frames and exit */
         close_counter--;
@@ -175,10 +172,8 @@ AMWAPI s32 a_moonlit_walk(
         .riven_fiber_count = 128,
         .riven_stack_size = 64 * 1024,
         .riven_log_2_tears = 12, /* (1u << log_2_tears) work queue size */
-        .pelagia_max_devices = 0, /* if 0, use all available GPUs */
-        .pelagia_virtual_devices = 0, /* if 0, no virtual devices */
-        .pelagia_preferred_primary_device = -1, /* select the most appropriate GPU as the main device */
-        .pelagia_frames_buffering = pelagia_frames_triple_buffering,
+        .pelagia_preferred_device_idx = -1, /* select the most appropriate GPU as the rendering device */
+        .pelagia_workload_buffering = pelagia_workload_buffering_triple,
         .pelagia_enable_vsync = false,
         .entry_points.hadal = hadal_entry_point,
         .entry_points.silv = silver_entry_point,
@@ -206,12 +201,12 @@ AMWAPI s32 a_moonlit_walk(
         &AMW);                          /* The engine context as the argument. */
     void *riven_memory = malloc(riven_bytes);
 
-    log_info("Constructing the Riven structure for a parallel workflow:");
-    log_info("      memory buffer - %lu bytes (%luKB)", riven_bytes, riven_bytes/(1024));
-    log_info("    stack per fiber - %u bytes (%uKB)", hints.riven_stack_size, hints.riven_stack_size/1024);
-    log_info("    tear queue size - %u tears, %u log2", (1 << hints.riven_log_2_tears), hints.riven_log_2_tears);
-    log_info("        fiber count - %u fibers", hints.riven_fiber_count);
-    log_info("       thread count - %d threads", hints.riven_thread_count);
+    log_debug("Constructing the Riven structure for a parallel workflow:");
+    log_debug("      memory buffer - %lu bytes (%luKB)", riven_bytes, riven_bytes/(1024));
+    log_debug("    stack per fiber - %u bytes (%uKB)", hints.riven_stack_size, hints.riven_stack_size/1024);
+    log_debug("    tear queue size - %u tears, %u log2", (1 << hints.riven_log_2_tears), hints.riven_log_2_tears);
+    log_debug("        fiber count - %u fibers", hints.riven_fiber_count);
+    log_debug("       thread count - %d threads", hints.riven_thread_count);
 
     riven_unveil_rift(
         riven_memory,

@@ -21,7 +21,6 @@
 #include <lake/compute/simd.h>
 
 #include <lake/datastructures/arena_allocator.h>
-#include <lake/datastructures/render_graph.h>
 
 #include <lake/input/gamepad.h>
 #include <lake/input/joystick.h>
@@ -47,7 +46,7 @@ struct a_moonlit_walk; /* forward declaration */
 struct amw_workload {
     u32                         idx;
     f64                         dt;
-    struct render_graph         render_graph;
+    //struct render_graph         render_graph;
     /* TODO put command buffers here */
 
     struct a_moonlit_walk      *AMW;
@@ -68,16 +67,14 @@ struct amw_hints {
     u32         window_width, window_height;
     const char *window_title;
 
-    u32     riven_thread_count;
-    u32     riven_fiber_count;
-    u32     riven_log_2_tears;
-    u32     riven_stack_size;
+    u32         riven_thread_count;
+    u32         riven_fiber_count;
+    u32         riven_log_2_tears;
+    u32         riven_stack_size;
 
-    s32     pelagia_max_devices;
-    s32     pelagia_virtual_devices;
-    s32     pelagia_preferred_primary_device;
-    s32     pelagia_frames_buffering;
-    b32     pelagia_enable_vsync;
+    s32         pelagia_preferred_device_idx;
+    s32         pelagia_workload_buffering;
+    b32         pelagia_enable_vsync;
 
     struct {
         PFN_hadal_entry_point   hadal;
@@ -110,9 +107,9 @@ struct a_moonlit_walk {
     struct pelagia      pelagia;
     struct silver       silv;
 
-    struct riven   *riven;
-    thread_id      *threads;
-    ssize           thread_count;
+    struct riven       *riven;
+    thread_id          *threads;
+    ssize               thread_count;
 
     const struct amw_hints *hints;
 };

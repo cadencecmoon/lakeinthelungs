@@ -20,13 +20,13 @@ static s32 prepare_the_rendering_state(struct amw_workload *work)
         .pelagia = pelagia,
         .hadal = hadal,
         .use_vsync = (at_read_relaxed(&pelagia->flags) & pelagia_flag_vsync_enabled) ? true : false,
-        .out_result = result_success,
     };
 
     struct rivens_tear tears[1];
-    ssize idx = 0;
+    s32 idx = 0;
 
-    if (at_read_explicit(&hadal->flags, memory_model_acquire) & hadal_flag_recreate_swapchain)
+    if (at_read_explicit(&hadal->flags, memory_model_acquire) & hadal_flag_recreate_swapchain || 
+        at_read_explicit(&pelagia->flags, memory_model_acquire) & pelagia_flag_swapchain_surface_lost)
         pelagia_assemble_swapchain_tear__(&assemble_swapchain_work, &tears[idx++]);
 
     /* execute the work */
