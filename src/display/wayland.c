@@ -1188,10 +1188,8 @@ static s32 hadal_wayland_display_init(
         wl_data_device_add_listener(wl->data_device, &data_device_listener, NULL);
     }
 
-    /* TODO data device manager */
-
     /* create a window */
-    wl->window.title = allocate_cstr(alloc, title);
+    wl->window.title = allocate_cstr(alloc, title, NULL);
     if (!create_surface(hadal, width, height))
         return result_failure; // TODO
     if (wl->window.output || at_read_relaxed(&hadal->flags) & hadal_flag_window_visible) {

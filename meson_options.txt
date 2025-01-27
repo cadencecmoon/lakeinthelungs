@@ -1,7 +1,7 @@
 option('docs',      type : 'boolean', value : false, description : 'Generate Doxygen documentation')
 
 option('avx',       type : 'boolean', value : true, description : 'Enable x86_64 AVX extensions')
-option('avx2',      type : 'boolean', value : true, description : 'Enable x86_64 AVX2 and FMA extensions')
+option('avx2',      type : 'boolean', value : false, description : 'Enable x86_64 AVX2 and FMA extensions')
 option('neon',      type : 'boolean', value : true, description : 'Enable ARM Neon extensions')
 option('rvv',       type : 'boolean', value : false, description : 'Enable RISC-V Vector extensions')
 

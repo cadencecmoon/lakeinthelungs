@@ -286,11 +286,15 @@ extern "C" {
 
 /** Expands to 0 if argument list is empty, 1 otherwise. Up to 32 arguments supported. */
 #define MACROMAGIC_HASARGS(...) \
-    MACROMAGIC_EXPAND(MACROMAGIC_DEFER(MACROMAGIC_ARGCOUNT_HELPER)(_, ##__VA_ARGS__, MACROMAGIC_HASARGS_RSEQ_N()))
+    MACROMAGIC_EXPAND(MACROMAGIC_DEFER(MACROMAGIC_ARGCOUNT_HELPER)(\
+        _, ##__VA_ARGS__, MACROMAGIC_HASARGS_RSEQ_N() \
+    ))
 
 /** Expands to the number of its arguments. Up to 32 arguments supported. */
 #define MACROMAGIC_NARGS(...) \
-    MACROMAGIC_EXPAND(MACROMAGIC_DEFER(MACROMAGIC_ARGCOUNT_HELPER)(_, ##__VA_ARGS__, MACROMAGIC_NARGS_RSEQ_N()))
+    MACROMAGIC_EXPAND(MACROMAGIC_DEFER(MACROMAGIC_ARGCOUNT_HELPER)(\
+        _, ##__VA_ARGS__, MACROMAGIC_NARGS_RSEQ_N() \
+    ))
 
 #define MACROMAGIC_HASARGS_RSEQ_N() \
 	1, 1, 1, 1, 1, 1, 1, 1, \
