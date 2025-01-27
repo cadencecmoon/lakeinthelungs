@@ -1,15 +1,15 @@
 #pragma once
 
-#include "../../bedrock.h"
+#include "../../bedrock/types.h"
 #ifdef ARCH_X86_AVX2
 
 LAKEAPI u64 popcnt_avx2_lookup(const u8 *data, const usize n) attr_nonnull(1);
 
 #ifdef LAKE_MATH_IMPLEMENTATION
+
 u64 popcnt_avx2_lookup(const u8 *data, const usize n) 
 {
     usize i = 0;
-
     const __m256i lookup = _mm256_setr_epi8(
         /* 0 */ 0, /* 1 */ 1, /* 2 */ 1, /* 3 */ 2,
         /* 4 */ 1, /* 5 */ 2, /* 6 */ 2, /* 7 */ 3,

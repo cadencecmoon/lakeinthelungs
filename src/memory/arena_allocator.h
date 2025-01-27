@@ -13,7 +13,7 @@ extern "C" {
 struct arena_page {
     struct arena_page *next;    /**< Next page available to the allocator from a linked list. */
     rivens_chain_t     chain;   /**< This chain will block with a fiber context switch, ignored if riven is NULL. */
-    at_usize           offset;  /**< Currently suballocated space, offset from the address of *data. */
+    usize              offset;  /**< Currently suballocated space, offset from the address of *data. */
     usize              size;    /**< Space available to the arena in this allocation. */
     void              *data;    /**< The beginning of the memory. */
 };

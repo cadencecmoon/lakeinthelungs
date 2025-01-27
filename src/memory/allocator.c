@@ -8,13 +8,9 @@ void *allocate_aligned_synchronized(
     usize              alignment, 
     struct riven      *riven)
 {
-    usize aligned_offset;
+    assume(!(alignment & (alignment - 1)));
 
-    if (alignment & (alignment - 1)) {
-        assume(!(alignment & (alignment - 1)));
-        alignment = 8; /* just pick a common alignment then */
-    }
-    aligned_offset = (alloc->offset + (alignment - 1)) & ~(alignment - 1);
+    usize aligned_offset = (alloc->offset + (alignment - 1)) & ~(alignment - 1);
 
     if (size > alloc->size || aligned_offset + size > alloc->size) {
         log_error("Allocation failed: %lu bytes requested, structure holds a total %lu/%lu bytes reserved.", size, alloc->offset, alloc->size);

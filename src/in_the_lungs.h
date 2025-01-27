@@ -7,13 +7,11 @@
 #include "memory/block_allocator.h"
 #include "memory/stack_allocator.h"
 #include "memory/tagged_heap_allocator.h"
-#include "memory/tear_allocator.h"
-
 #include "display/hadopelagic.h"
 
 #define LAKE_VERSION_MAJOR 0
 #define LAKE_VERSION_MINOR 1
-#define LAKE_VERSION_REVISION 3
+#define LAKE_VERSION_REVISION 4
 
 #define LAKE_VERSION (VERSION_NUM(LAKE_VERSION_MAJOR, LAKE_VERSION_MINOR, LAKE_VERSION_REVISION))
 
@@ -26,12 +24,9 @@
 
 /** A Moonlit Walk Engine context. */
 struct a_moonlit_walk {
-    struct hadopelagic  hadopelagic;
-
+    struct hadopelagic              hadal;  /**< Connects to the display backend. */
     struct tagged_heap_allocator    th;     /**< It is the only allocator allowed to map RAM memory. */
-    struct tear_allocator           tear;   /**< Thread-local memory pools for fast, small and temporary allocations. */
-
-    struct riven       *riven;
+    struct riven                   *riven;  /**< The fiber-based job system. */
 };
 
 /** Represents a single gameloop workload, used within a process that transforms some input data 

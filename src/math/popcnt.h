@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../bedrock/types.h"
-#include "../bedrock/intrinsics.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -13,7 +12,13 @@ extern "C" {
  *  were very helpful in implementing this.
  *
  *  https://github.com/WojciechMula/sse-popcount/tree/master,
- *  http://0x80.pl/notesen/2008-05-24-sse-popcount.html */
+ *  http://0x80.pl/notesen/2008-05-24-sse-popcount.html 
+ *
+ *  This paper by Wojciech Muła, Nathan Kurz and Daniel Lemire was a great deal of 
+ *  help in understanding the different algorithms that could be implemented here:
+ *
+ *  https://www.google.com/url?q=https://arxiv.org/pdf/1611.07612&sa=U&ved=2ahUKEwiz2pCwxZaLAxVpwjgGHSvfNpoQFnoECAoQAg&usg=AOvVaw3WMSV89LThBSsU2_fZApCR
+ */
 
 LAKEAPI u64 popcnt_lookup_8bit(const u8 *data, const usize n) attr_nonnull(1);
 
@@ -105,6 +110,7 @@ u64 popcnt_lookup_8bit(const u8 *data, const usize n)
 #endif /* LAKE_MATH_IMPLEMENTATION */
 
 #include "avx2/popcnt.h"
+#include "sse2/popcnt.h"
 
 /** Bit population count using a lookup table. */
 INLINE attr_nonnull(1) u64 popcnt_lookup(const u8 *data, const usize n) 
@@ -112,6 +118,7 @@ INLINE attr_nonnull(1) u64 popcnt_lookup(const u8 *data, const usize n)
 #if defined(ARCH_X86_AVX2)
     return popcnt_avx2_lookup(data, n);
 #elif defined(ARCH_X86_SSE2)
+    return popcnt_sse2_lookup(data, n);
 #elif defined(ARCH_ARM_NEON)
 #elif defined(ARCH_RISCV_V)
 #else

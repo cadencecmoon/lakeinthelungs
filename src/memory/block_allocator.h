@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../bedrock.h"
-
 #include "allocator.h"
 
 #ifdef __cplusplus

@@ -56,11 +56,13 @@ extern "C" {
 #endif
 
 #ifdef CC_MSVC_VERSION
+    #define ALIGNOF(type) __alignof(type)
     #define CASTPTR_ASSUME_ALIGNED(expr, type) \
-        ((type *)(ASSUME_ALIGNED((expr), __alignof(type))))
+        ((type *)(ASSUME_ALIGNED((expr), ALIGNOF(type))))
 #else
+    #define ALIGNOF(type) __alignof__(type)
     #define CASTPTR_ASSUME_ALIGNED(expr, type) \
-        ((type *)(ASSUME_ALIGNED((expr), __alignof__(type))))
+        ((type *)(ASSUME_ALIGNED((expr), ALIGNOF(type))))
 #endif
 
 #ifdef __cplusplus
