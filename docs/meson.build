@@ -1,7 +1,3 @@
-# Lake in the Lungs
-# Copyright (c) 2025 Cadence C. Moon
-# The source code is licensed under a standard MIT license.
-
 if get_option('docs')
     doxygen = find_program('doxygen', required : get_option('docs'))
     if doxygen.found()
