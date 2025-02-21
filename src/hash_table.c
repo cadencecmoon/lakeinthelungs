@@ -88,10 +88,10 @@ static void grow_table(struct hash_table *ht)
 }
 
 b32 hash_table_insert(
-    struct hash_table  *ht,
-    const void         *key,
-    usize               length,
-    s32                 value)
+    struct hash_table *ht,
+    const void        *key,
+    usize              length,
+    s32                value)
 {
     u32 n = meiyan(key, length) & (ht->size - 1);
     if (ht->table[n] == 0) {
@@ -105,8 +105,10 @@ b32 hash_table_insert(
     }
     struct hash_node *node = ht->table[n];
     while (node) {
-        if (node->length == length && memcmp(node->key, key, length) == 0)
+        if (node->length == length && memcmp(node->key, key, length) == 0) {
+            node->value = value;
             return true;
+        }
         node = node->next;
     }
     atomic_fetch_add_explicit(&ht->count, 1, memory_order_release);
@@ -117,10 +119,10 @@ b32 hash_table_insert(
 }
 
 b32 hash_table_find(
-    struct hash_table  *ht,
-    const void         *key,
-    usize               length,
-    s32               **out_value)
+    struct hash_table *ht,
+    const void        *key,
+    usize              length,
+    s32              **out_value)
 {
     u32 n = meiyan(key, length) & (ht->size - 1);
 #if defined(CC_GNUC_VERSION)
@@ -148,9 +150,9 @@ b32 hash_table_find(
 }
 
 void hash_table_for_each(
-    struct hash_table  *ht,
-    PFN_hash_for_each   fn,
-    void               *data)
+    struct hash_table *ht,
+    PFN_hash_for_each  fn,
+    void              *data)
 {
     for (usize i = 0; i < ht->size; i++) {
         if (ht->table[i] != 0) {

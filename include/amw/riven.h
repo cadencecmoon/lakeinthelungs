@@ -132,6 +132,15 @@ void riven_free(
     struct rivens *riven,
     rivens_tag_t   tag);
 
+/** Advises on commitment of host memory resources. Returns non-zero value if changes were made.
+ *  On growth request, the heap will only commit if there is not enough contiguous space. On freeing
+ *  resources, changes will be made only if the heap can be safely trimmed. */
+AMWAPI attr_nonnull(1)
+usize riven_advise(
+    struct rivens *riven,
+    usize          size,
+    b32            release);
+
 /** Setups the job system and maps virtual memory to be used within the engine. The resource requirements of 
  *  internal systems depends on given argument hints and on the capabilities of the host system. Passing 0 as 
  *  arguments for size and count hints will provide reasonable defaults within the limits of the host - but it 
@@ -147,7 +156,7 @@ void riven_free(
  *  lifetime. To free resources back to Riven it is enough to free the tag, as there is no free(ptr) interface.
  *
  *  Returns the value given by the main procedure, the application can do whatever it wants with this information. */
-AMWAPI s32 riven_go_for_a_walk(
+AMWAPI s32 riven_moonlit_walk(
     usize               memory_budget_size,
     usize               fiber_stack_size,
     u32                 fiber_count,

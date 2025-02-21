@@ -33,6 +33,7 @@ endif
 engine_sources += files(
     assembly_arch + '/jump_fcontext_' + assembly_source,
     assembly_arch + '/make_fcontext_' + assembly_source,
+    'bits.c',
     'frame_time.c',
     'hadal.c',
     'hash_table.c',

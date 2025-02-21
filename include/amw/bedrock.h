@@ -874,8 +874,8 @@ typedef vec3                    mat4x3[4];
 #define const_sqrt2f    ((f32)const_sqrt2)
 #define const_sqrt1_2f  ((f32)const_sqrt1_2)
 
-#ifndef LAKE_MAX_FRAMES_IN_FLIGHT
-#define LAKE_MAX_FRAMES_IN_FLIGHT 4
+#ifndef AMW_MAX_FRAMES_IN_FLIGHT
+#define AMW_MAX_FRAMES_IN_FLIGHT 4
 #endif
 
 enum result {
