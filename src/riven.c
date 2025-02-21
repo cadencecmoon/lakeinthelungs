@@ -145,7 +145,7 @@ static b32 commit_physical_memory(void *mapped, usize page_offset, usize size)
 #endif
     memset(raw_map, 0u, size);
 #ifdef DEBUG
-    log_debug("Commited %lu bytes of physical memory at offset %lu.", size, page_offset);
+    log_debug("Commited %lu bytes (%lu MB) of physical memory at offset %lu.", size, size>>20, page_offset);
 #endif
     return true;
 }
@@ -175,7 +175,7 @@ static b32 decommit_physical_memory(void *mapped, usize page_offset, usize size)
     /* XXX WASM __heap_base ?? */
 #endif
 #ifdef DEBUG
-    log_debug("Released %lu bytes of physical memory at offset range %lu-%lu.", size, page_offset, page_offset + size);
+    log_debug("Released %lu bytes (%lu MB) of physical memory at offset range %lu-%lu.", size, size>>20, page_offset, page_offset + size);
 #endif
     return true;
 }
@@ -805,18 +805,18 @@ usize find_first_set(
     const u8 *raw = (const u8 *)bitmap + index;
 
     for (;;) {
-        const usize bits = bits_ffs(raw, count);
+        usize bits = bits_ffs(raw, count);
 
         /* offset zero is riven's address, safe to consider this an invalid return value */
         if (!bits) return 0lu;
+        bits += position;
 
         /* we may have overshot on edging (!!) bytes */
-        if (UNLIKELY(bits > position + count))
-            continue;
+        if (UNLIKELY(bits >= position_from_offset2mb(ceiling)))
+            return 0lu;
 
-        const usize index = index_from_position(bits);
         const u8 bitmask = (1 << (bits & 0x07));
-        const u8 byte = atomic_fetch_and_explicit(&bitmap[index], ~bitmask, memory_order_release);
+        const u8 byte = atomic_fetch_and_explicit(&bitmap[index_from_position(bits)], ~bitmask, memory_order_release);
 
         /* double check to avoid a possibility of data races */
         if ((byte & bitmask) == bitmask) 
@@ -834,7 +834,6 @@ usize best_fit_growth(
     at_usize   *sync)
 {
     const usize pages = position_from_offset2mb(size);
-    const usize sync_value = atomic_load_explicit(sync, memory_order_relaxed);
 
     if (position >= ceiling || !pages) return 0lu;
 
@@ -870,13 +869,13 @@ usize best_fit_growth(
                     bitmask >>= 1;
                     bit++;
                 } else {
-                    atomic_store_explicit(sync, sync_value + (RIVEN_BLOCK_SIZE<<3) * (1 + i - head_index), memory_order_relaxed);
+                    atomic_store_explicit(sync, offset2mb_from_position(position_from_index(i)), memory_order_relaxed);
                     current = 0lu;
                     bitmask = 0lu;
                 }
             } 
         } else {
-            atomic_store_explicit(sync, sync_value + (RIVEN_BLOCK_SIZE<<3) * (1 + i - head_index), memory_order_relaxed);
+            atomic_store_explicit(sync, offset2mb_from_position(position_from_index(i)), memory_order_relaxed);
             current = 0lu;
         }
         /* git gud */
@@ -901,7 +900,7 @@ struct allocation *reserve_allocation(
     write->count = 0;
 
     const usize page_aligned = (size + riven->page_size-1) & ~(riven->page_size-1);
-    const usize roots = position_from_offset2mb(riven->reserved_heaps[rivens_tag_roots].head->size);
+    const usize roots = riven->reserved_heaps[rivens_tag_roots].head->size;
     usize commited = atomic_load_explicit(&riven->commited_size, memory_order_relaxed);
 
     for (;;) {
@@ -911,17 +910,17 @@ struct allocation *reserve_allocation(
          * Then it's enough to lookup just one single bit that is free, flip it immediately and avoid any
          * locks in this process. Acquiring larger resources will complicate things tho. */
         if (size <= RIVEN_BLOCK_SIZE) {
-            write->offset = find_first_set(riven->bitmap, roots, sync ? min(sync, commited) : commited);
+            write->offset = find_first_set(riven->bitmap, position_from_offset2mb(roots), sync ? min(sync, commited) : commited);
             if (write->offset) {
                 write->size = RIVEN_BLOCK_SIZE;
                 return write;
             }
+            if (sync) continue;
         }
-        if (sync) continue;
 
         usize expected = 0lu;
         if (!atomic_compare_exchange_weak_explicit(&riven->growth_sync, &expected, 
-            roots, memory_order_relaxed, memory_order_relaxed)) 
+            position_from_offset2mb(roots), memory_order_relaxed, memory_order_relaxed)) 
         {
             continue;
         };
@@ -933,7 +932,7 @@ struct allocation *reserve_allocation(
          * free commited memory right now to satisfy a minimal allocation (RIVEN_BLOCK_SIZE). */
         if (size > RIVEN_BLOCK_SIZE) {
             /* when it's non-zero value, we can satisfy the allocation from existing resources */
-            usize offset = best_fit_growth(riven->bitmap, roots, page_aligned, commited, &riven->growth_sync);
+            usize offset = best_fit_growth(riven->bitmap, position_from_offset2mb(roots), page_aligned, commited, &riven->growth_sync);
             if (offset) {
                 acquire_bitmap(riven->bitmap, position_from_offset2mb(offset), page_aligned);
                 atomic_store_explicit(&riven->growth_sync, 0lu, memory_order_release);
@@ -1345,9 +1344,9 @@ s32 riven_moonlit_walk(
     /* setup the roots allocation */
     union mpmc_data roots = {0};
     mpmc_ring_dequeue(&riven->allocation_ring, &roots);
-    riven->reserved_heaps[0].tail = riven->reserved_heaps[0].head = roots.allocation;
-    riven->reserved_heaps[0].head->size = roots_allocation_size;
-    riven->reserved_heaps[0].head->count = total_bytes;
+    riven->reserved_heaps[rivens_tag_roots].tail = riven->reserved_heaps[rivens_tag_roots].head = roots.allocation;
+    riven->reserved_heaps[rivens_tag_roots].head->size = roots_allocation_size;
+    riven->reserved_heaps[rivens_tag_roots].head->count = total_bytes;
     /* now we can safely call riven_alloc() with rivens_tag_roots */
     hash_table_init(&riven->table, riven, rivens_tag_roots, bits_log2_next_pow2(thread_count));
 

@@ -19,6 +19,12 @@ else
 endif
 
 if host_machine.cpu_family() == 'x86_64'
+    if get_option('avx')
+        defs += '-mavx'
+    endif
+    if get_option('avx2')
+        defs += [ '-mavx2', '-mfma' ]
+    endif
     assembly_arch = 'amd64'
 elif host_machine.cpu_family() == 'aarch64'
     assembly_arch = 'aarch64'
