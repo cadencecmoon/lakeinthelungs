@@ -46,11 +46,13 @@ static s32 lake_in_the_lungs(
     u64 time_last = 0, time_now = rtc_counter();
     f64 dt = 0, dt_frequency = 1000/(f64)rtc_frequency();
 
-    struct lake lake = {0};
-    lake.riven = riven;
-    lake.thread_count = thread_count;
+    struct lake *lake = (struct lake *)riven_alloc(riven, rivens_tag_roots, sizeof(struct lake), 16);
+    zerop(lake);
 
-    res = lake_init(&lake, hints);
+    lake->riven = riven;
+    lake->thread_count = thread_count;
+
+    res = lake_init(lake, hints);
     if (res != result_success) return res;
 
     struct framedata frames[AMW_MAX_FRAMES_IN_FLIGHT];
@@ -59,7 +61,7 @@ static s32 lake_in_the_lungs(
     for (s32 i = 0; i < AMW_MAX_FRAMES_IN_FLIGHT; i++) {
         frames[i].result = result_success;
         frames[i].type = (i == 0) ? work_type_assembly : work_type_continue;
-        frames[i].lake = &lake;
+        frames[i].lake = lake;
         frames[i].last_frame = &frames[(i - 1 + AMW_MAX_FRAMES_IN_FLIGHT) % AMW_MAX_FRAMES_IN_FLIGHT];
         frames[i].next_frame = &frames[(i + 1 + AMW_MAX_FRAMES_IN_FLIGHT) % AMW_MAX_FRAMES_IN_FLIGHT];
     }
@@ -94,7 +96,7 @@ static s32 lake_in_the_lungs(
             /* check results of last stage (rendering) */
             if (gpuexec->result == result_error) {
                 log_error("Frame '%lu' for '%s' returned an error, the game will exit now.", frame_index, work[LAKE_RENDERING_WORK_IDX].name);
-                lake.exit_game = true;
+                lake->exit_game = true;
             }
 
             /* feed forward to GPU execution */
@@ -132,26 +134,26 @@ static s32 lake_in_the_lungs(
             riven_split_work(riven, &work[LAKE_SIMULATION_WORK_IDX], 1, &simulation->chain);
 
             if (simulation->type == work_type_disassembly)
-                lake.finalize_gameloop = true;
+                lake->finalize_gameloop = true;
         }
 
         /* rotate the framedata */
         gpuexec = rendering;
         rendering = simulation;
-        simulation = lake.finalize_gameloop ? &frames[(frame_index++) % AMW_MAX_FRAMES_IN_FLIGHT] : NULL;
+        simulation = lake->finalize_gameloop ? &frames[(frame_index++) % AMW_MAX_FRAMES_IN_FLIGHT] : NULL;
 
         /* XXX delete the close_counter later */
         close_counter -= dt;
-        if (simulation && (lake.exit_game || close_counter <= 0))
+        if (simulation && (lake->exit_game || close_counter <= 0))
             simulation->type = work_type_disassembly;
 
         print_frame_time(FRAME_TIME_PRINT_INTERVAL_MS);
     }
     dt = median_frame_time();
     log_info("Last recorded frame time: %.3f ms (%.0f FPS)", dt, 1000/dt);
-    lake_fini(&lake);
+    lake_fini(lake);
 
-    if (lake.restart_engine && res == result_success)
+    if (lake->restart_engine && res == result_success)
         res = result_reiterate;
     return res;
 }
