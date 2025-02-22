@@ -72,7 +72,6 @@ static s32 lake_in_the_lungs(
     work[LAKE_RENDERING_WORK_IDX].name = "lake_in_the_lungs:rendering";
     work[LAKE_GPUEXEC_WORK_IDX].procedure = (PFN_rivens_job)lake_in_the_lungs_gpuexec;
     work[LAKE_GPUEXEC_WORK_IDX].name = "lake_in_the_lungs:gpuexec";
-    
 
     struct framedata *simulation = frames;
     struct framedata *rendering = NULL;
@@ -95,7 +94,8 @@ static s32 lake_in_the_lungs(
 
             /* check results of last stage (rendering) */
             if (gpuexec->result == result_error) {
-                log_error("Frame '%lu' for '%s' returned an error, the game will exit now.", frame_index, work[LAKE_RENDERING_WORK_IDX].name);
+                log_error("Frame '%lu' for '%s' returned an error, the game will exit now.", 
+                          frame_index, work[LAKE_RENDERING_WORK_IDX].name);
                 lake->exit_game = true;
             }
 
@@ -111,6 +111,11 @@ static s32 lake_in_the_lungs(
             rendering->chain = NULL;
 
             /* check results of last stage (simulation) */
+            if (rendering->result == result_error) {
+                log_error("Frame '%lu' for '%s' returned an error, the game will exit now.", 
+                          frame_index, work[LAKE_SIMULATION_WORK_IDX].name);
+                lake->exit_game = true;
+            }
 
             /* feed forward to rendering */
             work[LAKE_RENDERING_WORK_IDX].argument = rendering;
@@ -124,6 +129,11 @@ static s32 lake_in_the_lungs(
             simulation->chain = NULL;
 
             /* check results of last stage (gpuexec) */
+            if (simulation->result == result_error) {
+                log_error("Frame '%lu' for '%s' returned an error, the game will exit now.", 
+                          frame_index, work[LAKE_GPUEXEC_WORK_IDX].name);
+                lake->exit_game = true;
+            }
 
             /* prepare the next framedata */
             simulation->index = frame_index;
@@ -140,7 +150,7 @@ static s32 lake_in_the_lungs(
         /* rotate the framedata */
         gpuexec = rendering;
         rendering = simulation;
-        simulation = lake->finalize_gameloop ? &frames[(frame_index++) % AMW_MAX_FRAMES_IN_FLIGHT] : NULL;
+        simulation = !lake->finalize_gameloop ? &frames[(frame_index++) % AMW_MAX_FRAMES_IN_FLIGHT] : NULL;
 
         /* XXX delete the close_counter later */
         close_counter -= dt;

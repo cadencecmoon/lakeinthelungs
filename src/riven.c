@@ -4,8 +4,127 @@
 #include <amw/bits.h>
 #include <amw/log.h>
 
+/** This fiber-based job system is implemented based on ideas presented by Naughty Dog 
+ *  in the GDC2015 talk "Parallelizing the Naughty Dog Engine using Fibers". 
+ *
+ *  [Naughty Dog Video]
+ *  http://gdcvault.com/play/1022186/Parallelizing-the-Naughty-Dog-Engine
+ *
+ *  [Naughty Dog Slides]
+ *  http://twvideo01.ubm-us.net/o1/vault/gdc2015/presentations/Gyrling_Christian_Parallelizing_The_Naughty.pdf
+ *
+ *  Because Riven is a core system to this game engine, and because i needed an optimal 
+ *  solution for managing dynamic resources in a fiber-aware manner, Riven is responsible 
+ *  for the game's host memory management. A lock-less block allocator reserves memory 
+ *  under arena allocators owned by a uint32_t tag, called tagged heaps. A tag can be of 
+ *  any value, but predefined tags exist that have expected lifetime frequencies in the 
+ *  gameloop, even including thread-local tagged heaps for transient per-frame resources.
+ *  The point is, locks are unnecessary for 90% of allocations done, and whenever these 
+ *  would be needed, context switches or offset synchronization of memory access is used.
+ *
+ *  Since the job system is multithreaded, the work is not guaranteed to be executed 
+ *  in the order that it was submitted. Work runs in parallel, we'll, that's the deal. 
+ *  'riven_split_work_and_unchain' doesn't "block", instead the current execution context 
+ *  is swapped with a fiber that contains new work to process. Only when all work of this 
+ *  split has been finished will the context be swapped back and this function returns.
+ *  Each thread is always doing work, and not "blocking" on a job that is stuck waiting 
+ *  in 'riven_split_work_and_unchain' or 'riven_unchain' calls. When there is no work at 
+ *  the moment, the threads may yield their processing time to the sheduler when busy-waiting
+ *  for new work to enqueue the job ring buffer.
+ *
+ *  Context switching is very CPU specific. This functionality is implemented in assembly,
+ *  for every architecture and platform ABI that should be supported. A great deal of help 
+ *  in implementing this is the Boost C++ fiber context library. It has most of this figured 
+ *  out, with all the registers for different ABI's in place and A LOT of supported archs.
+ *  I used this to write some simpler code, so it fits the design I'm going for here in Riven. 
+ *  If i wish to ever support another architecture, that boost library is my goto place to 
+ *  start out with working on a port.
+ *
+ *  [Boost::Context]
+ *  https://github.com/boostorg/context
+ *
+ *  Actually compiling the right assembly files is handled in Meson at /src/<arch>. It sets 
+ *  up the assembly configuration (arch directory, ABI and the assembler's file extension) 
+ *  then writes the source files within AMWEngine's sources. Jeff Preshing has written some 
+ *  excellent articles about atomics operations, his guides were instrumental in the creation 
+ *  of this system, and for me to understand lockless programming.
+ *
+ *  [Atomics: Introduction to Lock-Free Programming]
+ *  http://preshing.com/20120612/an-introduction-to-lock-free-programming/
+ *
+ *  The job queue was implemented from the multiple producer, multiple consumer (MPMC) queue 
+ *  described by Dmitry Vyuko on 1024cores. I used the same structure for a ring buffer to 
+ *  rotate reused allocation structures within tagged heaps.
+ *
+ *  [High Speed Atomic MPMC Queue]
+ *  http://www.1024cores.net/home/lock-free-algorithms/queues/bounded-mpmc-queue
+ *
+ *  As the fiber stacks are created as a large flat array, there is NO protection on a stack 
+ *  overflow. It will just walk into the neighbouring fiber's stack and corrupt it. This is 
+ *  an issue now FIXME, but i could implement some measures to prevent these, or atleast, 
+ *  to signal us when an overflow happened. We could save a canary value at the beginning 
+ *  of the stack (a stack grows from the top downwards) and periodically check this value, 
+ *  asserting if this value ever changes. Guard pages sadly cannot be used, atleast not when 
+ *  we're using huge pages (by default 2MB) for our page entries.
+ *
+ *  [Fibers, Oh My!]
+ *  https://graphitemaster.github.io/fibers/
+ *
+ *  Fundamental to the fiber code is thread local storage (TLS). It's used as a way for the 
+ *  system to communicate between jobs. Instead of using an OS or compiler provided TLS,
+ *  I'm rolling out my own using a lookup on the current thread id. That is because:
+ *
+ *  - '__thread' on GCC is a GCC specific extension.
+ *  - '__declspec(thread)' on windows only supports statically linked libraries.
+ *  - 'thread_local' in C++11 is.. C++.
+ *  - 'TlsAlloc' is uh, just too much work. Lazy motherfucker..
+ *  - '_Thread_local' in C11 is nice, but, as with the case of atomics,
+ *    i already choose to use C99 and implement the atomics and related stuff myself.
+ *
+ *  The thread id lookup was before implemented by iterating over a thread array and comparing 
+ *  handles, but that was not really an optimal way to do stuff, and the time to calculate an 
+ *  index of the current thread was not a constant value. Then I added a hash table to write 
+ *  thread IDs as keys to retrieve an index. I expose this procedure with 'riven_thread_index'. 
+ *
+ *  For as how fast Riven is, we'll, I don't know. When i was testing on my old project, using 
+ *  an empty jobs benchmark it got me between 100ns to 150ns per empty job called. In the great 
+ *  scheme of things, I think it's slow. I made some changes from this time, including actually 
+ *  implementing the memory allocator within the job system, adding the mentioned hash table, 
+ *  reusing fibers by executing some jobs inline... Maybe I should implement some tests here 
+ *  to actually check and benchmark stuff as a lot has changed from my old project.
+ *
+ *  Some notes:
+ *
+ *  - A deadlock happens if the mpmc ring buffer is full and running from only one thread. 
+ *    This will also happen when dequeuing from an empty buffer, when running a single thread.
+ *    The reason being, that the waiting for enqueue/dequeue thread may never leave the loop,
+ *    when there is no other thread to try to empty/fill it. This should not really be an issue 
+ *    unless stress testing the job system on single core environments.
+ *    
+ *  - The free and wait list implementations are pretty naive. There should be a better lockless 
+ *    way of accessing them as opposed to looping over them. I suspect there is a lot of cache 
+ *    churn and false sharing around index 0 between lots of threads.
+ *
+ *  - May get into improving context switching branch prediction, if this can improve speed: 
+ *    http://www.crystalclearsoftware.com/soc/coroutine/coroutine/linuxasm.html
+ *
+ *  - The allocator and threading needs platform-specific APIs to work. For now POSIX-compliant
+ *    systems are for sure supported, where Windows needs some testing but I expect it to run with 
+ *    some fine work. I could implement a WebAssembly backend, when I'll decide that I'd like to 
+ *    make an emscripten web build of my game, but that will not be my priority at any point - more 
+ *    like an exercise whenever I'll decide I'm bored from working on other stuff.
+ *
+ *  - Virtual memory is mapped upfront, and commited only when needed. The block allocator 
+ *    represents all memory in this budget with a bitmap, where a bit is equal to a block 
+ *    of 2MB of memory. This is stupidly efficient for single-block allocations (as I expect 
+ *    only a fraction of all allocations to be more than 2MB of size), and makes fitting 
+ *    larger allocations within the available space a breeze. There is no real defragmentation
+ *    implemented, so the strategy used for the allocator may still need some work when it 
+ *    happens to become a chokepoint for heavy resource management.
+ */
+
 #ifndef RIVEN_BLOCK_SIZE
-#define RIVEN_BLOCK_SIZE (2*1024*1024)
+#define RIVEN_BLOCK_SIZE (2lu*1024lu*1024lu)
 #endif
 #ifndef RIVEN_USE_HUGEPAGES
 #define RIVEN_USE_HUGEPAGES 1
@@ -17,11 +136,11 @@ static_assert(sizeof(sptr) == sizeof(struct riven *), "intptr_t can't hold point
 static_assert(sizeof(usize) >= sizeof(void *), "size_t can't hold pointers");
 static_assert(((RIVEN_BLOCK_SIZE != 0) && ((RIVEN_BLOCK_SIZE & (RIVEN_BLOCK_SIZE-1)) == 0)), "block size must be a power of 2");
 
-#define A16(x)   (((x) + 15) & ~15)
-#define AVEC(x)  (((x) + VECTOR_ALIGNMENT-1) & ~(VECTOR_ALIGNMENT-1))
-#define A4KB(x)  (((x) + 4095) & ~4095)
-#define A2MB(x)  (((x) + RIVEN_BLOCK_SIZE-1) & ~(RIVEN_BLOCK_SIZE-1))
-#define A16MB(x) (((x) + 8*RIVEN_BLOCK_SIZE-1) & ~(8*RIVEN_BLOCK_SIZE-1))
+#define A16(x)   (((x) + 15lu) & ~15lu)
+#define AVEC(x)  (((x) + VECTOR_ALIGNMENT-1lu) & ~(VECTOR_ALIGNMENT-1lu))
+#define A4KB(x)  (((x) + 4095lu) & ~4095lu)
+#define A2MB(x)  (((x) + RIVEN_BLOCK_SIZE-1lu) & ~(RIVEN_BLOCK_SIZE-1lu))
+#define A16MB(x) (((x) + 8*RIVEN_BLOCK_SIZE-1lu) & ~(8lu*RIVEN_BLOCK_SIZE-1lu))
 
 #if defined(PLATFORM_UNIX)
     #include <unistd.h>
@@ -126,26 +245,29 @@ static b32 commit_physical_memory(void *mapped, usize page_offset, usize size)
 #if defined(PLATFORM_UNIX)
     s32 res = mprotect(raw_map, size, PROT_READ | PROT_WRITE);
     if (res != 0) {
-        log_error("Commiting physical memory (mprotect) of %lu bytes at %lu offset failed: %s.", size, page_offset, strerror(errno));
+        log_error("Commiting physical memory (mprotect) of %lu bytes (%lu MB) at %lu offset (%lu MB) failed: %s.", 
+                  size, size >> 20, page_offset, page_offset >> 20, strerror(errno));
         return false;
     }
     res = madvise(raw_map, size, MADV_WILLNEED);
     if (res != 0) {
-        log_error("Advising commitment of physical memory (madvise) of %lu bytes at %lu offset failed: %s.", size, page_offset, strerror(errno));
+        log_error("Advising commitment of physical memory (madvise) of %lu bytes (%lu MB) at %lu offset (%lu MB) failed: %s.",
+                  size, size >> 20, page_offset, page_offset >> 20, strerror(errno));
         return false;
     }
 #elif defined(PLATFORM_WINDOWS)
     void *p = VirtualAllocEx(GetCurrentProcess(), raw_map, size, MEM_COMMIT, PAGE_READWRITE);
     if (!p) {
-        log_error("Commiting physical memory (VirtualAlloc) of %lu bytes at %lu offset failed: %s", size, page_offset, GetLastError());
+        log_error("Commiting physical memory (VirtualAlloc) of %lu bytes (%lu MB) at %lu offset (%lu MB) failed: %s", 
+                size, size >> 20, page_offset, page_offset >> 20, GetLastError());
         return false;
     }
 #elif defined(PLATFORM_EMSCRIPTEN)
     /* XXX WASM __heap_base ?? */
 #endif
-    memset(raw_map, 0u, size);
 #ifdef DEBUG
-    log_debug("Commited %lu bytes (%lu MB) of physical memory at offset %lu.", size, size>>20, page_offset);
+    log_debug("Commited %lu bytes (%lu MB) of physical memory at %lu offset (%lu MB).", 
+              size, size >> 20, page_offset, page_offset >> 20);
 #endif
     return true;
 }
@@ -158,24 +280,28 @@ static b32 decommit_physical_memory(void *mapped, usize page_offset, usize size)
 #if defined(PLATFORM_UNIX)
     s32 res = madvise(raw_map, size, MADV_DONTNEED);
     if (res != 0) {
-        log_error("Advising release of physical memory (madvise) of %lu bytes at %lu offset failed: %s.", size, page_offset, strerror(errno));
+        log_error("Advising release of physical memory (madvise) of %lu bytes (%lu MB) at %lu offset (%lu MB) failed: %s.",
+                  size, size >> 20, page_offset, page_offset >> 20, strerror(errno));
         return false;
     }
     res = mprotect(raw_map, size, PROT_NONE);
     if (res != 0) {
-        log_error("Releasing physical memory (mprotect) of %lu bytes at %lu offset failed: %s.", size, page_offset, strerror(errno));
+        log_error("Releasing physical memory (mprotect) of %lu bytes (%lu MB) at %lu offset (%lu MB) failed: %s.", 
+                  size, size >> 20, page_offset, page_offset >> 20, strerror(errno));
     }
 #elif defined(PLATFORM_WINDOWS)
     BOOL res = VirtualFreeEx(GetCurrentProcess(), raw_map, size, MEM_DECOMMIT);
     if (res == FALSE) {
-        log_error("Releasing physical memory (VirtualFree) of %lu bytes at %lu offset failed: %s", size, page_offset, GetLastError());
+        log_error("Releasing physical memory (VirtualFree) of %lu bytes (%lu MB) at %lu offset (%lu MB) failed: %s", 
+                  size, size >> 20, page_offset, page_offset >> 20, GetLastError());
         return false;
     }
 #elif defined(PLATFORM_EMSCRIPTEN)
     /* XXX WASM __heap_base ?? */
 #endif
 #ifdef DEBUG
-    log_debug("Released %lu bytes (%lu MB) of physical memory at offset range %lu-%lu.", size, size>>20, page_offset, page_offset + size);
+    log_debug("Released %lu bytes (%lu MB) of physical memory at %lu offset (%lu MB).", 
+              size, size >> 20, page_offset, page_offset >> 20);
 #endif
     return true;
 }
@@ -307,7 +433,7 @@ static struct mpmc_entry mpmc_ring_rotate(
             return result;
         } else {
             spin++;
-            if (spin > 256) {
+            if (spin > 128) {
                 yield();
                 spin = 0;
             }
@@ -728,31 +854,31 @@ u32 riven_thread_index(struct rivens *riven)
  *  can either set the offset to the bitmap data, or calculate the relative range */
 attr_inline attr_const 
 usize index_from_position(const usize position) {
-    return position >> 3;   /* 8 bytes -> 1 byte */
+    return position >> 3lu; /* 8 bytes -> 1 byte */
 }
 
 /** Translate a bitmap index into a block position. */
 attr_inline attr_const 
 usize position_from_index(const usize index) {
-    return index << 3;      /* 1 byte -> 8 bytes */
+    return index << 3lu;    /* 1 byte -> 8 bytes */
 }
 
 /** Get the block memory offset from the block position. */
 attr_inline attr_const 
 usize offset2mb_from_position(const usize pos) {
-    return pos << 21;  /* 1 byte -> 2 MB */
+    return pos << 21lu;     /* 1 byte -> 2 MB */
 }
 
 /** Translate a per-block memory offset (aligned to 2MB) into a position index (aligned to 2mb). */
 attr_inline attr_const
 usize position_from_offset2mb(const ssize offset) {
-    return offset >> 21;    /* 2 MB -> 1 byte */
+    return offset >> 21lu;  /* 2 MB -> 1 byte */
 }
 
 /** Translate offset from 8 (8x2mb) blocks into a block position (aligned to 16mb). */
 attr_inline attr_const 
 usize position_from_offset16mb(const usize offset) {
-    return offset >> 24;    /* 16 MB -> 1 byte */
+    return offset >> 24lu;  /* 16 MB -> 1 byte */
 }
 
 /** Get the bitmap index from 8 (8x2mb) blocks (aligned to 16mb). */
@@ -834,11 +960,11 @@ usize best_fit_growth(
     at_usize   *sync)
 {
     const usize pages = position_from_offset2mb(size);
-
-    if (position >= ceiling || !pages) return 0lu;
-
     const usize head_index = index_from_position(position);
     const usize tail_index = index_from_offset16mb(ceiling);
+
+    if (head_index > tail_index || !pages || pages < position_from_offset2mb(ceiling) - position) 
+        return 0lu;
 
     usize candidate = 0lu;
     usize current = 0lu;
@@ -899,7 +1025,7 @@ struct allocation *reserve_allocation(
     write->prev = NULL;
     write->count = 0;
 
-    const usize page_aligned = (size + riven->page_size-1) & ~(riven->page_size-1);
+    const usize page_aligned = A2MB(size);
     const usize roots = riven->reserved_heaps[rivens_tag_roots].head->size;
     usize commited = atomic_load_explicit(&riven->commited_size, memory_order_relaxed);
 
@@ -927,13 +1053,14 @@ struct allocation *reserve_allocation(
         /* update the commited value, in case it changed */
         commited = atomic_load_explicit(&riven->commited_size, memory_order_acquire);
 
+        usize offset = 0;
         /* If we're here for a larger allocation, now we can safely work on that. This step 
          * will be skipped in case we came here from the implication where there is not enough 
          * free commited memory right now to satisfy a minimal allocation (RIVEN_BLOCK_SIZE). */
         if (size > RIVEN_BLOCK_SIZE) {
             /* when it's non-zero value, we can satisfy the allocation from existing resources */
-            usize offset = best_fit_growth(riven->bitmap, position_from_offset2mb(roots), page_aligned, commited, &riven->growth_sync);
-            if (offset) {
+            offset = best_fit_growth(riven->bitmap, position_from_offset2mb(roots), page_aligned, commited, &riven->growth_sync);
+            if (offset && offset + page_aligned <= commited) {
                 acquire_bitmap(riven->bitmap, position_from_offset2mb(offset), page_aligned);
                 atomic_store_explicit(&riven->growth_sync, 0lu, memory_order_release);
                 write->offset = offset;
@@ -941,18 +1068,20 @@ struct allocation *reserve_allocation(
                 return write;
             }
         }
-        atomic_store_explicit(&riven->growth_sync, commited, memory_order_release);
+        if (!offset) offset = commited;
+        atomic_store_explicit(&riven->growth_sync, offset, memory_order_release);
+        usize new_ceiling = page_aligned - (commited-offset);
 
         /* we need to commit memory for new resources */
-        if (!commit_physical_memory((void *)riven, commited, page_aligned)) {
+        if (new_ceiling + commited > riven->memory_budget || !commit_physical_memory((void *)riven, commited, new_ceiling)) {
             /* we couldn't reserve resources, so yield the allocation */
             mpmc_ring_dequeue(&riven->allocation_ring, &data);
             return NULL;
         }
-        acquire_bitmap(riven->bitmap, position_from_offset2mb(commited), page_aligned);
-        atomic_store_explicit(&riven->commited_size, commited + page_aligned, memory_order_release);
+        acquire_bitmap(riven->bitmap, position_from_offset2mb(offset), page_aligned);
+        atomic_store_explicit(&riven->commited_size, new_ceiling + commited, memory_order_release);
         atomic_store_explicit(&riven->growth_sync, 0lu, memory_order_release);
-        write->offset = commited;
+        write->offset = offset;
         write->size = page_aligned;
         return write;
     }
@@ -973,7 +1102,7 @@ void *acquire_tagged_resources(
     } else if (!heap->head) {
         heap->tail = heap->head = reserve_allocation(riven, size);
         if (!heap->head) {
-            log_error("Host memory failure, not enough resources to reserve %lu bytes of memory.", A2MB(size));
+            log_error("Host memory failure, not enough resources to reserve %lu bytes (%lu MB) of memory.", A2MB(size), A2MB(size)>>20);
             return NULL;
         }
         heap->head->count = size;
@@ -995,7 +1124,7 @@ void *acquire_tagged_resources(
     /* we'll end up here if we still couldn't satisfy the allocation */
     struct allocation *next = reserve_allocation(riven, size);
     if (!next) {
-        log_error("Host memory failure, not enough resources to reserve %lu bytes of memory.", A2MB(size));
+            log_error("Host memory failure, not enough resources to reserve %lu bytes (%lu MB) of memory.", A2MB(size), A2MB(size)>>20);
         return NULL;
     }
     next->prev = heap->tail;
@@ -1270,6 +1399,7 @@ s32 riven_moonlit_walk(
     /* address to riven is offset == 0 */
     riven = (struct rivens *)map_virtual_memory(memory_budget_size, huge_page_size);
     if (!riven || !commit_physical_memory(riven, 0, init_commit_size)) return result_error;
+    memset(riven, 0u, init_commit_size);
 
     usize o = riven_bytes;
     u8 *raw = (u8 *)riven;
