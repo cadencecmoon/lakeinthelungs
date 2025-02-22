@@ -4,15 +4,14 @@
 
 #define LAKE_VERSION_MAJOR 0
 #define LAKE_VERSION_MINOR 1
-#define LAKE_VERSION_REVISION 1
+#define LAKE_VERSION_REVISION 2
 
 #define LAKE_VERSION (VERSION_NUM(LAKE_VERSION_MAJOR, LAKE_VERSION_MINOR, LAKE_VERSION_REVISION))
 
 struct lake {
+    struct harridan     harridan;
     struct hadopelagic  hadal;
-
     struct rivens      *riven;
-    u32                 thread_count;
 
     b32 exit_game;
     b32 restart_engine;

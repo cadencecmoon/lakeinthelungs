@@ -89,7 +89,7 @@ typedef void (*PFN_hadal_display_fini)(struct hadopelagic *hadal);
 /** Implements the display backend. */
 struct hadal_interface {
     s32                     id;     /**< The numeric identifier of the display backend. */
-    struct str              name;   /**< A readable name of the display backend, for logging. */
+    struct string           name;   /**< A readable name of the display backend, for logging. */
 
     PFN_hadal_display_init  display_init;
     PFN_hadal_display_fini  display_fini;
@@ -120,9 +120,8 @@ enum hadal_flags {
  *  different input devices and the window system. Only one window is supported. */
 struct hadopelagic {
     at_u32                  flags;
-
-    struct rivens          *riven;
     rivens_tag_t            tag;
+    struct rivens          *riven;
 
     void                   *display;
     struct hadal_interface  interface;
@@ -130,7 +129,7 @@ struct hadopelagic {
     struct hadal_output    *outputs[HADAL_MAX_OUTPUTS];
     at_u32                  output_count;
 
-    struct str              window_title;
+    struct string           window_title;
     at_u32                  window_width, window_height;
     at_u32                  fb_width, fb_height;
 
@@ -159,7 +158,7 @@ s32 hadal_init(
     rivens_tag_t            tag,
     u32                     width,
     u32                     height,
-    const struct str       *title,
+    const struct string    *title,
     b32                     verbose_backend);
 
 /** Closes the display backend and zeroes the state of hadal. */

@@ -2,6 +2,10 @@ dep_threads = dependency('threads', required : true)
 dep_rt = cc.find_library('rt', required : false)
 dep_dl = cc.find_library('dl', required : false)
 
+# check if Vulkan SDK is available
+dep_vulkan = dependency('vulkan', required : true)
+defs += '-DAMW_VULKAN=1'
+
 subdir('apple')
 subdir('linux')
 subdir('unix')
@@ -32,7 +36,6 @@ elif host_machine.cpu_family() == 'riscv64'
     assembly_arch = 'riscv'
     assembly_source = 'rv64gc.s'
 else
-    # WebAssembly? i386? arm32? rv32gc?
     error('CPU architecture \'' + host_machine.cpu_family() + '\' is not supported.')
 endif
 
@@ -42,7 +45,10 @@ engine_sources += files(
     'bits.c',
     'frame_time.c',
     'hadal.c',
+    'harridan.c',
     'hash_table.c',
     'log.c',
     'riven.c',
+    'swapchain.c',
+    'vk_drivers.c',
 )

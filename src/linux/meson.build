@@ -37,7 +37,7 @@ if sys == 'android' or sys == 'linux' or sys == 'bsd'
     build_drm = dep_drm.found() and dep_gbm.found() and not get_option('drm').disabled()
     if build_drm
         #engine_sources += files('drmkms.c')
-        defs += [ '-DPLATFORM_LINUX_DRMKMS=1', '-DVK_USE_PLATFORM_KMS_KHR' ]
+        defs += [ '-DHADAL_DRMKMS=1', '-DVK_USE_PLATFORM_KMS_KHR' ]
     endif
 endif
 
@@ -47,7 +47,7 @@ if sys == 'linux' or sys == 'bsd'
     build_xcb = dep_xcb.found() and dep_xcb_icccm.found()
     if build_xcb
         #engine_sources += files('xcb.c')
-        defs += [ '-DPLATFORM_LINUX_XCB=1', '-DVK_USE_PLATFORM_XCB_KHR' ]
+        defs += [ '-DHADAL_XCB=1', '-DVK_USE_PLATFORM_XCB_KHR' ]
     endif
 
     dep_wayland_client = dependency('wayland-client', required : get_option('wayland'))
@@ -58,7 +58,7 @@ if sys == 'linux' or sys == 'bsd'
         engine_sources += files(
             'wl_display.c',
         )
-        defs += [ '-DPLATFORM_LINUX_WAYLAND=1', '-DVK_USE_PLATFORM_WAYLAND_KHR' ]
+        defs += [ '-DHADAL_WAYLAND=1', '-DVK_USE_PLATFORM_WAYLAND_KHR' ]
 
         wayland_protocols_dir = '../../wayland_protocols/'
         client_header_args = [ wayland_scanner, 'client-header', '@INPUT@', '@OUTPUT@' ]
@@ -91,18 +91,18 @@ if sys == 'linux' or sys == 'bsd'
     dep_alsa = dependency('alsa', required : get_option('alsa'))
     if dep_alsa.found()
         #engine_sources += files('')
-        defs += '-DPLATFORM_LINUX_ALSA=1'
+        defs += '-DOCTAVIA_ALSA=1'
     endif
 
     dep_pulse = dependency('libpulse-simple', required : get_option('pulse'))
     if dep_pulse.found()
         #engine_sources += files('')
-        defs += '-DPLATFORM_LINUX_PULSEAUDIO=1'
+        defs += '-DOCTAVIA_PULSEAUDIO=1'
     endif
 
     dep_pipewire = dependency('libpipewire-0.3', required : get_option('pipewire'))
     if dep_pipewire.found()
         #engine_sources += files('')
-        defs += '-DPLATFORM_LINUX_PIPEWIRE=1'
+        defs += '-DOCTAVIA_PIPEWIRE=1'
     endif
 endif

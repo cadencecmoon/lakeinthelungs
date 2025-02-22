@@ -17,23 +17,23 @@
  */
 
 #ifdef ARCH_X86_AVX2
-AMWAPI usize bits_ffs_lookup_avx2(const u8 *data, usize n);
-AMWAPI u64 bits_popcnt_lookup_avx2(const u8 *data, usize n);
+AMWAPI usize bits_ffs_avx2(const u8 *data, usize n);
+AMWAPI u64 bits_popcnt_avx2(const u8 *data, usize n);
 #endif
 
 #ifdef ARCH_X86_SSE2
-AMWAPI usize bits_ffs_lookup_sse2(const u8 *data, usize n);
-AMWAPI u64 bits_popcnt_lookup_sse2(const u8 *data, usize n);
+AMWAPI usize bits_ffs_sse2(const u8 *data, usize n);
+AMWAPI u64 bits_popcnt_sse2(const u8 *data, usize n);
 #endif
 
 #ifdef ARCH_ARM_NEON
-AMWAPI usize bits_ffs_lookup_neon(const u8 *data, usize n);
-AMWAPI u64 bits_popcnt_lookup_neon(const u8 *data, usize n);
+AMWAPI usize bits_ffs_neon(const u8 *data, usize n);
+AMWAPI u64 bits_popcnt_neon(const u8 *data, usize n);
 #endif
 
 #ifdef ARCH_RISCV_V
-AMWAPI usize bits_ffs_lookup_rvv(const u8 *data, usize n);
-AMWAPI u64 bits_popcnt_lookup_rvv(const u8 *data, usize n);
+AMWAPI usize bits_ffs_rvv(const u8 *data, usize n);
+AMWAPI u64 bits_popcnt_rvv(const u8 *data, usize n);
 #endif
 
 attr_inline attr_const
@@ -63,13 +63,13 @@ attr_inline attr_nonnull(1) attr_pure
 usize bits_ffs(const u8 *data, usize n)
 {
 #if defined(ARCH_X86_AVX2)
-    return n >= 32 ? bits_ffs_lookup_avx2(data, n) : bits_ffs_lookup_sse2(data, n);
+    return n >= 32 ? bits_ffs_avx2(data, n) : bits_ffs_sse2(data, n);
 #elif defined(ARCH_X86_SSE2)
-    return bits_ffs_lookup_sse2(data, n);
+    return bits_ffs_sse2(data, n);
 #elif defined(ARCH_ARM_NEON)
-    return bits_ffs_lookup_neon(data, n);
+    return bits_ffs_neon(data, n);
 #elif defined(ARCH_RISCV_V)
-    return bits_ffs_lookup_rvv(data, n);
+    return bits_ffs_rvv(data, n);
 #else
     return bits_ffs_lookup(data, n);
 #endif
@@ -82,13 +82,13 @@ attr_inline attr_nonnull(1) attr_pure
 u64 bits_popcnt(const u8 *data, usize n)
 {
 #if defined(ARCH_X86_AVX2)
-    return n >= 32 ? bits_popcnt_lookup_avx2(data, n) : bits_ffs_lookup_sse2(data, n);
+    return n >= 32 ? bits_popcnt_avx2(data, n) : bits_ffs_sse2(data, n);
 #elif defined(ARCH_X86_SSE2)
-    return bits_popcnt_lookup_sse2(data, n);
+    return bits_popcnt_sse2(data, n);
 #elif defined(ARCH_ARM_NEON)
-    return bits_popcnt_lookup_neon(data, n);
+    return bits_popcnt_neon(data, n);
 #elif defined(ARCH_RISCV_V)
-    return bits_popcnt_lookup_rvv(data, n);
+    return bits_popcnt_rvv(data, n);
 #else
     return bits_popcnt_lookup(data, n);
 #endif
@@ -97,12 +97,10 @@ u64 bits_popcnt(const u8 *data, usize n)
 attr_inline attr_const
 u32 bits_log2_next_pow2(u32 n)
 {
-    if (!n) return 0;
-
-    if (n && ((n & (n - 1)) == 0)) {
+    /* get next power of 2 */
+    if (n && !(n & (n - 1))) {
         n <<= 1;
     } else {
-        /* get next power of 2 */
         n |= n >> 1;
         n |= n >> 2;
         n |= n >> 4;

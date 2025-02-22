@@ -16,12 +16,12 @@ if have_posix
     dep_jack = dependency('jack', required : get_option('jack'))
     if dep_jack.found()
         #engine_sources += files()
-        defs += '-DPLATFORM_UNIX_JACK=1'
+        defs += '-DOCTAVIA_JACK=1'
     endif
 
     found_oss = not get_option('oss').disabled() and ((sys == 'linux') or (sys == 'bsd'))
     if found_oss
         #engine_sources += files()
-        defs += '-DPLATFORM_UNIX_OSS=1'
+        defs += '-DOCTAVIA_OSS=1'
     endif
 endif

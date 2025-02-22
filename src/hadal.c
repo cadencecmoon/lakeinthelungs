@@ -15,7 +15,7 @@ s32 hadal_init(
     rivens_tag_t            tag,
     u32                     width,
     u32                     height,
-    const struct str       *title,
+    const struct string    *title,
     b32                     verbose_backend)
 {
     if (hadal->display) {
@@ -74,13 +74,13 @@ void hadal_fini(struct hadopelagic *hadal)
             log_error("Hadal: display backend '%s' is not supported in this build.", #name);   \
         return result_error;                                                            \
     }
-#ifndef PLATFORM_LINUX_WAYLAND
+#ifndef HADAL_WAYLAND
 hadal_stub(wayland)
 #endif
 
 s32 hadal_entry_point(struct hadopelagic *hadal, b32 verbose)
 {
-#ifdef PLATFORM_LINUX_WAYLAND
+#ifdef HADAL_WAYLAND
     if (hadal_wayland_entry_point(hadal, verbose) == result_success) return result_success;
 #endif
     if (verbose)

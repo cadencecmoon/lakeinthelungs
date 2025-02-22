@@ -1,0 +1,5 @@
+*.c diff=cpp
+*.h diff=cpp 
+*.h linguist-language=C
+build/* linguist-vendored
+wayland_protocols/* linguist-vendored

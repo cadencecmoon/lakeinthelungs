@@ -8,14 +8,14 @@ static_assert(AMW_MAX_FRAMES_IN_FLIGHT >= 3, "AMW_MAX_FRAMES_IN_FLIGHT must be 3
 #define FRAME_TIME_PRINT_INTERVAL_MS 1000
 
 struct engine_hints {
-    const struct str    engine_name;
-    const struct str    game_name;
+    const struct string engine_name;
+    const struct string game_name;
     u32                 build_version;
 
     u32                 frames_in_flight;
 
     u32                 window_width, window_height;
-    const struct str    window_title;
+    const struct string window_title;
 
     usize               riven_memory_budget_size;
     usize               riven_fiber_stack_size;
@@ -41,6 +41,8 @@ static s32 lake_init(
 
     s32 res = result_success;
 
+    log_info("size %lu hadal %lu harridan %lu", sizeof(struct lake), sizeof(struct hadopelagic), sizeof(struct harridan));
+
     res = hadal_init(
         &lake->hadal,
         hadal_entry_point,
@@ -55,13 +57,11 @@ static s32 lake_init(
         return res;
     }
 
-
     return result_success;
 }
 
 static s32 lake_in_the_lungs(
     struct rivens       *riven, 
-    const u32            thread_count, 
     struct engine_hints *hints)
 {
     s32 res = result_success;
@@ -71,9 +71,7 @@ static s32 lake_in_the_lungs(
 
     struct lake *lake = (struct lake *)riven_alloc(riven, rivens_tag_roots, sizeof(struct lake), 16);
     zerop(lake);
-
     lake->riven = riven;
-    lake->thread_count = thread_count;
 
     res = lake_init(lake, hints);
     if (res != result_success) return res;
@@ -195,8 +193,8 @@ s32 amw_main(s32 argc, char **argv)
 {
     s32 res = result_success;
     struct engine_hints hints = {
-        .engine_name = str_init("A Moonlit Walk Engine"),
-        .game_name = str_init("Lake in the Lungs"), /* XXX localize the name? */
+        .engine_name = string_init("A Moonlit Walk Engine"),
+        .game_name = string_init("Lake in the Lungs"), /* XXX localize the name? */
         .build_version = LAKE_VERSION,
         .frames_in_flight = AMW_MAX_FRAMES_IN_FLIGHT,
         .window_width = 1200,

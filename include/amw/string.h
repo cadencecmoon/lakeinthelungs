@@ -2,10 +2,10 @@
 
 #include <amw/bedrock.h>
 
-struct str {
+struct string {
     char *ptr;
     usize len;
 };
 
-#define str_init(cstr) (struct str){ .ptr = cstr, .len = sizeof(cstr)-1 }
-#define str_init_null  (struct str){ .ptr = NULL, .len = 0 }
+#define string_init(cstr) (struct string){ .ptr = cstr, .len = sizeof(cstr)-1 }
+#define string_init_null  (struct string){ .ptr = NULL, .len = 0 }

@@ -217,8 +217,6 @@ static void *map_virtual_memory(usize budget, usize huge_page_size)
         log_fatal("Failed to reserve virtual memory (VirtualAlloc) of %lu bytes (%lumb), error: %lu.", budget, budget>>20, GetLastError());
         return NULL;
     }
-#elif defined(PLATFORM_EMSCRIPTEN)
-    /* XXX WASM __heap_base ?? */
 #endif
     return mapped;
 }
@@ -232,8 +230,6 @@ static void unmap_virtual_memory(void *mapped, usize size)
 #elif defined(PLATFORM_WINDOWS)
     BOOL res = VirtualFreeEx(GetCurrentProcess(), (LPVOID)mapped, 0, MEM_RELEASE);
     assert_debug(res != FALSE)
-#elif defined(PLATFORM_EMSCRIPTEN)
-    /* XXX WASM __heap_base ?? */
 #endif
 }
 
@@ -262,8 +258,6 @@ static b32 commit_physical_memory(void *mapped, usize page_offset, usize size)
                 size, size >> 20, page_offset, page_offset >> 20, GetLastError());
         return false;
     }
-#elif defined(PLATFORM_EMSCRIPTEN)
-    /* XXX WASM __heap_base ?? */
 #endif
 #ifdef DEBUG
     log_debug("Commited %lu bytes (%lu MB) of physical memory at %lu offset (%lu MB).", 
@@ -296,8 +290,6 @@ static b32 decommit_physical_memory(void *mapped, usize page_offset, usize size)
                   size, size >> 20, page_offset, page_offset >> 20, GetLastError());
         return false;
     }
-#elif defined(PLATFORM_EMSCRIPTEN)
-    /* XXX WASM __heap_base ?? */
 #endif
 #ifdef DEBUG
     log_debug("Released %lu bytes (%lu MB) of physical memory at %lu offset (%lu MB).", 
@@ -542,7 +534,7 @@ struct rivens {
 static attr_inline
 struct tls *get_thread_local_storage(struct rivens *riven)
 {
-    u32 index = riven_thread_index(riven);
+    u32 index = riven_thread_index(riven, NULL);
     return &riven->tls[index];
 }
 
@@ -775,7 +767,7 @@ void heart(void *raw_heart_data)
     struct rivens *riven = data->riven;
     const u32 thread_count = riven->thread_count;
 
-    data->result = data->procedure(riven, riven->thread_count, data->argument);
+    data->result = data->procedure(riven, data->argument);
 
     /* returned from main, tell all threads to kys */
     for (u32 i = 0; i < thread_count; i++) {
@@ -841,10 +833,13 @@ void riven_acquire_exile(
     if (counters) *counters = get_lock(riven, 1);
 }
 
-u32 riven_thread_index(struct rivens *riven)
+u32 riven_thread_index(struct rivens *riven, u32 *out_thread_count)
 {
     s32 *index = NULL;
     thread_t current = thread_current();
+
+    if (out_thread_count)
+        *out_thread_count = riven->thread_count;
 
     hash_table_find(&riven->table, &current, sizeof(thread_t), &index);
     return (u32)*index;
@@ -1162,7 +1157,7 @@ void *riven_alloc(
         struct tagged_heap *heap = &riven->reserved_heaps[tag];
         return chained_allocation(riven, heap, size, alignment);
     } else if (tag < rivens_tag_true_count) {
-        u32 index = riven_thread_index(riven);
+        u32 index = riven_thread_index(riven, NULL);
         struct tagged_heap *heap = &riven->drifter_heaps[tag - rivens_tag_reserved_count][index];
         return acquire_tagged_resources(riven, heap, size, alignment);
     }

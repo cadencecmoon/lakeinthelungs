@@ -52,7 +52,7 @@ s32 hadal_wayland_entry_point(struct hadopelagic *hadal, b32 verbose)
 
     hadal->interface = (struct hadal_interface){
         .id = hadal_backend_wayland,
-        .name = str_init("wayland"),
+        .name = string_init("wayland"),
         .display_init = hadal_wayland_display_init,
         .display_fini = hadal_wayland_display_fini,
     };

@@ -46,7 +46,7 @@ u64 bits_popcnt_lookup(const u8 *data, usize n)
 }
 
 #ifdef ARCH_X86_AVX2
-usize bits_ffs_lookup_avx2(const u8 *data, usize n)
+usize bits_ffs_avx2(const u8 *data, usize n)
 {
     usize o = 0;
     while (o + 32 <= n) {
@@ -68,7 +68,7 @@ usize bits_ffs_lookup_avx2(const u8 *data, usize n)
     return 0lu;
 }
 
-u64 bits_popcnt_lookup_avx2(const u8 *data, usize n)
+u64 bits_popcnt_avx2(const u8 *data, usize n)
 {
     usize o = 0;
     const __m256i lookup = _mm256_setr_epi8(
@@ -111,7 +111,7 @@ u64 bits_popcnt_lookup_avx2(const u8 *data, usize n)
 #endif
 
 #ifdef ARCH_X86_SSE2
-usize bits_ffs_lookup_sse2(const u8 *data, usize n)
+usize bits_ffs_sse2(const u8 *data, usize n)
 {
     usize o = 0;
     while (o + 16 <= n) {
@@ -141,7 +141,7 @@ usize bits_ffs_lookup_sse2(const u8 *data, usize n)
     return 0lu;
 }
 
-u64 bits_popcnt_lookup_sse2(const u8 *data, usize n)
+u64 bits_popcnt_sse2(const u8 *data, usize n)
 {
     usize o = 0;
     const __m128i lookup = _mm_setr_epi8(
@@ -179,13 +179,13 @@ u64 bits_popcnt_lookup_sse2(const u8 *data, usize n)
 #endif
 
 #ifdef ARCH_ARM_NEON
-usize bits_ffs_lookup_neon(const u8 *data, usize n)
+usize bits_ffs_neon(const u8 *data, usize n)
 {
     assert_debug(!"TODO");
     (void)data; (void)n; return 0;
 }
 
-u64 bits_popcnt_lookup_neon(const u8 *data, usize n)
+u64 bits_popcnt_neon(const u8 *data, usize n)
 {
     assert_debug(!"TODO");
     (void)data; (void)n; return 0;
@@ -193,13 +193,13 @@ u64 bits_popcnt_lookup_neon(const u8 *data, usize n)
 #endif
 
 #ifdef ARCH_RISCV_V
-usize bits_ffs_lookup_rvv(const u8 *data, usize n)
+usize bits_ffs_rvv(const u8 *data, usize n)
 {
     assert_debug(!"TODO");
     (void)data; (void)n; return 0;
 }
 
-u64 bits_popcnt_lookup_rvv(const u8 *data, usize n) 
+u64 bits_popcnt_rvv(const u8 *data, usize n) 
 {
     assert_debug(!"TODO");
     (void)data; (void)n; return 0;

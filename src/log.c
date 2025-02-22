@@ -1,4 +1,5 @@
 #include <amw/log.h>
+#include <amw/threads.h>
 
 #include <stdio.h>
 #include <time.h>
@@ -74,7 +75,7 @@ void log_message(
         timestamp[strftime(timestamp, sizeof(timestamp), "%H:%M:%S", log.time)] = '\0';
 
         fprintf(stderr, "%s %s%s ", timestamp, level_colors[log.level], level_strings[log.level]);
-        fprintf(stderr, "\033[38;5;8m%22s:%-5d%s \x1b[0m", log.file, log.line, level_colors[log.level]);
+        fprintf(stderr, "\033[38;5;8m%22s:%-6d%lx%s \x1b[0m", log.file, log.line, thread_current(), level_colors[log.level]);
     } else {
         fprintf(stderr, "%s%s \x1b[0m", level_colors[log.level], level_strings[log.level]);
     }

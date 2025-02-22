@@ -2,13 +2,18 @@
 
 #include <amw/bedrock.h>
 
+#include <amw/bits.h>
 #include <amw/endian.h>
 #include <amw/hadal.h>
+#include <amw/harridan.h>
 #include <amw/hash_table.h>
+#include <amw/input.h>
 #include <amw/log.h>
+#include <amw/octavia.h>
 #include <amw/plugin.h>
 #include <amw/process.h>
 #include <amw/riven.h>
+#include <amw/string.h>
 #include <amw/threads.h>
 #include <amw/time.h>
 

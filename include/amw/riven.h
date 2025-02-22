@@ -55,7 +55,6 @@ typedef void (*PFN_rivens_job)(rivens_arg_t argument);
 /** Applications entry point to the entire system. */
 typedef s32 (*PFN_rivens_heart)(
     struct rivens  *riven, 
-    const u32       thread_count, 
     rivens_arg_t    argument);
 
 /** Defines a job that will be running within a fiber's context. Name is used for profilling, can be NULL. */
@@ -113,9 +112,10 @@ void riven_release_exile(rivens_chain_t chain)
     if (counter) atomic_store_explicit(counter, 0lu, memory_order_release);
 }
 
-/** Returns the thread index of the current thread. The index is acquired by a hash lookup of the thread id. */
+/** Returns the thread index of the current thread. The index is acquired by a hash lookup of the thread id.
+ *  The out_thread_count is optional, if one wishes to retrieve the total number of threads in the system. */
 AMWAPI attr_hot attr_nonnull(1)
-u32 riven_thread_index(struct rivens *riven);
+u32 riven_thread_index(struct rivens *riven, u32 *out_thread_count);
 
 /** Allocates memory of any size under a given heap tag. Different allocation strategies are used 
  *  depending on internal parameters of Riven, on the tag, and on the requested size. */
