@@ -75,8 +75,13 @@ enum hadal_backend_id {
 /** Defines an entry point for the display backend. Verbose will enable log messages, including errors. */
 typedef s32 (*PFN_hadal_entry_point)(struct hadopelagic *hadal, b32 verbose);
 
+AMWAPI s32 hadal_wayland_entry_point(struct hadopelagic *hadal, b32 verbose);
+
+/** Picks the first valid entry point from the available above. */
+AMWAPI s32 hadal_entry_point(struct hadopelagic *hadal, b32 verbose);
+
 /** Initializes the display backend. */
-typedef s32 (*PFN_hadal_display_init)(struct hadopelagic *hadal, u32 width, u32 height, struct str *title);
+typedef s32 (*PFN_hadal_display_init)(struct hadopelagic *hadal);
 
 /** Cleanups the display backend. */
 typedef void (*PFN_hadal_display_fini)(struct hadopelagic *hadal);
@@ -144,3 +149,19 @@ struct hadopelagic {
     s8                      keys[keycode_last + 1];
     s8                      mouse_buttons[mouse_button_last + 1];
 };
+
+/** Initialzies the display backend from a given configuration and entry point. */
+AMWAPI attr_nonnull_all
+s32 hadal_init(
+    struct hadopelagic     *hadal,
+    PFN_hadal_entry_point   entry,
+    struct rivens          *riven,
+    rivens_tag_t            tag,
+    u32                     width,
+    u32                     height,
+    const struct str       *title,
+    b32                     verbose_backend);
+
+/** Closes the display backend and zeroes the state of hadal. */
+AMWAPI attr_nonnull_all
+void hadal_fini(struct hadopelagic *hadal);

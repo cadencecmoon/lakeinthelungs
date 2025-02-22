@@ -8,31 +8,54 @@ static_assert(AMW_MAX_FRAMES_IN_FLIGHT >= 3, "AMW_MAX_FRAMES_IN_FLIGHT must be 3
 #define FRAME_TIME_PRINT_INTERVAL_MS 1000
 
 struct engine_hints {
-    const char *engine_name;
-    const char *game_name;
-    u32         build_version;
-    u32         frames_in_flight;
+    const struct str    engine_name;
+    const struct str    game_name;
+    u32                 build_version;
 
-    usize       riven_memory_budget_size;
-    usize       riven_fiber_stack_size;
-    u32         riven_fiber_count;
-    u32         riven_thread_count;
-    u32         riven_tagged_heap_count;
-    u32         riven_log2_work_count;
-    u32         riven_log2_memory_count;
+    u32                 frames_in_flight;
+
+    u32                 window_width, window_height;
+    const struct str    window_title;
+
+    usize               riven_memory_budget_size;
+    usize               riven_fiber_stack_size;
+    u32                 riven_fiber_count;
+    u32                 riven_thread_count;
+    u32                 riven_tagged_heap_count;
+    u32                 riven_log2_work_count;
+    u32                 riven_log2_memory_count;
+
+    b32                 verbose;
 };
 
 static void lake_fini(struct lake *lake)
 {
-    (void)lake;
+    hadal_fini(&lake->hadal);
 }
 
 static s32 lake_init(
     struct lake         *lake,
     struct engine_hints *hints)
 {
-    (void)lake;
-    (void)hints;
+    struct rivens *riven = lake->riven;
+
+    s32 res = result_success;
+
+    res = hadal_init(
+        &lake->hadal,
+        hadal_entry_point,
+        riven, 
+        rivens_tag_roots,
+        hints->window_width,
+        hints->window_height,
+        &hints->window_title,
+        hints->verbose);
+    if (res != result_success) {
+        hadal_fini(&lake->hadal);
+        return res;
+    }
+
+
     return result_success;
 }
 
@@ -172,10 +195,13 @@ s32 amw_main(s32 argc, char **argv)
 {
     s32 res = result_success;
     struct engine_hints hints = {
-        .engine_name = "A Moonlit Walk Engine",
-        .game_name = "Lake in the Lungs", /* XXX localize the name? */
+        .engine_name = str_init("A Moonlit Walk Engine"),
+        .game_name = str_init("Lake in the Lungs"), /* XXX localize the name? */
         .build_version = LAKE_VERSION,
         .frames_in_flight = AMW_MAX_FRAMES_IN_FLIGHT,
+        .window_width = 1200,
+        .window_height = 900,
+        .window_title = hints.game_name,
         .riven_memory_budget_size = 0,
         .riven_fiber_stack_size = 96*1024,
         .riven_fiber_count = 0,
@@ -183,6 +209,9 @@ s32 amw_main(s32 argc, char **argv)
         .riven_tagged_heap_count = 0,
         .riven_log2_work_count = 11,
         .riven_log2_memory_count = 9,
+#ifndef NDEBUG
+        .verbose = true,
+#endif
     };
     log_set_verbose(argc-1);
 
