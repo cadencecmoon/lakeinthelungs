@@ -506,6 +506,10 @@ struct harridan {
     /** An instance makes Vulkan functions available to us. It is used for driver calls,
      *  and holds information about the application before passing it to a rendering device. */
     VkInstance                  instance;
+    /** The Vulkan object of a logical rendering device, using the given physical device. */
+    VkDevice                    logical;
+    /** A handle of the physical device used to create this rendering device. */
+    VkPhysicalDevice            physical;
     /** Used for logging messages and profiling with debug mode and validation layers enabled. */
     VkDebugUtilsMessengerEXT    debug_messenger;
     /** Host allocation callbacks implemented with riven. */
