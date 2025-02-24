@@ -193,6 +193,11 @@ static s32 lake_in_the_lungs(
 
         print_frame_time(FRAME_TIME_PRINT_INTERVAL_MS);
     }
+
+    /* wait for any existing work to finish */
+    for (u32 i = 0; i < AMW_MAX_FRAMES_IN_FLIGHT; i++)
+        riven_unchain(riven, frames[i].chain);
+
     dt = median_frame_time();
     log_info("Last recorded frame time: %.3f ms (%.0f FPS)", dt, 1000/dt);
     lake_fini(lake);
@@ -216,7 +221,7 @@ s32 amw_main(s32 argc, char **argv)
         .riven_memory_budget_size = 0,
         .riven_fiber_stack_size = 96*1024,
         .riven_fiber_count = 0,
-        .riven_thread_count = 0,
+        .riven_thread_count = 1,
         .riven_tagged_heap_count = 0,
         .riven_log2_work_count = 11,
         .riven_log2_memory_count = 9,

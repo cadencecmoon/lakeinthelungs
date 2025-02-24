@@ -1447,7 +1447,7 @@ s32 riven_moonlit_walk(
     assert_debug(!(((sptr)riven->free)          & 15))
     assert_debug(!(((sptr)riven->locks)         & 15))
     assert_debug(!(((sptr)riven->tagged_heaps)  & 15))
-    assert_debug(!(((sptr)riven->bitmap)        & (VECTOR_ALIGNMENT-1)))
+    assert_debug(!(((sptr)riven->bitmap)        & 15))
     assert_debug(!(((sptr)riven->stack)         & 15))
 
     /* setup the ring buffers */

@@ -82,17 +82,16 @@ enum vk_extensions {
     vk_extension_ray_tracing_pipeline_bit               = (1ull << 20), /**< VK_KHR_ray_tracing_pipeline */
     vk_extension_ray_tracing_maintenance1_bit           = (1ull << 21), /**< VK_KHR_ray_tracing_maintenance1 */
     vk_extension_video_queue_bit                        = (1ull << 22), /**< VK_KHR_video_queue */
-    vk_extension_video_encode_queue_bit                 = (1ull << 23), /**< VK_KHR_video_encode_queue */
-    vk_extension_video_decode_queue_bit                 = (1ull << 24), /**< VK_KHR_video_decode_queue */
+    vk_extension_video_decode_queue_bit                 = (1ull << 23), /**< VK_KHR_video_decode_queue */
     /* AMD hardware */
-    vk_extension_amd_device_coherent_memory_bit         = (1ull << 25), /**< VK_AMD_device_coherent_memory */
+    vk_extension_amd_device_coherent_memory_bit         = (1ull << 24), /**< VK_AMD_device_coherent_memory */
     /* core 1.4, for backwards compatibility */
-    vk_extension_dynamic_rendering_local_read_bit       = (1ull << 26), /**< VK_KHR_dynamic_rendering_local_read */
-    vk_extension_maintenance5_bit                       = (1ull << 27), /**< VK_KHR_maintenance5 */
+    vk_extension_dynamic_rendering_local_read_bit       = (1ull << 25), /**< VK_KHR_dynamic_rendering_local_read */
+    vk_extension_maintenance5_bit                       = (1ull << 26), /**< VK_KHR_maintenance5 */
     /* core 1.3, for backwards compatibility */
-    vk_extension_dynamic_rendering_bit                  = (1ull << 28), /**< VK_KHR_dynamic_rendering */
-    vk_extension_synchronization2_bit                   = (1ull << 29), /**< VK_KHR_synchronization2 */
-    vk_extension_maintenance4_bit                       = (1ull << 30), /**< VK_KHR_maintenance4 */
+    vk_extension_dynamic_rendering_bit                  = (1ull << 27), /**< VK_KHR_dynamic_rendering */
+    vk_extension_synchronization2_bit                   = (1ull << 28), /**< VK_KHR_synchronization2 */
+    vk_extension_maintenance4_bit                       = (1ull << 29), /**< VK_KHR_maintenance4 */
 };
 #define vk_extension_mask_raytracing \
     (vk_extension_deferred_host_operations_bit | \
@@ -112,7 +111,6 @@ enum vk_extensions {
 #define vk_extension_mask_video \
     (vk_extension_synchronization2_bit | \
      vk_extension_video_queue_bit | \
-     vk_extension_video_encode_queue_bit | \
      vk_extension_video_decode_queue_bit)
 #define vk_extension_mask_required_device \
     (vk_extension_swapchain_bit | \
@@ -428,6 +426,21 @@ struct vk_api {
     PFN_vkGetRayTracingCaptureReplayShaderGroupHandlesKHR       vkGetRayTracingCaptureReplayShaderGroupHandlesKHR;
     PFN_vkGetRayTracingShaderGroupHandlesKHR                    vkGetRayTracingShaderGroupHandlesKHR;
     PFN_vkGetRayTracingShaderGroupStackSizeKHR                  vkGetRayTracingShaderGroupStackSizeKHR;
+
+    /* video coding */
+    PFN_vkBindVideoSessionMemoryKHR                             vkBindVideoSessionMemoryKHR;
+    PFN_vkCmdBeginVideoCodingKHR                                vkCmdBeginVideoCodingKHR;
+    PFN_vkCmdControlVideoCodingKHR                              vkCmdControlVideoCodingKHR;
+    PFN_vkCmdDecodeVideoKHR                                     vkCmdDecodeVideoKHR;
+    PFN_vkCmdEndVideoCodingKHR                                  vkCmdEndVideoCodingKHR;
+    PFN_vkCreateVideoSessionKHR                                 vkCreateVideoSessionKHR;
+    PFN_vkCreateVideoSessionParametersKHR                       vkCreateVideoSessionParametersKHR;
+    PFN_vkDestroyVideoSessionKHR                                vkDestroyVideoSessionKHR;
+    PFN_vkDestroyVideoSessionParametersKHR                      vkDestroyVideoSessionParametersKHR;
+    PFN_vkGetPhysicalDeviceVideoCapabilitiesKHR                 vkGetPhysicalDeviceVideoCapabilitiesKHR; /* instance */
+    PFN_vkGetPhysicalDeviceVideoFormatPropertiesKHR             vkGetPhysicalDeviceVideoFormatPropertiesKHR; /* instance */
+    PFN_vkGetVideoSessionMemoryRequirementsKHR                  vkGetVideoSessionMemoryRequirementsKHR;
+    PFN_vkUpdateVideoSessionParametersKHR                       vkUpdateVideoSessionParametersKHR;
 };
 
 /** Loads the Vulkan driver library and saves global entry point procedures. */
@@ -488,18 +501,27 @@ struct swapchain {
     u32                         image_count;
 };
 
+/** Collects bits of optional features or condition of the physical device. */
+enum harridan_feat {
+    harridan_feat_is_discrete           = (1u << 1), /**< When the GPU is of discrete type. */
+    harridan_feat_async_compute         = (1u << 2), /**< When the compute queue is not overloaded with the graphics queue. */
+    harridan_feat_async_transfer        = (1u << 3), /**< When the transfer queue is not overloaded with the graphics queue. */
+    harridan_feat_async_sparse_binding  = (1u << 4), /**< When the sparse binding queue is not overloaded with the graphics queue. */
+    harridan_feat_async_decode_video    = (1u << 5), /**< When the sparse binding queue is not overloaded with the graphics queue. */
+    harridan_feat_h264_video_coding     = (1u << 6), /**< Whether accelerated video coding of format H.264 is available. */
+    harridan_feat_presentation_support  = (1u << 7), /**< The GPU can present to a window surface via the swapchain. */
+};
+
 /** Controls the rendering device overall state. */
 enum harridan_flags {
     harridan_flag_device_is_valid       = (1u << 0), /**< True for a valid rendering device. */
     harridan_flag_debug_utils           = (1u << 1), /**< Set when debug labeling and validation layers are enabled. */
-    harridan_flag_async_compute         = (1u << 2), /**< When the compute queue is not overloaded with the graphics queue. */
-    harridan_flag_async_transfer        = (1u << 3), /**< When the transfer queue is not overloaded with the graphics queue. */
-    harridan_flag_async_sparse_binding  = (1u << 4), /**< When the sparse binding queue is not overloaded with the graphics queue. */
-    harridan_flag_video_coding          = (1u << 5), /**< Whether accelerated video coding is available. */
+    harridan_flag_vsync_enabled         = (1u << 2), /**< To enable vertical synchronization. */
 };
 
 struct harridan {
     at_u32                      flags;
+    u32                         feats;
 
     rivens_tag_t                device_tag;
     rivens_tag_t                render_state_tag;
@@ -517,12 +539,11 @@ struct harridan {
     /** TODO Host allocation callbacks implemented with riven. */
     VkAllocationCallbacks       allocation_callbacks;
 
-    u32                         graphics_queue_family_index;
-    u32                         compute_queue_family_index;
-    u32                         transfer_queue_family_index;
-    u32                         sparse_queue_family_index;
-    u32                         decode_queue_family_index;
-    u32                         encode_queue_family_index;
+    u32                         graphics_queue_family;
+    u32                         compute_queue_family;
+    u32                         transfer_queue_family;
+    u32                         sparse_queue_family;
+    u32                         decode_queue_family;
     /** For convenience we put unique indices in an array. */
     u32                        *queue_family_indices;
     /** How many unique queue families are currently in use, very much device dependent. */
@@ -533,7 +554,6 @@ struct harridan {
     VkQueue                     transfer_queue;
     VkQueue                     sparse_queue;
     VkQueue                     decode_queue;
-    VkQueue                     encode_queue;
 
     /** Our means of presenting rendered images. */
     struct swapchain            swapchain;
@@ -553,7 +573,7 @@ struct harridan {
     VkPhysicalDeviceMemoryProperties2                   memory_properties2;
     VkPhysicalDeviceMemoryBudgetPropertiesEXT           memory_budget;
 
-    /** Information about optional features supported by the physical device. */
+    /** Information about features supported by the physical device. */
     VkPhysicalDeviceFeatures2                           features2;
     VkPhysicalDeviceVulkan11Features                    features_11;
     VkPhysicalDeviceVulkan12Features                    features_12;
@@ -568,8 +588,6 @@ struct harridan {
     /** Information about capabilities of accelerated video coding. */
     VkVideoDecodeH264ProfileInfoKHR                     decode_h264_profile;
     VkVideoDecodeH264CapabilitiesKHR                    decode_h264_capabilities;
-    VkVideoEncodeH264ProfileInfoKHR                     encode_h264_profile;
-    VkVideoEncodeH264CapabilitiesKHR                    encode_h264_capabilities;
     VkVideoProfileInfoKHR                               video_profile;
     VkVideoDecodeCapabilitiesKHR                        video_decode_capabilities;
     VkVideoCapabilitiesKHR                              video_capabilities;

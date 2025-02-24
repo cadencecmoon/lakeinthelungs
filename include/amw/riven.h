@@ -39,6 +39,8 @@ enum rivens_tag {
     /** The last reserved tag, doesn't correspond to the internal tagged heaps. */
     rivens_tag_true_count,
 };
+/** For scratch allocations outside of the parallel gameloop. */
+#define rivens_tag_drifter rivens_tag_simulation
 
 /** A chain represents an atomic counter that is bound to a job queue. If used within a 
  *  call to Riven's job system, it will block until all jobs associated with the chain finish. 

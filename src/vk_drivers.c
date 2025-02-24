@@ -91,7 +91,7 @@ b32 load_vulkan_instance_procedures(struct vk_api *api, VkInstance instance)
 {
     assert_debug(api->module && api->vkGetInstanceProcAddr);
 
-    /* core procedures */
+    /* core instance */
     api->vkCreateDevice = (PFN_vkCreateDevice)instance_proc_address(api, instance, "vkCreateDevice");
     api->vkDestroyInstance = (PFN_vkDestroyInstance)instance_proc_address(api, instance, "vkDestroyInstance");
     api->vkEnumerateDeviceExtensionProperties = (PFN_vkEnumerateDeviceExtensionProperties)instance_proc_address(api, instance, "vkEnumerateDeviceExtensionProperties");
@@ -111,143 +111,67 @@ b32 load_vulkan_instance_procedures(struct vk_api *api, VkInstance instance)
     api->vkGetPhysicalDeviceQueueFamilyProperties = (PFN_vkGetPhysicalDeviceQueueFamilyProperties)instance_proc_address(api, instance, "vkGetPhysicalDeviceQueueFamilyProperties");
     api->vkGetPhysicalDeviceQueueFamilyProperties2 = (PFN_vkGetPhysicalDeviceQueueFamilyProperties2)instance_proc_address(api, instance, "vkGetPhysicalDeviceQueueFamilyProperties2");
 
-    if (!api->vkCreateDevice ||
-        !api->vkDestroyInstance ||
-        !api->vkEnumerateDeviceExtensionProperties ||
-        !api->vkEnumeratePhysicalDeviceGroups ||
-        !api->vkEnumeratePhysicalDevices ||
-        !api->vkGetDeviceProcAddr ||
-        !api->vkGetPhysicalDeviceFeatures ||
-        !api->vkGetPhysicalDeviceFeatures2 ||
-        !api->vkGetPhysicalDeviceFormatProperties ||
-        !api->vkGetPhysicalDeviceFormatProperties2 ||
-        !api->vkGetPhysicalDeviceImageFormatProperties ||
-        !api->vkGetPhysicalDeviceImageFormatProperties2 ||
-        !api->vkGetPhysicalDeviceMemoryProperties ||
-        !api->vkGetPhysicalDeviceMemoryProperties2 ||
-        !api->vkGetPhysicalDeviceProperties ||
-        !api->vkGetPhysicalDeviceProperties2 ||
-        !api->vkGetPhysicalDeviceQueueFamilyProperties ||
-        !api->vkGetPhysicalDeviceQueueFamilyProperties2)
-        return false;
-
     /* surface */
-    if (api->extensions & vk_extension_surface_bit) {
-        api->vkDestroySurfaceKHR = (PFN_vkDestroySurfaceKHR)instance_proc_address(api, instance, "vkDestroySurfaceKHR");
-        api->vkGetPhysicalDeviceSurfaceSupportKHR = (PFN_vkGetPhysicalDeviceSurfaceSupportKHR)instance_proc_address(api, instance, "vkGetPhysicalDeviceSurfaceSupportKHR");
-        api->vkGetPhysicalDeviceSurfaceCapabilitiesKHR = (PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR)instance_proc_address(api, instance, "vkGetPhysicalDeviceSurfaceCapabilitiesKHR");
-        api->vkGetPhysicalDeviceSurfaceFormatsKHR = (PFN_vkGetPhysicalDeviceSurfaceFormatsKHR)instance_proc_address(api, instance, "vkGetPhysicalDeviceSurfaceFormatsKHR");
-        api->vkGetPhysicalDeviceSurfacePresentModesKHR = (PFN_vkGetPhysicalDeviceSurfacePresentModesKHR)instance_proc_address(api, instance, "vkGetPhysicalDeviceSurfacePresentModesKHR");
+    api->vkDestroySurfaceKHR = (PFN_vkDestroySurfaceKHR)instance_proc_address(api, instance, "vkDestroySurfaceKHR");
+    api->vkGetPhysicalDeviceSurfaceSupportKHR = (PFN_vkGetPhysicalDeviceSurfaceSupportKHR)instance_proc_address(api, instance, "vkGetPhysicalDeviceSurfaceSupportKHR");
+    api->vkGetPhysicalDeviceSurfaceCapabilitiesKHR = (PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR)instance_proc_address(api, instance, "vkGetPhysicalDeviceSurfaceCapabilitiesKHR");
+    api->vkGetPhysicalDeviceSurfaceFormatsKHR = (PFN_vkGetPhysicalDeviceSurfaceFormatsKHR)instance_proc_address(api, instance, "vkGetPhysicalDeviceSurfaceFormatsKHR");
+    api->vkGetPhysicalDeviceSurfacePresentModesKHR = (PFN_vkGetPhysicalDeviceSurfacePresentModesKHR)instance_proc_address(api, instance, "vkGetPhysicalDeviceSurfacePresentModesKHR");
 
-        if (!api->vkDestroySurfaceKHR ||
-            !api->vkGetPhysicalDeviceSurfaceSupportKHR ||
-            !api->vkGetPhysicalDeviceSurfaceCapabilitiesKHR ||
-            !api->vkGetPhysicalDeviceSurfaceFormatsKHR ||
-            !api->vkGetPhysicalDeviceSurfacePresentModesKHR)
-            return false; 
-    }
 #if defined(VK_KHR_win32_surface)
-    if (api->extensions & vk_extension_win32_surface_bit) {
-        api->vkCreateWin32SurfaceKHR = (PFN_vkCreateWin32SurfaceKHR)instance_proc_address(api, instance, "vkCreateWin32SurfaceKHR");
-        api->vkGetPhysicalDeviceWin32PresentationSupportKHR = (PFN_vkGetPhysicalDeviceWin32PresentationSupportKHR)instance_proc_address(api, instance, "vkGetPhysicalDeviceWin32PresentationSupportKHR");
-
-        if (!api->vkCreateWin32SurfaceKHR || 
-            !api->vkGetPhysicalDeviceWin32PresentationSupportKHR)
-            return false;
-    }
+    api->vkCreateWin32SurfaceKHR = (PFN_vkCreateWin32SurfaceKHR)instance_proc_address(api, instance, "vkCreateWin32SurfaceKHR");
+    api->vkGetPhysicalDeviceWin32PresentationSupportKHR = (PFN_vkGetPhysicalDeviceWin32PresentationSupportKHR)instance_proc_address(api, instance, "vkGetPhysicalDeviceWin32PresentationSupportKHR");
 #endif /* VK_KHR_win32_surface */
+
 #if defined(VK_EXT_metal_surface)
-    if (api->extensions & vk_extension_metal_surface_bit) {
-        api->vkCreateMetalSurfaceEXT = (PFN_vkCreateMetalSurfaceEXT)instance_proc_address(api, instance, "vkCreateMetalSurfaceEXT");
-
-        if (!api->vkCreateMetalSurfaceEXT)
-            return false;
-    }
+    api->vkCreateMetalSurfaceEXT = (PFN_vkCreateMetalSurfaceEXT)instance_proc_address(api, instance, "vkCreateMetalSurfaceEXT");
 #endif /* VK_EXT_metal_surface */
+
 #if defined(VK_KHR_wayland_surface)
-    if (api->extensions & vk_extension_wayland_surface_bit) {
-        api->vkCreateWaylandSurfaceKHR = (PFN_vkCreateWaylandSurfaceKHR)instance_proc_address(api, instance, "vkCreateWaylandSurfaceKHR");
-        api->vkGetPhysicalDeviceWaylandPresentationSupportKHR = (PFN_vkGetPhysicalDeviceWaylandPresentationSupportKHR)instance_proc_address(api, instance, "vkGetPhysicalDeviceWaylandPresentationSupportKHR");
-
-        if (!api->vkCreateWaylandSurfaceKHR || 
-            !api->vkGetPhysicalDeviceWaylandPresentationSupportKHR)
-            return false;
-    }
+    api->vkCreateWaylandSurfaceKHR = (PFN_vkCreateWaylandSurfaceKHR)instance_proc_address(api, instance, "vkCreateWaylandSurfaceKHR");
+    api->vkGetPhysicalDeviceWaylandPresentationSupportKHR = (PFN_vkGetPhysicalDeviceWaylandPresentationSupportKHR)instance_proc_address(api, instance, "vkGetPhysicalDeviceWaylandPresentationSupportKHR");
 #endif /* VK_KHR_wayland_surface */
+
 #if defined(VK_KHR_xcb_surface)
-    if (api->extensions & vk_extension_xcb_surface_bit) {
-        api->vkCreateXcbSurfaceKHR = (PFN_vkCreateXcbSurfaceKHR)instance_proc_address(api, instance, "vkCreateXcbSurfaceKHR");
-        api->vkGetPhysicalDeviceXcbPresentationSupportKHR = (PFN_vkGetPhysicalDeviceXcbPresentationSupportKHR)instance_proc_address(api, instance, "vkGetPhysicalDeviceXcbPresentationSupportKHR");
-
-        if (!api->vkCreateXcbSurfaceKHR || 
-            !api->vkGetPhysicalDeviceXcbPresentationSupportKHR) 
-            return false;
-    }
+    api->vkCreateXcbSurfaceKHR = (PFN_vkCreateXcbSurfaceKHR)instance_proc_address(api, instance, "vkCreateXcbSurfaceKHR");
+    api->vkGetPhysicalDeviceXcbPresentationSupportKHR = (PFN_vkGetPhysicalDeviceXcbPresentationSupportKHR)instance_proc_address(api, instance, "vkGetPhysicalDeviceXcbPresentationSupportKHR");
 #endif /* VK_KHR_xcb_surface */
+
 #if defined(VK_KHR_android_surface)
-    if (api->extensions & vk_extension_android_surface_bit) {
-        api->vkCreateAndroidSurfaceKHR = (PFN_vkCreateAndroidSurfaceKHR)instance_proc_address(api, instance, "vkCreateAndroidSurfaceKHR");
-
-        if (!api->vkCreateAndroidSurfaceKHR)
-            return false;
-    }
+    api->vkCreateAndroidSurfaceKHR = (PFN_vkCreateAndroidSurfaceKHR)instance_proc_address(api, instance, "vkCreateAndroidSurfaceKHR");
 #endif /* VK_KHR_android_surface */
+
 #if defined(VK_EXT_headless_surface)
-    if (api->extensions & vk_extension_headless_surface_bit) {
-        api->vkCreateHeadlessSurfaceEXT = (PFN_vkCreateHeadlessSurfaceEXT)instance_proc_address(api, instance, "vkCreateHeadlessSurfaceEXT");
-
-        if (!api->vkCreateHeadlessSurfaceEXT)
-            return false;
-    }
+    api->vkCreateHeadlessSurfaceEXT = (PFN_vkCreateHeadlessSurfaceEXT)instance_proc_address(api, instance, "vkCreateHeadlessSurfaceEXT");
 #endif /* VK_EXT_headless_surface */
-#if defined(VK_KHR_display)
-    if (api->extensions & vk_extension_display_bit) {
-        api->vkCreateDisplayModeKHR = (PFN_vkCreateDisplayModeKHR)instance_proc_address(api, instance, "vkCreateDisplayModeKHR");
-        api->vkCreateDisplayPlaneSurfaceKHR = (PFN_vkCreateDisplayPlaneSurfaceKHR)instance_proc_address(api, instance, "vkCreateDisplayPlaneSurfaceKHR");
-        api->vkGetDisplayModePropertiesKHR = (PFN_vkGetDisplayModePropertiesKHR)instance_proc_address(api, instance, "vkGetDisplayModePropertiesKHR");
-        api->vkGetDisplayPlaneCapabilitiesKHR = (PFN_vkGetDisplayPlaneCapabilitiesKHR)instance_proc_address(api, instance, "vkGetDisplayPlaneCapabilitiesKHR");
-        api->vkGetDisplayPlaneSupportedDisplaysKHR = (PFN_vkGetDisplayPlaneSupportedDisplaysKHR)instance_proc_address(api, instance, "vkGetDisplayPlaneSupportedDisplaysKHR");
-        api->vkGetPhysicalDeviceDisplayPlanePropertiesKHR= (PFN_vkGetPhysicalDeviceDisplayPlanePropertiesKHR)instance_proc_address(api, instance, "vkGetPhysicalDeviceDisplayPlanePropertiesKHR");
-        api->vkGetPhysicalDeviceDisplayPropertiesKHR = (PFN_vkGetPhysicalDeviceDisplayPropertiesKHR)instance_proc_address(api, instance, "vkGetPhysicalDeviceDisplayPropertiesKHR");
 
-        if (!api->vkCreateDisplayModeKHR ||
-            !api->vkCreateDisplayPlaneSurfaceKHR ||
-            !api->vkGetDisplayModePropertiesKHR ||
-            !api->vkGetDisplayPlaneCapabilitiesKHR ||
-            !api->vkGetDisplayPlaneSupportedDisplaysKHR ||
-            !api->vkGetPhysicalDeviceDisplayPlanePropertiesKHR ||
-            !api->vkGetPhysicalDeviceDisplayPropertiesKHR)
-            return false;
-    }
+#if defined(VK_KHR_display)
+    api->vkCreateDisplayModeKHR = (PFN_vkCreateDisplayModeKHR)instance_proc_address(api, instance, "vkCreateDisplayModeKHR");
+    api->vkCreateDisplayPlaneSurfaceKHR = (PFN_vkCreateDisplayPlaneSurfaceKHR)instance_proc_address(api, instance, "vkCreateDisplayPlaneSurfaceKHR");
+    api->vkGetDisplayModePropertiesKHR = (PFN_vkGetDisplayModePropertiesKHR)instance_proc_address(api, instance, "vkGetDisplayModePropertiesKHR");
+    api->vkGetDisplayPlaneCapabilitiesKHR = (PFN_vkGetDisplayPlaneCapabilitiesKHR)instance_proc_address(api, instance, "vkGetDisplayPlaneCapabilitiesKHR");
+    api->vkGetDisplayPlaneSupportedDisplaysKHR = (PFN_vkGetDisplayPlaneSupportedDisplaysKHR)instance_proc_address(api, instance, "vkGetDisplayPlaneSupportedDisplaysKHR");
+    api->vkGetPhysicalDeviceDisplayPlanePropertiesKHR= (PFN_vkGetPhysicalDeviceDisplayPlanePropertiesKHR)instance_proc_address(api, instance, "vkGetPhysicalDeviceDisplayPlanePropertiesKHR");
+    api->vkGetPhysicalDeviceDisplayPropertiesKHR = (PFN_vkGetPhysicalDeviceDisplayPropertiesKHR)instance_proc_address(api, instance, "vkGetPhysicalDeviceDisplayPropertiesKHR");
 #endif /* VK_KHR_display */
 
     /* debug utils */
-    if (api->extensions & vk_extension_debug_utils_bit) {
-        api->vkSetDebugUtilsObjectNameEXT = (PFN_vkSetDebugUtilsObjectNameEXT)instance_proc_address(api, instance, "vkSetDebugUtilsObjectNameEXT");
-        api->vkSetDebugUtilsObjectTagEXT = (PFN_vkSetDebugUtilsObjectTagEXT)instance_proc_address(api, instance, "vkSetDebugUtilsObjectTagEXT");
-        api->vkQueueBeginDebugUtilsLabelEXT = (PFN_vkQueueBeginDebugUtilsLabelEXT)instance_proc_address(api, instance, "vkQueueBeginDebugUtilsLabelEXT");
-        api->vkQueueEndDebugUtilsLabelEXT = (PFN_vkQueueEndDebugUtilsLabelEXT)instance_proc_address(api, instance, "vkQueueEndDebugUtilsLabelEXT");
-        api->vkQueueInsertDebugUtilsLabelEXT = (PFN_vkQueueInsertDebugUtilsLabelEXT)instance_proc_address(api, instance, "vkQueueInsertDebugUtilsLabelEXT");
-        api->vkCmdBeginDebugUtilsLabelEXT = (PFN_vkCmdBeginDebugUtilsLabelEXT)instance_proc_address(api, instance, "vkCmdBeginDebugUtilsLabelEXT");
-        api->vkCmdEndDebugUtilsLabelEXT = (PFN_vkCmdEndDebugUtilsLabelEXT)instance_proc_address(api, instance, "vkCmdEndDebugUtilsLabelEXT");
-        api->vkCmdInsertDebugUtilsLabelEXT = (PFN_vkCmdInsertDebugUtilsLabelEXT)instance_proc_address(api, instance, "vkCmdInsertDebugUtilsLabelEXT");
-        api->vkCreateDebugUtilsMessengerEXT = (PFN_vkCreateDebugUtilsMessengerEXT)instance_proc_address(api, instance, "vkCreateDebugUtilsMessengerEXT");
-        api->vkDestroyDebugUtilsMessengerEXT = (PFN_vkDestroyDebugUtilsMessengerEXT)instance_proc_address(api, instance, "vkDestroyDebugUtilsMessengerEXT");
-        api->vkSubmitDebugUtilsMessageEXT = (PFN_vkSubmitDebugUtilsMessageEXT)instance_proc_address(api, instance, "vkSubmitDebugUtilsMessageEXT");
+    api->vkSetDebugUtilsObjectNameEXT = (PFN_vkSetDebugUtilsObjectNameEXT)instance_proc_address(api, instance, "vkSetDebugUtilsObjectNameEXT");
+    api->vkSetDebugUtilsObjectTagEXT = (PFN_vkSetDebugUtilsObjectTagEXT)instance_proc_address(api, instance, "vkSetDebugUtilsObjectTagEXT");
+    api->vkQueueBeginDebugUtilsLabelEXT = (PFN_vkQueueBeginDebugUtilsLabelEXT)instance_proc_address(api, instance, "vkQueueBeginDebugUtilsLabelEXT");
+    api->vkQueueEndDebugUtilsLabelEXT = (PFN_vkQueueEndDebugUtilsLabelEXT)instance_proc_address(api, instance, "vkQueueEndDebugUtilsLabelEXT");
+    api->vkQueueInsertDebugUtilsLabelEXT = (PFN_vkQueueInsertDebugUtilsLabelEXT)instance_proc_address(api, instance, "vkQueueInsertDebugUtilsLabelEXT");
+    api->vkCmdBeginDebugUtilsLabelEXT = (PFN_vkCmdBeginDebugUtilsLabelEXT)instance_proc_address(api, instance, "vkCmdBeginDebugUtilsLabelEXT");
+    api->vkCmdEndDebugUtilsLabelEXT = (PFN_vkCmdEndDebugUtilsLabelEXT)instance_proc_address(api, instance, "vkCmdEndDebugUtilsLabelEXT");
+    api->vkCmdInsertDebugUtilsLabelEXT = (PFN_vkCmdInsertDebugUtilsLabelEXT)instance_proc_address(api, instance, "vkCmdInsertDebugUtilsLabelEXT");
+    api->vkCreateDebugUtilsMessengerEXT = (PFN_vkCreateDebugUtilsMessengerEXT)instance_proc_address(api, instance, "vkCreateDebugUtilsMessengerEXT");
+    api->vkDestroyDebugUtilsMessengerEXT = (PFN_vkDestroyDebugUtilsMessengerEXT)instance_proc_address(api, instance, "vkDestroyDebugUtilsMessengerEXT");
+    api->vkSubmitDebugUtilsMessageEXT = (PFN_vkSubmitDebugUtilsMessageEXT)instance_proc_address(api, instance, "vkSubmitDebugUtilsMessageEXT");
 
-        if (!api->vkSetDebugUtilsObjectNameEXT ||
-            !api->vkSetDebugUtilsObjectTagEXT ||
-            !api->vkQueueBeginDebugUtilsLabelEXT ||
-            !api->vkQueueEndDebugUtilsLabelEXT ||
-            !api->vkQueueInsertDebugUtilsLabelEXT ||
-            !api->vkCmdBeginDebugUtilsLabelEXT ||
-            !api->vkCmdEndDebugUtilsLabelEXT ||
-            !api->vkCmdInsertDebugUtilsLabelEXT ||
-            !api->vkCreateDebugUtilsMessengerEXT ||
-            !api->vkDestroyDebugUtilsMessengerEXT ||
-            !api->vkSubmitDebugUtilsMessageEXT) 
-            return false;
-    }
+    /* video coding */
+    api->vkGetPhysicalDeviceVideoCapabilitiesKHR = (PFN_vkGetPhysicalDeviceVideoCapabilitiesKHR)instance_proc_address(api, instance, "vkGetPhysicalDeviceVideoCapabilitiesKHR");
+    api->vkGetPhysicalDeviceVideoFormatPropertiesKHR = (PFN_vkGetPhysicalDeviceVideoFormatPropertiesKHR)instance_proc_address(api, instance, "vkGetPhysicalDeviceVideoFormatPropertiesKHR");
+
     return true;
 }
 
@@ -377,128 +301,6 @@ b32 load_vulkan_device_procedures(struct vk_api *api, VkDevice device, u32 api_v
 	api->vkUpdateDescriptorSets = (PFN_vkUpdateDescriptorSets)device_proc_address(api, device, "vkUpdateDescriptorSets");
 	api->vkWaitForFences = (PFN_vkWaitForFences)device_proc_address(api, device, "vkWaitForFences");
 
-    if (!api->vkAllocateCommandBuffers ||
-        !api->vkAllocateDescriptorSets ||
-        !api->vkAllocateMemory ||
-        !api->vkBeginCommandBuffer ||
-        !api->vkBindBufferMemory ||
-        !api->vkBindImageMemory ||
-        !api->vkCmdBeginQuery ||
-        !api->vkCmdBeginRenderPass ||
-        !api->vkCmdBindDescriptorSets ||
-        !api->vkCmdBindIndexBuffer ||
-        !api->vkCmdBindPipeline ||
-        !api->vkCmdBindVertexBuffers ||
-        !api->vkCmdBlitImage ||
-        !api->vkCmdClearAttachments ||
-        !api->vkCmdClearColorImage ||
-        !api->vkCmdClearDepthStencilImage ||
-        !api->vkCmdCopyBuffer ||
-        !api->vkCmdCopyBufferToImage ||
-        !api->vkCmdCopyImage ||
-        !api->vkCmdCopyImageToBuffer ||
-        !api->vkCmdCopyQueryPoolResults ||
-        !api->vkCmdDispatch ||
-        !api->vkCmdDispatchIndirect ||
-        !api->vkCmdDraw ||
-        !api->vkCmdDrawIndexed ||
-        !api->vkCmdDrawIndexedIndirect ||
-        !api->vkCmdDrawIndirect ||
-        !api->vkCmdEndQuery ||
-        !api->vkCmdEndRenderPass ||
-        !api->vkCmdExecuteCommands ||
-        !api->vkCmdFillBuffer ||
-        !api->vkCmdNextSubpass ||
-        !api->vkCmdPipelineBarrier ||
-        !api->vkCmdPushConstants ||
-        !api->vkCmdResetEvent ||
-        !api->vkCmdResetQueryPool ||
-        !api->vkCmdResolveImage ||
-        !api->vkCmdSetBlendConstants ||
-        !api->vkCmdSetDepthBias ||
-        !api->vkCmdSetDepthBounds ||
-        !api->vkCmdSetEvent ||
-        !api->vkCmdSetLineWidth ||
-        !api->vkCmdSetScissor ||
-        !api->vkCmdSetStencilCompareMask ||
-        !api->vkCmdSetStencilReference ||
-        !api->vkCmdSetStencilWriteMask ||
-        !api->vkCmdSetViewport ||
-        !api->vkCmdUpdateBuffer ||
-        !api->vkCmdWaitEvents ||
-        !api->vkCmdWriteTimestamp ||
-        !api->vkCreateBuffer ||
-        !api->vkCreateBufferView ||
-        !api->vkCreateCommandPool ||
-        !api->vkCreateComputePipelines ||
-        !api->vkCreateDescriptorPool ||
-        !api->vkCreateDescriptorSetLayout ||
-        !api->vkCreateEvent ||
-        !api->vkCreateFence ||
-        !api->vkCreateFramebuffer ||
-        !api->vkCreateGraphicsPipelines ||
-        !api->vkCreateImage ||
-        !api->vkCreateImageView ||
-        !api->vkCreatePipelineCache ||
-        !api->vkCreatePipelineLayout ||
-        !api->vkCreateQueryPool ||
-        !api->vkCreateRenderPass ||
-        !api->vkCreateSampler ||
-        !api->vkCreateSemaphore ||
-        !api->vkCreateShaderModule ||
-        !api->vkDestroyBuffer ||
-        !api->vkDestroyBufferView ||
-        !api->vkDestroyCommandPool ||
-        !api->vkDestroyDescriptorPool ||
-        !api->vkDestroyDescriptorSetLayout ||
-        !api->vkDestroyDevice ||
-        !api->vkDestroyEvent ||
-        !api->vkDestroyFence ||
-        !api->vkDestroyFramebuffer ||
-        !api->vkDestroyImage ||
-        !api->vkDestroyImageView ||
-        !api->vkDestroyPipeline ||
-        !api->vkDestroyPipelineCache ||
-        !api->vkDestroyPipelineLayout ||
-        !api->vkDestroyQueryPool ||
-        !api->vkDestroyRenderPass ||
-        !api->vkDestroySampler ||
-        !api->vkDestroySemaphore ||
-        !api->vkDestroyShaderModule ||
-        !api->vkDeviceWaitIdle ||
-        !api->vkEndCommandBuffer ||
-        !api->vkFlushMappedMemoryRanges ||
-        !api->vkFreeCommandBuffers ||
-        !api->vkFreeDescriptorSets ||
-        !api->vkFreeMemory ||
-        !api->vkGetBufferMemoryRequirements ||
-        !api->vkGetDeviceMemoryCommitment ||
-        !api->vkGetDeviceQueue ||
-        !api->vkGetEventStatus ||
-        !api->vkGetFenceStatus ||
-        !api->vkGetImageMemoryRequirements ||
-        !api->vkGetImageSparseMemoryRequirements ||
-        !api->vkGetImageSubresourceLayout ||
-        !api->vkGetPipelineCacheData ||
-        !api->vkGetQueryPoolResults ||
-        !api->vkGetRenderAreaGranularity ||
-        !api->vkInvalidateMappedMemoryRanges ||
-        !api->vkMapMemory ||
-        !api->vkMergePipelineCaches ||
-        !api->vkQueueBindSparse ||
-        !api->vkQueueSubmit ||
-        !api->vkQueueWaitIdle ||
-        !api->vkResetCommandBuffer ||
-        !api->vkResetCommandPool ||
-        !api->vkResetDescriptorPool ||
-        !api->vkResetEvent ||
-        !api->vkResetFences ||
-        !api->vkSetEvent ||
-        !api->vkUnmapMemory ||
-        !api->vkUpdateDescriptorSets ||
-        !api->vkWaitForFences)
-        return false;
-
     /* core 1.1 */
     api->vkBindBufferMemory2 = (PFN_vkBindBufferMemory2)device_proc_address(api, device, "vkBindBufferMemory2");
     api->vkBindImageMemory2 = (PFN_vkBindImageMemory2)device_proc_address(api, device, "vkBindImageMemory2");
@@ -517,24 +319,6 @@ b32 load_vulkan_device_procedures(struct vk_api *api, VkDevice device, u32 api_v
     api->vkTrimCommandPool = (PFN_vkTrimCommandPool)device_proc_address(api, device, "vkTrimCommandPool");
     api->vkUpdateDescriptorSetWithTemplate = (PFN_vkUpdateDescriptorSetWithTemplate)device_proc_address(api, device, "vkUpdateDescriptorSetWithTemplate");
 
-    if (!api->vkBindBufferMemory2 ||
-        !api->vkBindImageMemory2 ||
-        !api->vkCmdDispatchBase ||
-        !api->vkCmdSetDeviceMask ||
-        !api->vkCreateDescriptorUpdateTemplate ||
-        !api->vkCreateSamplerYcbcrConversion ||
-        !api->vkDestroyDescriptorUpdateTemplate ||
-        !api->vkDestroySamplerYcbcrConversion ||
-        !api->vkGetBufferMemoryRequirements2 ||
-        !api->vkGetDescriptorSetLayoutSupport ||
-        !api->vkGetDeviceGroupPeerMemoryFeatures ||
-        !api->vkGetDeviceQueue2 ||
-        !api->vkGetImageMemoryRequirements2 ||
-        !api->vkGetImageSparseMemoryRequirements2 ||
-        !api->vkTrimCommandPool ||
-        !api->vkUpdateDescriptorSetWithTemplate)
-        return false;
-
     /* core 1.2 */
     api->vkCmdDrawIndexedIndirectCount = (PFN_vkCmdDrawIndexedIndirectCount)device_proc_address(api, device, "vkCmdDrawIndexedIndirectCount");
     api->vkCmdDrawIndirectCount = (PFN_vkCmdDrawIndirectCount)device_proc_address(api, device, "vkCmdDrawIndirectCount");
@@ -546,19 +330,8 @@ b32 load_vulkan_device_procedures(struct vk_api *api, VkDevice device, u32 api_v
     api->vkSignalSemaphore = (PFN_vkSignalSemaphore)device_proc_address(api, device, "vkSignalSemaphore");
     api->vkWaitSemaphores = (PFN_vkWaitSemaphores)device_proc_address(api, device, "vkWaitSemaphores");
 
-    if (!api->vkCmdDrawIndexedIndirectCount ||
-        !api->vkCmdDrawIndirectCount ||
-        !api->vkGetBufferDeviceAddress ||
-        !api->vkGetBufferOpaqueCaptureAddress ||
-        !api->vkGetDeviceMemoryOpaqueCaptureAddress ||
-        !api->vkGetSemaphoreCounterValue ||
-        !api->vkResetQueryPool ||
-        !api->vkSignalSemaphore ||
-        !api->vkWaitSemaphores)
-        return false;
-
     /* core 1.3 */
-    if (api_version >= VK_MAKE_API_VERSION(0,1,3,0)) {
+    if (api_version >= VK_API_VERSION_1_3) {
         api->vkCmdBeginRendering = (PFN_vkCmdBeginRendering)device_proc_address(api, device, "vkCmdBeginRendering");
         api->vkCmdEndRendering = (PFN_vkCmdEndRendering)device_proc_address(api, device, "vkCmdEndRendering");
         api->vkCmdPipelineBarrier2 = (PFN_vkCmdPipelineBarrier2)device_proc_address(api, device, "vkCmdPipelineBarrier2");
@@ -580,25 +353,14 @@ b32 load_vulkan_device_procedures(struct vk_api *api, VkDevice device, u32 api_v
         api->vkCmdWriteTimestamp2 = (PFN_vkCmdWriteTimestamp2KHR)device_proc_address(api, device, "vkCmdWriteTimestamp2KHR");
         api->vkQueueSubmit2 = (PFN_vkQueueSubmit2KHR)device_proc_address(api, device, "vkQueueSubmit2KHR");
 
-        /* optional */
-        if (api->extensions & vk_extension_maintenance4_bit) {
-            api->vkGetDeviceBufferMemoryRequirements = (PFN_vkGetDeviceBufferMemoryRequirementsKHR)device_proc_address(api, device, "vkGetDeviceBufferMemoryRequirementsKHR");
-            api->vkGetDeviceImageMemoryRequirements = (PFN_vkGetDeviceImageMemoryRequirementsKHR)device_proc_address(api, device, "vkGetDeviceImageMemoryRequirementsKHR");
-            api->vkGetDeviceImageSparseMemoryRequirements = (PFN_vkGetDeviceImageSparseMemoryRequirementsKHR)device_proc_address(api, device, "vkGetDeviceImageSparseMemoryRequirementsKHR");
-        }
+        /* maintenance */
+        api->vkGetDeviceBufferMemoryRequirements = (PFN_vkGetDeviceBufferMemoryRequirementsKHR)device_proc_address(api, device, "vkGetDeviceBufferMemoryRequirementsKHR");
+        api->vkGetDeviceImageMemoryRequirements = (PFN_vkGetDeviceImageMemoryRequirementsKHR)device_proc_address(api, device, "vkGetDeviceImageMemoryRequirementsKHR");
+        api->vkGetDeviceImageSparseMemoryRequirements = (PFN_vkGetDeviceImageSparseMemoryRequirementsKHR)device_proc_address(api, device, "vkGetDeviceImageSparseMemoryRequirementsKHR");
     }
-    if (!api->vkCmdBeginRendering || 
-        !api->vkCmdEndRendering ||
-        !api->vkCmdPipelineBarrier2 ||
-        !api->vkCmdResetEvent2 ||
-        !api->vkCmdSetEvent2 ||
-        !api->vkCmdWaitEvents2 ||
-        !api->vkCmdWriteTimestamp2 ||
-        !api->vkQueueSubmit2)
-        return false;
 
     /* core 1.4 */
-    if (api_version >= VK_MAKE_API_VERSION(0,1,4,0)) {
+    if (api_version >= VK_API_VERSION_1_4) {
         api->vkCmdBindIndexBuffer2 = (PFN_vkCmdBindIndexBuffer2)device_proc_address(api, device, "vkCmdBindIndexBuffer2");
         api->vkCmdSetRenderingAttachmentLocations = (PFN_vkCmdSetRenderingAttachmentLocations)device_proc_address(api, device, "vkCmdSetRenderingAttachmentLocations");
         api->vkCmdSetRenderingInputAttachmentIndices = (PFN_vkCmdSetRenderingInputAttachmentIndices)device_proc_address(api, device, "vkCmdSetRenderingInputAttachmentIndices");
@@ -610,36 +372,20 @@ b32 load_vulkan_device_procedures(struct vk_api *api, VkDevice device, u32 api_v
         api->vkCmdSetRenderingAttachmentLocations = (PFN_vkCmdSetRenderingAttachmentLocationsKHR)device_proc_address(api, device, "vkCmdSetRenderingAttachmentLocationsKHR");
         api->vkCmdSetRenderingInputAttachmentIndices = (PFN_vkCmdSetRenderingInputAttachmentIndicesKHR)device_proc_address(api, device, "vkCmdSetRenderingInputAttachmentIndicesKHR");
 
-        /* optional */
-        if (api->extensions & vk_extension_maintenance5_bit) {
-            api->vkCmdBindIndexBuffer2 = (PFN_vkCmdBindIndexBuffer2KHR)device_proc_address(api, device, "vkCmdBindIndexBuffer2KHR");
-            api->vkGetDeviceImageSubresourceLayout = (PFN_vkGetDeviceImageSubresourceLayoutKHR)device_proc_address(api, device, "vkCmdBindIndexBuffer2KHR");
-            api->vkGetImageSubresourceLayout2 = (PFN_vkGetImageSubresourceLayout2KHR)device_proc_address(api, device, "vkGetImageSubresourceLayout2KHR");
-            api->vkGetRenderingAreaGranularity = (PFN_vkGetRenderingAreaGranularityKHR)device_proc_address(api, device, "vkGetRenderingAreaGranularityKHR");
-        }
+        /* maintenance 5 */
+        api->vkCmdBindIndexBuffer2 = (PFN_vkCmdBindIndexBuffer2KHR)device_proc_address(api, device, "vkCmdBindIndexBuffer2KHR");
+        api->vkGetDeviceImageSubresourceLayout = (PFN_vkGetDeviceImageSubresourceLayoutKHR)device_proc_address(api, device, "vkCmdBindIndexBuffer2KHR");
+        api->vkGetImageSubresourceLayout2 = (PFN_vkGetImageSubresourceLayout2KHR)device_proc_address(api, device, "vkGetImageSubresourceLayout2KHR");
+        api->vkGetRenderingAreaGranularity = (PFN_vkGetRenderingAreaGranularityKHR)device_proc_address(api, device, "vkGetRenderingAreaGranularityKHR");
     }
-    if (!api->vkCmdBindIndexBuffer2 ||
-        !api->vkCmdSetRenderingAttachmentLocations ||
-        !api->vkCmdSetRenderingInputAttachmentIndices)
-        return false;
 
     /* swapchain */
-    if (api->extensions & vk_extension_swapchain_bit) {
-        api->vkAcquireNextImageKHR = (PFN_vkAcquireNextImageKHR)device_proc_address(api, device, "vkAcquireNextImageKHR");
-        api->vkAcquireNextImage2KHR = (PFN_vkAcquireNextImage2KHR)device_proc_address(api, device, "vkAcquireNextImage2KHR");
-        api->vkCreateSwapchainKHR = (PFN_vkCreateSwapchainKHR)device_proc_address(api, device, "vkCreateSwapchainKHR");
-        api->vkDestroySwapchainKHR = (PFN_vkDestroySwapchainKHR)device_proc_address(api, device, "vkDestroySwapchainKHR");
-        api->vkGetSwapchainImagesKHR = (PFN_vkGetSwapchainImagesKHR)device_proc_address(api, device, "vkGetSwapchainImagesKHR");
-        api->vkQueuePresentKHR = (PFN_vkQueuePresentKHR)device_proc_address(api, device, "vkQueuePresentKHR");
-
-        if (!api->vkAcquireNextImageKHR ||
-            !api->vkAcquireNextImage2KHR ||
-            !api->vkCreateSwapchainKHR ||
-            !api->vkDestroySwapchainKHR ||
-            !api->vkGetSwapchainImagesKHR ||
-            !api->vkQueuePresentKHR)
-            return false;
-    }
+    api->vkAcquireNextImageKHR = (PFN_vkAcquireNextImageKHR)device_proc_address(api, device, "vkAcquireNextImageKHR");
+    api->vkAcquireNextImage2KHR = (PFN_vkAcquireNextImage2KHR)device_proc_address(api, device, "vkAcquireNextImage2KHR");
+    api->vkCreateSwapchainKHR = (PFN_vkCreateSwapchainKHR)device_proc_address(api, device, "vkCreateSwapchainKHR");
+    api->vkDestroySwapchainKHR = (PFN_vkDestroySwapchainKHR)device_proc_address(api, device, "vkDestroySwapchainKHR");
+    api->vkGetSwapchainImagesKHR = (PFN_vkGetSwapchainImagesKHR)device_proc_address(api, device, "vkGetSwapchainImagesKHR");
+    api->vkQueuePresentKHR = (PFN_vkQueuePresentKHR)device_proc_address(api, device, "vkQueuePresentKHR");
 
     /* device fault */
     if (api->extensions & vk_extension_device_fault_bit) {
@@ -650,168 +396,58 @@ b32 load_vulkan_device_procedures(struct vk_api *api, VkDevice device, u32 api_v
     }
 
     /* mesh shader */
-    if (api->extensions & vk_extension_mesh_shader_bit) {
-        api->vkCmdDrawMeshTasksEXT = (PFN_vkCmdDrawMeshTasksEXT)device_proc_address(api, device, "vkCmdDrawMeshTasksEXT");
-        api->vkCmdDrawMeshTasksIndirectEXT = (PFN_vkCmdDrawMeshTasksIndirectEXT)device_proc_address(api, device, "vkCmdDrawMeshTasksIndirectEXT");
-        api->vkCmdDrawMeshTasksIndirectCountEXT = (PFN_vkCmdDrawMeshTasksIndirectCountEXT)device_proc_address(api, device, "vkCmdDrawMeshTasksIndirectCountEXT");
-
-        if (!api->vkCmdDrawMeshTasksEXT ||
-            !api->vkCmdDrawMeshTasksIndirectEXT ||
-            !api->vkCmdDrawMeshTasksIndirectCountEXT)
-            return false;
-    }
+    api->vkCmdDrawMeshTasksEXT = (PFN_vkCmdDrawMeshTasksEXT)device_proc_address(api, device, "vkCmdDrawMeshTasksEXT");
+    api->vkCmdDrawMeshTasksIndirectEXT = (PFN_vkCmdDrawMeshTasksIndirectEXT)device_proc_address(api, device, "vkCmdDrawMeshTasksIndirectEXT");
+    api->vkCmdDrawMeshTasksIndirectCountEXT = (PFN_vkCmdDrawMeshTasksIndirectCountEXT)device_proc_address(api, device, "vkCmdDrawMeshTasksIndirectCountEXT");
 
     /* deferred host operations */
-    if (api->extensions & vk_extension_deferred_host_operations_bit) {
-        api->vkCreateDeferredOperationKHR = (PFN_vkCreateDeferredOperationKHR)device_proc_address(api, device, "vkCreateDeferredOperationKHR");
-        api->vkDeferredOperationJoinKHR = (PFN_vkDeferredOperationJoinKHR)device_proc_address(api, device, "vkDeferredOperationJoinKHR");
-        api->vkDestroyDeferredOperationKHR = (PFN_vkDestroyDeferredOperationKHR)device_proc_address(api, device, "vkDestroyDeferredOperationKHR");
-        api->vkGetDeferredOperationMaxConcurrencyKHR = (PFN_vkGetDeferredOperationMaxConcurrencyKHR)device_proc_address(api, device, "vkGetDeferredOperationMaxConcurrencyKHR");
-        api->vkGetDeferredOperationResultKHR = (PFN_vkGetDeferredOperationResultKHR)device_proc_address(api, device, "vkGetDeferredOperationResultKHR");
-
-        if (!api->vkCreateDeferredOperationKHR ||
-            !api->vkDeferredOperationJoinKHR ||
-            !api->vkDestroyDeferredOperationKHR ||
-            !api->vkGetDeferredOperationMaxConcurrencyKHR ||
-            !api->vkGetDeferredOperationResultKHR)
-            return false;
-    }
+    api->vkCreateDeferredOperationKHR = (PFN_vkCreateDeferredOperationKHR)device_proc_address(api, device, "vkCreateDeferredOperationKHR");
+    api->vkDeferredOperationJoinKHR = (PFN_vkDeferredOperationJoinKHR)device_proc_address(api, device, "vkDeferredOperationJoinKHR");
+    api->vkDestroyDeferredOperationKHR = (PFN_vkDestroyDeferredOperationKHR)device_proc_address(api, device, "vkDestroyDeferredOperationKHR");
+    api->vkGetDeferredOperationMaxConcurrencyKHR = (PFN_vkGetDeferredOperationMaxConcurrencyKHR)device_proc_address(api, device, "vkGetDeferredOperationMaxConcurrencyKHR");
+    api->vkGetDeferredOperationResultKHR = (PFN_vkGetDeferredOperationResultKHR)device_proc_address(api, device, "vkGetDeferredOperationResultKHR");
 
     /* acceleration structure */
-    if (api->extensions & vk_extension_acceleration_structure_bit) {
-        api->vkBuildAccelerationStructuresKHR = (PFN_vkBuildAccelerationStructuresKHR)device_proc_address(api, device, "vkBuildAccelerationStructuresKHR");
-        api->vkCmdBuildAccelerationStructuresIndirectKHR = (PFN_vkCmdBuildAccelerationStructuresIndirectKHR)device_proc_address(api, device, "vkCmdBuildAccelerationStructuresIndirectKHR");
-        api->vkCmdBuildAccelerationStructuresKHR = (PFN_vkCmdBuildAccelerationStructuresKHR)device_proc_address(api, device, "vkCmdBuildAccelerationStructuresKHR");
-        api->vkCmdCopyAccelerationStructureKHR = (PFN_vkCmdCopyAccelerationStructureKHR)device_proc_address(api, device, "vkCmdCopyAccelerationStructureKHR");
-        api->vkCmdCopyAccelerationStructureToMemoryKHR = (PFN_vkCmdCopyAccelerationStructureToMemoryKHR)device_proc_address(api, device, "vkCmdCopyAccelerationStructureToMemoryKHR");
-        api->vkCmdCopyMemoryToAccelerationStructureKHR = (PFN_vkCmdCopyMemoryToAccelerationStructureKHR)device_proc_address(api, device, "vkCmdCopyMemoryToAccelerationStructureKHR");
-        api->vkCmdWriteAccelerationStructuresPropertiesKHR = (PFN_vkCmdWriteAccelerationStructuresPropertiesKHR)device_proc_address(api, device, "vkCmdWriteAccelerationStructuresPropertiesKHR");
-        api->vkCopyAccelerationStructureKHR = (PFN_vkCopyAccelerationStructureKHR)device_proc_address(api, device, "vkCopyAccelerationStructureKHR");
-        api->vkCopyAccelerationStructureToMemoryKHR = (PFN_vkCopyAccelerationStructureToMemoryKHR)device_proc_address(api, device, "vkCopyAccelerationStructureToMemoryKHR");
-        api->vkCopyMemoryToAccelerationStructureKHR = (PFN_vkCopyMemoryToAccelerationStructureKHR)device_proc_address(api, device, "vkCopyMemoryToAccelerationStructureKHR");
-        api->vkCreateAccelerationStructureKHR = (PFN_vkCreateAccelerationStructureKHR)device_proc_address(api, device, "vkCreateAccelerationStructureKHR");
-        api->vkDestroyAccelerationStructureKHR = (PFN_vkDestroyAccelerationStructureKHR)device_proc_address(api, device, "vkDestroyAccelerationStructureKHR");
-        api->vkGetAccelerationStructureBuildSizesKHR = (PFN_vkGetAccelerationStructureBuildSizesKHR)device_proc_address(api, device, "vkGetAccelerationStructureBuildSizesKHR");
-        api->vkGetAccelerationStructureDeviceAddressKHR = (PFN_vkGetAccelerationStructureDeviceAddressKHR)device_proc_address(api, device, "vkGetAccelerationStructureDeviceAddressKHR");
-        api->vkGetDeviceAccelerationStructureCompatibilityKHR = (PFN_vkGetDeviceAccelerationStructureCompatibilityKHR)device_proc_address(api, device, "vkGetDeviceAccelerationStructureCompatibilityKHR");
-        api->vkWriteAccelerationStructuresPropertiesKHR = (PFN_vkWriteAccelerationStructuresPropertiesKHR)device_proc_address(api, device, "vkWriteAccelerationStructuresPropertiesKHR");
+    api->vkBuildAccelerationStructuresKHR = (PFN_vkBuildAccelerationStructuresKHR)device_proc_address(api, device, "vkBuildAccelerationStructuresKHR");
+    api->vkCmdBuildAccelerationStructuresIndirectKHR = (PFN_vkCmdBuildAccelerationStructuresIndirectKHR)device_proc_address(api, device, "vkCmdBuildAccelerationStructuresIndirectKHR");
+    api->vkCmdBuildAccelerationStructuresKHR = (PFN_vkCmdBuildAccelerationStructuresKHR)device_proc_address(api, device, "vkCmdBuildAccelerationStructuresKHR");
+    api->vkCmdCopyAccelerationStructureKHR = (PFN_vkCmdCopyAccelerationStructureKHR)device_proc_address(api, device, "vkCmdCopyAccelerationStructureKHR");
+    api->vkCmdCopyAccelerationStructureToMemoryKHR = (PFN_vkCmdCopyAccelerationStructureToMemoryKHR)device_proc_address(api, device, "vkCmdCopyAccelerationStructureToMemoryKHR");
+    api->vkCmdCopyMemoryToAccelerationStructureKHR = (PFN_vkCmdCopyMemoryToAccelerationStructureKHR)device_proc_address(api, device, "vkCmdCopyMemoryToAccelerationStructureKHR");
+    api->vkCmdWriteAccelerationStructuresPropertiesKHR = (PFN_vkCmdWriteAccelerationStructuresPropertiesKHR)device_proc_address(api, device, "vkCmdWriteAccelerationStructuresPropertiesKHR");
+    api->vkCopyAccelerationStructureKHR = (PFN_vkCopyAccelerationStructureKHR)device_proc_address(api, device, "vkCopyAccelerationStructureKHR");
+    api->vkCopyAccelerationStructureToMemoryKHR = (PFN_vkCopyAccelerationStructureToMemoryKHR)device_proc_address(api, device, "vkCopyAccelerationStructureToMemoryKHR");
+    api->vkCopyMemoryToAccelerationStructureKHR = (PFN_vkCopyMemoryToAccelerationStructureKHR)device_proc_address(api, device, "vkCopyMemoryToAccelerationStructureKHR");
+    api->vkCreateAccelerationStructureKHR = (PFN_vkCreateAccelerationStructureKHR)device_proc_address(api, device, "vkCreateAccelerationStructureKHR");
+    api->vkDestroyAccelerationStructureKHR = (PFN_vkDestroyAccelerationStructureKHR)device_proc_address(api, device, "vkDestroyAccelerationStructureKHR");
+    api->vkGetAccelerationStructureBuildSizesKHR = (PFN_vkGetAccelerationStructureBuildSizesKHR)device_proc_address(api, device, "vkGetAccelerationStructureBuildSizesKHR");
+    api->vkGetAccelerationStructureDeviceAddressKHR = (PFN_vkGetAccelerationStructureDeviceAddressKHR)device_proc_address(api, device, "vkGetAccelerationStructureDeviceAddressKHR");
+    api->vkGetDeviceAccelerationStructureCompatibilityKHR = (PFN_vkGetDeviceAccelerationStructureCompatibilityKHR)device_proc_address(api, device, "vkGetDeviceAccelerationStructureCompatibilityKHR");
+    api->vkWriteAccelerationStructuresPropertiesKHR = (PFN_vkWriteAccelerationStructuresPropertiesKHR)device_proc_address(api, device, "vkWriteAccelerationStructuresPropertiesKHR");
     
-        if (!api->vkBuildAccelerationStructuresKHR ||
-            !api->vkCmdBuildAccelerationStructuresIndirectKHR ||
-            !api->vkCmdBuildAccelerationStructuresKHR ||
-            !api->vkCmdCopyAccelerationStructureKHR ||
-            !api->vkCmdCopyAccelerationStructureToMemoryKHR ||
-            !api->vkCmdCopyMemoryToAccelerationStructureKHR ||
-            !api->vkCmdWriteAccelerationStructuresPropertiesKHR ||
-            !api->vkCopyAccelerationStructureKHR ||
-            !api->vkCopyAccelerationStructureToMemoryKHR ||
-            !api->vkCopyMemoryToAccelerationStructureKHR ||
-            !api->vkCreateAccelerationStructureKHR ||
-            !api->vkDestroyAccelerationStructureKHR ||
-            !api->vkGetAccelerationStructureBuildSizesKHR ||
-            !api->vkGetAccelerationStructureDeviceAddressKHR ||
-            !api->vkGetDeviceAccelerationStructureCompatibilityKHR ||
-            !api->vkWriteAccelerationStructuresPropertiesKHR)
-            return false;
-    }
-
     /* ray tracing pipeline */
-    if (api->extensions & vk_extension_ray_tracing_pipeline_bit) {
-        api->vkCmdSetRayTracingPipelineStackSizeKHR = (PFN_vkCmdSetRayTracingPipelineStackSizeKHR)device_proc_address(api, device, "vkCmdSetRayTracingPipelineStackSizeKHR");
-        api->vkCmdTraceRaysIndirectKHR = (PFN_vkCmdTraceRaysIndirectKHR)device_proc_address(api, device, "vkCmdTraceRaysIndirectKHR");
-        api->vkCmdTraceRaysIndirect2KHR = (PFN_vkCmdTraceRaysIndirect2KHR)device_proc_address(api, device, "vkCmdTraceRaysIndirect2KHR");
-        api->vkCmdTraceRaysKHR = (PFN_vkCmdTraceRaysKHR)device_proc_address(api, device, "vkCmdTraceRaysKHR");
-        api->vkCreateRayTracingPipelinesKHR = (PFN_vkCreateRayTracingPipelinesKHR)device_proc_address(api, device, "vkCreateRayTracingPipelinesKHR");
-        api->vkGetRayTracingCaptureReplayShaderGroupHandlesKHR = (PFN_vkGetRayTracingCaptureReplayShaderGroupHandlesKHR)device_proc_address(api, device, "vkGetRayTracingCaptureReplayShaderGroupHandlesKHR");
-        api->vkGetRayTracingShaderGroupHandlesKHR = (PFN_vkGetRayTracingShaderGroupHandlesKHR)device_proc_address(api, device, "vkGetRayTracingShaderGroupHandlesKHR");
-        api->vkGetRayTracingShaderGroupStackSizeKHR = (PFN_vkGetRayTracingShaderGroupStackSizeKHR)device_proc_address(api, device, "vkGetRayTracingShaderGroupStackSizeKHR");
+    api->vkCmdSetRayTracingPipelineStackSizeKHR = (PFN_vkCmdSetRayTracingPipelineStackSizeKHR)device_proc_address(api, device, "vkCmdSetRayTracingPipelineStackSizeKHR");
+    api->vkCmdTraceRaysIndirectKHR = (PFN_vkCmdTraceRaysIndirectKHR)device_proc_address(api, device, "vkCmdTraceRaysIndirectKHR");
+    api->vkCmdTraceRaysIndirect2KHR = (PFN_vkCmdTraceRaysIndirect2KHR)device_proc_address(api, device, "vkCmdTraceRaysIndirect2KHR");
+    api->vkCmdTraceRaysKHR = (PFN_vkCmdTraceRaysKHR)device_proc_address(api, device, "vkCmdTraceRaysKHR");
+    api->vkCreateRayTracingPipelinesKHR = (PFN_vkCreateRayTracingPipelinesKHR)device_proc_address(api, device, "vkCreateRayTracingPipelinesKHR");
+    api->vkGetRayTracingCaptureReplayShaderGroupHandlesKHR = (PFN_vkGetRayTracingCaptureReplayShaderGroupHandlesKHR)device_proc_address(api, device, "vkGetRayTracingCaptureReplayShaderGroupHandlesKHR");
+    api->vkGetRayTracingShaderGroupHandlesKHR = (PFN_vkGetRayTracingShaderGroupHandlesKHR)device_proc_address(api, device, "vkGetRayTracingShaderGroupHandlesKHR");
+    api->vkGetRayTracingShaderGroupStackSizeKHR = (PFN_vkGetRayTracingShaderGroupStackSizeKHR)device_proc_address(api, device, "vkGetRayTracingShaderGroupStackSizeKHR");
 
-        if (!api->vkCmdSetRayTracingPipelineStackSizeKHR ||
-            !api->vkCmdTraceRaysIndirectKHR ||
-            !api->vkCmdTraceRaysKHR ||
-            !api->vkCreateRayTracingPipelinesKHR ||
-            !api->vkGetRayTracingCaptureReplayShaderGroupHandlesKHR ||
-            !api->vkGetRayTracingShaderGroupHandlesKHR ||
-            !api->vkGetRayTracingShaderGroupStackSizeKHR)
-            return false;
-    }
+    /* video coding */
+    api->vkBindVideoSessionMemoryKHR = (PFN_vkBindVideoSessionMemoryKHR)device_proc_address(api, device, "vkBindVideoSessionMemoryKHR");
+    api->vkCmdBeginVideoCodingKHR = (PFN_vkCmdBeginVideoCodingKHR)device_proc_address(api, device, "vkCmdBeginVideoCodingKHR");
+    api->vkCmdControlVideoCodingKHR = (PFN_vkCmdControlVideoCodingKHR)device_proc_address(api, device, "vkCmdControlVideoCodingKHR");
+    api->vkCmdDecodeVideoKHR = (PFN_vkCmdDecodeVideoKHR)device_proc_address(api, device, "vkCmdDecodeVideoKHR");
+    api->vkCmdEndVideoCodingKHR = (PFN_vkCmdEndVideoCodingKHR)device_proc_address(api, device, "vkCmdEndVideoCodingKHR");
+    api->vkCreateVideoSessionKHR = (PFN_vkCreateVideoSessionKHR)device_proc_address(api, device, "vkCreateVideoSessionKHR");
+    api->vkCreateVideoSessionParametersKHR = (PFN_vkCreateVideoSessionParametersKHR)device_proc_address(api, device, "vkCreateVideoSessionParametersKHR");
+    api->vkDestroyVideoSessionKHR = (PFN_vkDestroyVideoSessionKHR)device_proc_address(api, device, "vkDestroyVideoSessionKHR");
+    api->vkDestroyVideoSessionParametersKHR = (PFN_vkDestroyVideoSessionParametersKHR)device_proc_address(api, device, "vkDestroyVideoSessionParametersKHR");
+    api->vkGetVideoSessionMemoryRequirementsKHR = (PFN_vkGetVideoSessionMemoryRequirementsKHR)device_proc_address(api, device, "vkGetVideoSessionMemoryRequirementsKHR");
+    api->vkUpdateVideoSessionParametersKHR = (PFN_vkUpdateVideoSessionParametersKHR)device_proc_address(api, device, "vkUpdateVideoSessionParametersKHR");
+
     return true;
 }
 
-const char *vulkan_result_string(VkResult result)
-{
-    switch (result) {
-		case VK_ERROR_OUT_OF_HOST_MEMORY:
-			return "Host memory allocation has failed.";
-		case VK_ERROR_OUT_OF_DEVICE_MEMORY:
-			return "Device memory allocation has failed.";
-		case VK_ERROR_INITIALIZATION_FAILED:
-			return "Initialization of an object could not be completed for implementation-specific reasons.";
-		case VK_ERROR_DEVICE_LOST:
-			return "The logical or physical device has been lost.";
-		case VK_ERROR_MEMORY_MAP_FAILED:
-			return "Mapping of a memory object has failed.";
-		case VK_ERROR_LAYER_NOT_PRESENT:
-			return "A requested layer is not present or could not be loaded.";
-		case VK_ERROR_EXTENSION_NOT_PRESENT:
-			return "A requested extension is not supported.";
-		case VK_ERROR_FEATURE_NOT_PRESENT:
-			return "A requested feature is not supported.";
-		case VK_ERROR_INCOMPATIBLE_DRIVER:
-			return "The requested version of Vulkan is not supported by the driver or is otherwise "
-			       "incompatible for implementation-specific reasons.";
-		case VK_ERROR_TOO_MANY_OBJECTS:
-			return "Too many objects of the type have already been created.";
-		case VK_ERROR_FORMAT_NOT_SUPPORTED:
-			return "A requested format is not supported on this device.";
-		case VK_ERROR_FRAGMENTED_POOL:
-			return "A pool allocation has failed due to fragmentation of the pool's memory.";
-		case VK_ERROR_OUT_OF_POOL_MEMORY:
-			return "A pool memory allocation has failed.";
-		case VK_ERROR_INVALID_EXTERNAL_HANDLE:
-			return "An external handle is not a valid handle of the specified type.";
-		case VK_ERROR_FRAGMENTATION:
-			return "A descriptor pool creation has failed due to fragmentation.";
-		case VK_ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS:
-			return "A buffer creation or memory allocation failed because the requested address is not available.";
-		case VK_PIPELINE_COMPILE_REQUIRED:
-			return "A requested pipeline creation would have required compilation, but the application requested compilation to not be performed.";
-		case VK_ERROR_SURFACE_LOST_KHR:
-			return "A surface is no longer available.";
-		case VK_ERROR_NATIVE_WINDOW_IN_USE_KHR:
-			return "The requested window is already in use by Vulkan or another API in a manner which prevents it from being used again.";
-		case VK_SUBOPTIMAL_KHR:
-			return "A swapchain no longer matches the surface properties exactly, but can still be used to present"
-			       "to the surface successfully.";
-		case VK_ERROR_OUT_OF_DATE_KHR:
-			return "A surface has changed in such a way that it is no longer compatible with the swapchain, "
-			       "any further presentation requests using the swapchain will fail.";
-		case VK_ERROR_INCOMPATIBLE_DISPLAY_KHR:
-			return "The display used by a swapchain does not use the same presentable image layout, or is "
-			       "incompatible in a way that prevents sharing an image.";
-		case VK_ERROR_VALIDATION_FAILED_EXT:
-			return "VK_ERROR_VALIDATION_FAILED_EXT";
-		case VK_ERROR_INVALID_SHADER_NV:
-			return "one or more shaders failed to compile or link";
-		case VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT:
-			return "VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT";
-		case VK_ERROR_NOT_PERMITTED_KHR:
-			return "VK_ERROR_NOT_PERMITTED_KHR";
-		case VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT:
-			return "An operation on a swapchain created with VK_FULL_SCREEN_EXCLUSIVE_APPLICATION_CONTROLLED_EXT failed as "
-			       "it did not have exlusive full-screen access.";
-		case VK_THREAD_IDLE_KHR:
-			return "A deferred operation is not complete but there is currently no work for this thread to do at the time of this call.";
-		case VK_THREAD_DONE_KHR:
-			return "A deferred operation is not complete but there is no work remaining to assign to additional threads.";
-		case VK_OPERATION_DEFERRED_KHR:
-			return "A deferred operation was requested and at least some of the work was deferred.";
-		case VK_OPERATION_NOT_DEFERRED_KHR:
-			return "A deferred operation was requested and no operations were deferred.";
-		case VK_ERROR_COMPRESSION_EXHAUSTED_EXT:
-			return "An image creation failed because internal resources required for compression are exhausted."
-			       "This must only be returned when fixed-rate compression is requested.";
-        default:
-            return "An unknown error has occured.";
-    };
-}
