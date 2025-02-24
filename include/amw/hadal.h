@@ -8,6 +8,8 @@
 #define HADAL_MAX_OUTPUTS 8
 
 struct hadopelagic;
+struct harridan;
+struct swapchain;
 
 /** 2D raw image data. */
 struct image {
@@ -65,7 +67,6 @@ enum hadal_backend_id {
     hadal_backend_cocoa,
     hadal_backend_ios,
     hadal_backend_android,
-    hadal_backend_html5,
     hadal_backend_wayland,
     hadal_backend_xcb,
     hadal_backend_drmkms,
@@ -86,13 +87,20 @@ typedef s32 (*PFN_hadal_display_init)(struct hadopelagic *hadal);
 /** Cleanups the display backend. */
 typedef void (*PFN_hadal_display_fini)(struct hadopelagic *hadal);
 
+/** Creates a Vulkan surface for the display backend in use and a given swapchain. */
+typedef s32 (*PFN_hadal_create_vulkan_surface)(
+    struct hadopelagic *hadal, 
+    struct harridan    *harridan, 
+    struct swapchain   *swapchain);
+
 /** Implements the display backend. */
 struct hadal_interface {
     s32                     id;     /**< The numeric identifier of the display backend. */
     struct string           name;   /**< A readable name of the display backend, for logging. */
 
-    PFN_hadal_display_init  display_init;
-    PFN_hadal_display_fini  display_fini;
+    PFN_hadal_display_init          display_init;
+    PFN_hadal_display_fini          display_fini;
+    PFN_hadal_create_vulkan_surface create_vulkan_surface;
 };
 
 /** Flags describing the state of a display backend. This includes all state related

@@ -13,6 +13,7 @@
 #include <amw/plugin.h>
 #include <amw/process.h>
 #include <amw/riven.h>
+#include <amw/random.h>
 #include <amw/string.h>
 #include <amw/threads.h>
 #include <amw/time.h>

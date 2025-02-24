@@ -3,6 +3,7 @@
 #include <amw/bedrock.h>
 #include <amw/log.h>
 #include <amw/riven.h>
+#include <amw/string.h>
 
 #ifndef VK_NO_PROTOTYPES
     #define VK_NO_PROTOTYPES
@@ -500,7 +501,8 @@ enum harridan_flags {
 struct harridan {
     at_u32                      flags;
 
-    rivens_tag_t                tag;
+    rivens_tag_t                device_tag;
+    rivens_tag_t                render_state_tag;
     struct rivens              *riven;
 
     /** An instance makes Vulkan functions available to us. It is used for driver calls,
@@ -512,7 +514,7 @@ struct harridan {
     VkPhysicalDevice            physical;
     /** Used for logging messages and profiling with debug mode and validation layers enabled. */
     VkDebugUtilsMessengerEXT    debug_messenger;
-    /** Host allocation callbacks implemented with riven. */
+    /** TODO Host allocation callbacks implemented with riven. */
     VkAllocationCallbacks       allocation_callbacks;
 
     u32                         graphics_queue_family_index;
@@ -572,3 +574,22 @@ struct harridan {
     VkVideoDecodeCapabilitiesKHR                        video_decode_capabilities;
     VkVideoCapabilitiesKHR                              video_capabilities;
 };
+
+/** Creates a rendering device and prepares the swapchain from given information. */
+AMWAPI attr_nonnull_all
+s32 harridan_init(
+    struct harridan        *harridan,
+    struct hadopelagic     *hadal,
+    struct rivens          *riven,
+    rivens_tag_t            tag,
+    const char             *app_name,
+    u32                     app_version,
+    const char             *engine_name,
+    u32                     engine_version,
+    s32                     select_device_index,
+    b32                     verbose,
+    b32                     debug_utilities);
+
+/** Destroys the rendering device. */
+AMWAPI attr_nonnull_all
+void harridan_fini(struct harridan *harridan);

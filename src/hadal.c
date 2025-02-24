@@ -18,11 +18,12 @@ s32 hadal_init(
     const struct string    *title,
     b32                     verbose_backend)
 {
+    s32 res = result_success;
+
     if (hadal->display) {
         log_debug("Hadal: the display backend is already initialized.");
         return result_success;
     }
-    s32 res = result_success;
 
     hadal->riven = riven;
     hadal->tag = tag;
@@ -38,6 +39,9 @@ s32 hadal_init(
 
     hadal_interface_check(display_init);
     hadal_interface_check(display_fini);
+#ifdef HARRIDAN_VULKAN
+    hadal_interface_check(create_vulkan_surface);
+#endif
 
 #undef hadal_interface_check
     if (res != result_success) {
@@ -62,17 +66,20 @@ s32 hadal_init(
 
 void hadal_fini(struct hadopelagic *hadal)
 {
-    if (hadal->display)
-        finalize(hadal);
+    if (hadal->display) {
+        if (hadal->interface.display_fini)
+            hadal->interface.display_fini(hadal);
+    }
+    zerop(hadal);
 }
 
 /** Backend entry point definitions for builds where such a backend is not supported. */
-#define hadal_stub(name)                                                                \
-    s32 hadal_##name##_entry_point(struct hadopelagic *hadal, b32 verbose) {              \
-        (void)hadal;                                                                    \
-        if (verbose)                                                                    \
-            log_error("Hadal: display backend '%s' is not supported in this build.", #name);   \
-        return result_error;                                                            \
+#define hadal_stub(name)                                                                    \
+    s32 hadal_##name##_entry_point(struct hadopelagic *hadal, b32 verbose) {                \
+        (void)hadal;                                                                        \
+        if (verbose)                                                                        \
+            log_error("Hadal: display backend '%s' is not supported in this build.", #name);\
+        return result_error;                                                                \
     }
 #ifndef HADAL_WAYLAND
 hadal_stub(wayland)

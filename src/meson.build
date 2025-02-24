@@ -2,9 +2,9 @@ dep_threads = dependency('threads', required : true)
 dep_rt = cc.find_library('rt', required : false)
 dep_dl = cc.find_library('dl', required : false)
 
-# check if Vulkan SDK is available
+# check if Vulkan SDK is available, we'll link at runtime
 dep_vulkan = dependency('vulkan', required : true)
-defs += '-DAMW_VULKAN=1'
+defs += '-DHARRIDAN_VULKAN=1'
 
 subdir('apple')
 subdir('linux')
@@ -49,6 +49,5 @@ engine_sources += files(
     'hash_table.c',
     'log.c',
     'riven.c',
-    'swapchain.c',
     'vk_drivers.c',
 )

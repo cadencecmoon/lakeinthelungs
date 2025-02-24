@@ -1,7 +1,8 @@
 #include "wl_hadal.h"
 
-#include <amw/log.h>
+#include <amw/harridan.h>
 #include <amw/plugin.h>
+#include <amw/log.h>
 
 #include <sys/timerfd.h>
 #include <linux/input.h>
@@ -55,6 +56,7 @@ s32 hadal_wayland_entry_point(struct hadopelagic *hadal, b32 verbose)
         .name = string_init("wayland"),
         .display_init = hadal_wayland_display_init,
         .display_fini = hadal_wayland_display_fini,
+        .create_vulkan_surface = hadal_wayland_create_vulkan_surface,
     };
     return result_success;
 }
@@ -128,6 +130,49 @@ static void handle_registry_global_remove(
 static const struct wl_registry_listener registry_listener = {
     .global = handle_registry_global,
     .global_remove = handle_registry_global_remove,
+};
+
+static void handle_surface_enter(
+    void              *data, 
+    struct wl_surface *surface, 
+    struct wl_output  *output)
+{
+    /* unused */
+    (void)surface;
+
+    struct hadopelagic *hadal = (struct hadopelagic *)data;
+    struct wayland_display *wl = (struct wayland_display *)hadal->display;
+
+    if (wl_proxy_get_tag((struct wl_proxy *)output) != &wl->tag)
+        return;
+
+    /* handle output scale buffers */
+    /* TODO */
+}
+
+static void handle_surface_leave(
+    void              *data,
+    struct wl_surface *surface,
+    struct wl_output  *output)
+{
+    /* unused */
+    (void)surface;
+
+    struct hadopelagic *hadal = (struct hadopelagic *)data;
+    struct wayland_display *wl = (struct wayland_display *)hadal->display;
+
+    if (wl_proxy_get_tag((struct wl_proxy *)output) != &wl->tag)
+        return;
+
+    /* handle output scale buffers */
+    /* TODO */
+}
+
+static const struct wl_surface_listener surface_listener = {
+    .enter = handle_surface_enter,
+    .leave = handle_surface_leave,
+    .preferred_buffer_scale = NULL,
+    .preferred_buffer_transform = NULL,
 };
 
 static void create_key_tables(struct hadopelagic *hadal)
@@ -449,6 +494,17 @@ s32 hadal_wayland_display_init(struct hadopelagic *hadal)
         return result_error;
     }
 
+    /* creating the surface */
+    wl->surface = wl_compositor_create_surface(wl->compositor);
+    if (!wl->surface) {
+        log_error("Failed to create a surface via the Wayland compositor.");
+        return result_error;
+    }
+    wl_proxy_set_tag((struct wl_proxy *)wl->surface, &wl->tag);
+    wl_surface_add_listener(wl->surface, &surface_listener, hadal);
+    atomic_store_explicit(&hadal->fb_width, hadal->window_width, memory_order_release);
+    atomic_store_explicit(&hadal->fb_height, hadal->window_height, memory_order_release);
+
     atomic_fetch_and_explicit(&hadal->flags, hadal_flag_display_is_valid, memory_order_release);
     return result_success;
 }
@@ -484,3 +540,22 @@ void hadal_wayland_display_fini(struct hadopelagic *hadal)
     g_wl_hadal = NULL;
 }
 
+s32 hadal_wayland_create_vulkan_surface(
+    struct hadopelagic *hadal, 
+    struct harridan    *harridan, 
+    struct swapchain   *swapchain)
+{
+    struct wayland_display *wl = (struct wayland_display *)hadal->display;
+
+    assert_debug(harridan && harridan->instance && harridan->api.vkCreateWaylandSurfaceKHR);
+
+    VkWaylandSurfaceCreateInfoKHR surface_info = {
+        .sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR,
+        .pNext = NULL,
+        .flags = 0,
+        .display = wl->display,
+        .surface = wl->surface
+    };
+    VERIFY_VK(harridan->api.vkCreateWaylandSurfaceKHR(harridan->instance, &surface_info, NULL, &swapchain->surface));
+    return swapchain->surface ? result_success : result_error;
+}

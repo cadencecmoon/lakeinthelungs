@@ -115,6 +115,8 @@ typedef xkb_keysym_t                    (*PFN_xkb_compose_state_get_one_sym)(str
 #define xkb_compose_state_get_one_sym           g_wl_hadal->api.xkb.compose_state_get_one_sym
 
 struct wayland_display {
+    const char                     *tag;
+
     struct wl_display              *display;
     struct wl_registry             *registry;
     struct wl_compositor           *compositor;
@@ -224,4 +226,8 @@ extern struct wayland_display *g_wl_hadal;
 /* hadal interface */
 extern s32 hadal_wayland_display_init(struct hadopelagic *hadal);
 extern void hadal_wayland_display_fini(struct hadopelagic *hadal);
+extern s32 hadal_wayland_create_vulkan_surface(
+    struct hadopelagic *hadal, 
+    struct harridan    *harridan, 
+    struct swapchain   *swapchain);
 

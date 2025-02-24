@@ -11,7 +11,10 @@
 struct lake {
     struct harridan     harridan;
     struct hadopelagic  hadal;
+    struct octavia      octa;
+
     struct rivens      *riven;
+    rivens_tag_t        tag;
 
     b32 exit_game;
     b32 restart_engine;

@@ -26,10 +26,12 @@ struct engine_hints {
     u32                 riven_log2_memory_count;
 
     b32                 verbose;
+    b32                 debug_utilities;
 };
 
 static void lake_fini(struct lake *lake)
 {
+    harridan_fini(&lake->harridan);
     hadal_fini(&lake->hadal);
 }
 
@@ -41,13 +43,11 @@ static s32 lake_init(
 
     s32 res = result_success;
 
-    log_info("size %lu hadal %lu harridan %lu", sizeof(struct lake), sizeof(struct hadopelagic), sizeof(struct harridan));
-
     res = hadal_init(
         &lake->hadal,
         hadal_entry_point,
         riven, 
-        rivens_tag_roots,
+        lake->tag,
         hints->window_width,
         hints->window_height,
         &hints->window_title,
@@ -56,6 +56,18 @@ static s32 lake_init(
         hadal_fini(&lake->hadal);
         return res;
     }
+
+    res = harridan_init(
+        &lake->harridan,
+        &lake->hadal,
+        riven,
+        lake->tag,
+        hints->game_name.ptr,
+        hints->build_version,
+        hints->engine_name.ptr,
+        hints->build_version,
+        -1, hints->verbose,
+        hints->debug_utilities);
 
     return result_success;
 }
@@ -72,6 +84,7 @@ static s32 lake_in_the_lungs(
     struct lake *lake = (struct lake *)riven_alloc(riven, rivens_tag_roots, sizeof(struct lake), 16);
     zerop(lake);
     lake->riven = riven;
+    lake->tag = rivens_tag_roots;
 
     res = lake_init(lake, hints);
     if (res != result_success) return res;
@@ -209,6 +222,9 @@ s32 amw_main(s32 argc, char **argv)
         .riven_log2_memory_count = 9,
 #ifndef NDEBUG
         .verbose = true,
+#endif
+#ifdef DEBUG
+        .debug_utilities = true,
 #endif
     };
     log_set_verbose(argc-1);
