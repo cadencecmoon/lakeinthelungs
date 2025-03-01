@@ -87,20 +87,20 @@ typedef s32 (*PFN_hadal_display_init)(struct hadopelagic *hadal);
 /** Cleanups the display backend. */
 typedef void (*PFN_hadal_display_fini)(struct hadopelagic *hadal);
 
-/** Creates a Vulkan surface for the display backend in use and a given swapchain. */
-typedef s32 (*PFN_hadal_create_vulkan_surface)(
+/** Creates a surface (Vulkan, etc.) for the given swapchain. */
+typedef s32 (*PFN_hadal_create_surface)(
     struct hadopelagic *hadal, 
     struct harridan    *harridan, 
     struct swapchain   *swapchain);
 
 /** Implements the display backend. */
 struct hadal_interface {
-    s32                     id;     /**< The numeric identifier of the display backend. */
-    struct string           name;   /**< A readable name of the display backend, for logging. */
+    s32                         id;     /**< The numeric identifier of the display backend. */
+    struct string               name;   /**< A readable name of the display backend, for logging. */
 
-    PFN_hadal_display_init          display_init;
-    PFN_hadal_display_fini          display_fini;
-    PFN_hadal_create_vulkan_surface create_vulkan_surface;
+    PFN_hadal_display_init      display_init;
+    PFN_hadal_display_fini      display_fini;
+    PFN_hadal_create_surface    create_vulkan_surface;
 };
 
 /** Flags describing the state of a display backend. This includes all state related

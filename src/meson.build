@@ -49,5 +49,4 @@ engine_sources += files(
     'hash_table.c',
     'log.c',
     'riven.c',
-    'vk_drivers.c',
 )

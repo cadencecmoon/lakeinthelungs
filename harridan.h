@@ -486,15 +486,17 @@ struct swapchain {
     VkExtent2D                  extent;
     /** Surface capabilities of the physical device in use. */
     VkSurfaceCapabilitiesKHR    surface_capabilities;
+    /** Selected surface format. */
+    VkSurfaceFormatKHR          surface_format;
     /** Selected presentation mode. */
     VkPresentModeKHR            present_mode;
     /** Semaphores for synchronizing presentation with the graphics queue.
      *  One semaphore per swapchain image. */
-    VkSemaphore                 image_available_sem[AMW_MAX_FRAMES_IN_FLIGHT<<1];
+    VkSemaphore                *image_available_sem;
     /** An array of images held in the swapchain. */
-    VkImage                     images[AMW_MAX_FRAMES_IN_FLIGHT<<1];
+    VkImage                    *images;
     /** An image view for each image in the swapchain. */
-    VkImageView                 image_views[AMW_MAX_FRAMES_IN_FLIGHT<<1];
+    VkImageView                *image_views;
     /** Number of swapchain images. */
     u32                         image_count;
 };
@@ -515,8 +517,6 @@ enum harridan_flags {
     harridan_flag_device_is_valid       = (1u << 0), /**< True for a valid rendering device. */
     harridan_flag_debug_utils           = (1u << 1), /**< Set when debug labeling and validation layers are enabled. */
     harridan_flag_vsync_enabled         = (1u << 2), /**< To enable vertical synchronization. */
-    harridan_flag_surface_lost          = (1u << 3), /**< Set on lost surface errors. */
-    harridan_flag_screenshot_supported  = (1u << 4), /**< Set if we can capture the swapchain images directly. */
 };
 
 struct harridan {
@@ -604,7 +604,6 @@ s32 harridan_init(
     u32                     app_version,
     const char             *engine_name,
     u32                     engine_version,
-    s32                     select_device_index,
     b32                     verbose,
     b32                     debug_utilities);
 
@@ -612,25 +611,12 @@ s32 harridan_init(
 AMWAPI attr_nonnull_all
 void harridan_fini(struct harridan *harridan);
 
-struct harridan_orchestrate_swapchain_work {
-    WORK_STRUCTURE_HEADER
-    struct harridan    *harridan;
-    struct hadopelagic *hadal;
-    struct swapchain   *swapchain;
-    b32                 use_vsync;
-};
-
-/** Controls the state of the swapchain and presentation semaphores. */
 AMWAPI attr_nonnull_all
-void harridan_orchestrate_swapchain(struct harridan_orchestrate_swapchain_work *work);
+void harridan_orchestrate_device(
+    struct harridan *harridan
+        );
 
-#define HARRIDAN_DECL_JOB(fn)                               \
-    attr_inline void harridan_##fn##_job__(                 \
-        struct harridan_##fn##_work *work,                  \
-        struct rivens_work *context)                        \
-    {                                                       \
-        context->procedure = (PFN_rivens_job)harridan_##fn; \
-        context->argument = (rivens_arg_t)work;             \
-        context->name = "harridan:" #fn;                    \
-    }
-HARRIDAN_DECL_JOB(orchestrate_swapchain)
+AMWAPI attr_nonnull_all
+void harridan_orchestrate_swapchain(
+    struct harridan *harridan
+    );
