@@ -2,6 +2,10 @@
 
 #include <amw/bedrock.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* To enable analysis, set these environment variables before running meson:
  *     export CC=clang
  *     export CFLAGS="-DENABLE_THREAD_SAFETY_ANALYSIS -Wthread-safety" */
@@ -69,3 +73,7 @@ void thread_affinity(
     u32       thread_count, 
     u32       cpu_count,
     u32       begin_cpu_index);
+
+#ifdef __cplusplus
+}
+#endif

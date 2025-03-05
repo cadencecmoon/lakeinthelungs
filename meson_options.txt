@@ -1,14 +1,17 @@
 option('docs',      type : 'feature', value : 'auto', description : 'Generate Doxygen documentation')
 
+# vector extensions
 option('avx',       type : 'boolean', value : false, description : 'Enable x86_64 AVX extensions')
 option('avx2',      type : 'boolean', value : false, description : 'Enable x86_64 AVX2 and FMA extensions')
 option('neon',      type : 'boolean', value : false, description : 'Enable ARM Neon extensions')
 option('rvv',       type : 'boolean', value : false, description : 'Enable RISC-V Vector extensions')
 
+# optional linux display backends 
 option('wayland',   type : 'feature', value : 'auto', description : 'Build a Wayland display backend')
 option('xcb',       type : 'feature', value : 'auto', description : 'Build a X11 (XCB) display backend') 
 option('drm',       type : 'feature', value : 'auto', description : 'Build a DRM/KMS display backend')
 
+# audio backends
 option('core',      type : 'feature', value : 'auto', description : 'Build a CoreAudio backend')
 option('wasapi',    type : 'feature', value : 'auto', description : 'Build a WASAPI audio backend')
 option('xaudio2',   type : 'feature', value : 'auto', description : 'Build a XAudio2 backend')
@@ -19,3 +22,9 @@ option('jack',      type : 'feature', value : 'auto', description : 'Build an JA
 option('pipewire',  type : 'feature', value : 'auto', description : 'Build a PipeWire audio backend')
 option('pulse',     type : 'feature', value : 'auto', description : 'Build a PulseAudio backend')
 option('oss',       type : 'feature', value : 'auto', description : 'Build an OSS audio backend')
+
+# rendering backends
+option('vulkan',    type : 'feature', value : 'enabled', description : 'Build a Vulkan rendering backend')
+option('d3d12',     type : 'feature', value : 'auto', description : 'Build a Direct3D 12 rendering backend')
+option('metal',     type : 'feature', value : 'auto', description : 'Build a Metal 3 rendering backend')
+option('webgpu',    type : 'feature', value : 'auto', description : 'Build a WebGPU rendering backend')

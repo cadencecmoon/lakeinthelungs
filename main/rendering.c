@@ -4,29 +4,29 @@
 #define ASSEMBLY_JOBS_MAX 1
 static void resolve_assembly(struct framedata *work)
 {
-    struct harridan *harridan = &work->lake->harridan;
-    struct hadopelagic *hadal = &work->lake->hadal;
+    struct pelagic_ocean *pelagial = work->lake->pelagial;
+    struct hadopelagic *hadal = work->lake->hadal;
     struct rivens *riven = work->lake->riven;
 
-    u32 harridan_flags = atomic_load_explicit(&harridan->flags, memory_order_acquire);
+    u32 pelagial_flags = atomic_load_explicit(&pelagial->flags, memory_order_acquire);
     u32 hadal_flags = atomic_load_explicit(&hadal->flags, memory_order_acquire);
 
     b32 do_assembly_work = ((work->type != work_type_continue));
-    b32 do_swapchain_work = (do_assembly_work || (hadal_flags & hadal_flag_framebuffer_resized) || (harridan_flags & harridan_flag_surface_lost));
+    b32 do_swapchain_work = (do_assembly_work || (hadal_flags & hadal_flag_framebuffer_resized) || (pelagial_flags & pelagic_flag_surface_lost));
 
-    struct harridan_orchestrate_swapchain_work swapchain_work = {
+    struct pelagic_work_touch_swapchain swapchain_work = {
         .type = work->type,
-        .harridan = harridan,
+        .device = pelagial->devices[0],
         .hadal = hadal,
-        .swapchain = &harridan->swapchain,
-        .use_vsync = (harridan_flags & harridan_flag_vsync_enabled) ? true : false,
+        .swapchain = pelagial->swapchain,
+        .use_vsync = (pelagial_flags & pelagic_flag_vsync_enabled) ? true : false,
     };
 
     s32 o = 0;
     struct rivens_work jobs[ASSEMBLY_JOBS_MAX];
 
     /* only commit to work that must be done */
-    if (do_swapchain_work) harridan_orchestrate_swapchain_job__(&swapchain_work, &jobs[o++]);
+    if (do_swapchain_work) pelagial_touch_swapchain_job__(&swapchain_work, &jobs[o++]);
     assert_debug(o <= ASSEMBLY_JOBS_MAX);
 
     /* execute the work */

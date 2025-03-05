@@ -3,13 +3,18 @@
 #include <amw/bedrock.h>
 #include <amw/riven.h>
 #include <amw/input.h>
-#include <amw/string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#ifndef HADAL_MAX_OUTPUTS
 #define HADAL_MAX_OUTPUTS 8
+#endif
 
 struct hadopelagic;
-struct harridan;
-struct swapchain;
+struct hadopelagic_interface;
+struct hadopelagic_create_info;
 
 /** 2D raw image data. */
 struct image {
@@ -39,7 +44,7 @@ struct gammaramp {
 /** Shared data of a single monitor output, with a pointer to the internal state. */
 struct hadal_output {
     char                    name[128];
-    struct hadopelagic     *display;
+    struct hadopelagic     *hadal;
     void                   *internal;
 
     u32                     width_mm, height_mm;
@@ -60,48 +65,53 @@ enum hadal_key {
     hadal_key_repeat  = 2,
 };
 
-/** Numeric values to distinguish between the available display backends. */
-enum hadal_backend_id {
-    hadal_backend_invalid = 0,
-    hadal_backend_win32,
-    hadal_backend_cocoa,
-    hadal_backend_ios,
-    hadal_backend_android,
-    hadal_backend_wayland,
-    hadal_backend_xcb,
-    hadal_backend_drmkms,
-    hadal_backend_headless,
-};
+/** Arguments of the entry point to the display backend. */
+#define _HADAL_ENTRY_POINT_ARGS                                 \
+    struct hadopelagic_interface         *interface,   \
+    const struct hadopelagic_create_info *create_info
 
-/** Defines an entry point for the display backend. Verbose will enable log messages, including errors. */
-typedef s32 (*PFN_hadal_entry_point)(struct hadopelagic *hadal, b32 verbose);
+/** Defines an entry point for the display backend. */
+typedef enum result attr_nonnull_all (*PFN_hadal_entry_point)(_HADAL_ENTRY_POINT_ARGS);
 
-AMWAPI s32 hadal_wayland_entry_point(struct hadopelagic *hadal, b32 verbose);
+/** Declares a hadal entry point implementation. */
+#define HADAL_ENTRY_POINT(name) \
+    s32 attr_nonnull_all hadal_##name##_entry_point(_HADAL_ENTRY_POINT_ARGS)
 
-/** Picks the first valid entry point from the available above. */
-AMWAPI s32 hadal_entry_point(struct hadopelagic *hadal, b32 verbose);
+/* Predefined display backends available. */
+AMWAPI HADAL_ENTRY_POINT(win32);    /* TODO reserved */
+AMWAPI HADAL_ENTRY_POINT(cocoa);    /* TODO reserved */
+AMWAPI HADAL_ENTRY_POINT(ios);      /* TODO reserved */
+AMWAPI HADAL_ENTRY_POINT(android);  /* TODO reserved */
+AMWAPI HADAL_ENTRY_POINT(html5);    /* TODO reserved */
+AMWAPI HADAL_ENTRY_POINT(wayland);
+AMWAPI HADAL_ENTRY_POINT(xcb);      /* TODO reserved */
+AMWAPI HADAL_ENTRY_POINT(drmkms);   /* TODO reserved */
+AMWAPI HADAL_ENTRY_POINT(headless);
+
+/** Picks the first valid entry point from the available above, except headless.
+ *  A headless display backend must be explicitly entered. */
+AMWAPI attr_nonnull_all 
+enum result hadal_entry_point(_HADAL_ENTRY_POINT_ARGS);
 
 /** Initializes the display backend. */
-typedef s32 (*PFN_hadal_display_init)(struct hadopelagic *hadal);
+typedef enum result (*PFN_hadal_display_init)(
+    struct hadopelagic                   *hadal,
+    const struct hadopelagic_create_info *create_info);
 
 /** Cleanups the display backend. */
-typedef void (*PFN_hadal_display_fini)(struct hadopelagic *hadal);
+typedef void (*PFN_hadal_display_fini)(void *internal);
 
-/** Creates a surface (Vulkan, etc.) for the given swapchain. */
-typedef s32 (*PFN_hadal_create_surface)(
-    struct hadopelagic *hadal, 
-    struct harridan    *harridan, 
-    struct swapchain   *swapchain);
+/** Returns the dimensions of a surface framebuffer, this may be different from the window size. */
+typedef void (*PFN_hadal_get_framebuffer_extent)(
+    struct hadopelagic *hadal,
+    u32                *out_width,
+    u32                *out_height);
 
-/** Implements the display backend. */
-struct hadal_interface {
-    s32                         id;     /**< The numeric identifier of the display backend. */
-    struct string               name;   /**< A readable name of the display backend, for logging. */
+struct pelagic_ocean;
 
-    PFN_hadal_display_init      display_init;
-    PFN_hadal_display_fini      display_fini;
-    PFN_hadal_create_surface    create_vulkan_surface;
-};
+/** Creates a surface that a rendering device can draw to. In the interface there 
+ *  are Vulkan and other platform-specific variants (D3D12, WebGPU, Metal, etc.). */
+typedef enum result (*PFN_hadal_create_surface)(struct hadopelagic *hadal, struct pelagic_ocean *pelagial);
 
 /** Flags describing the state of a display backend. This includes all state related
  *  to a window, implying that only one window is supported at a time. */
@@ -124,51 +134,71 @@ enum hadal_flags {
     hadal_flag_should_close         = (1u << 15),   /**< Whether the window was requested to close by means outside of the application. */
 };
 
+/** Procedures implemented by the display backend. */
+struct hadopelagic_interface {
+    const char                         *name;       /**< A readable name of the display backend, for logging. */
+    void                               *internal;   /**< The display backend. */
+
+    PFN_hadal_display_init              display_init;
+    PFN_hadal_display_fini              display_fini;
+    PFN_hadal_create_surface            create_vulkan_surface;
+    PFN_hadal_create_surface            create_native_surface;
+    PFN_hadal_get_framebuffer_extent    get_framebuffer_extent;
+};
+
 /** Holds shared state responsible for interacting with the display backend, 
  *  different input devices and the window system. Only one window is supported. */
 struct hadopelagic {
-    at_u32                  flags;
-    rivens_tag_t            tag;
-    struct rivens          *riven;
+    at_u32                          flags;
+    struct hadopelagic_interface    interface;
 
-    void                   *display;
-    struct hadal_interface  interface;
+    rivens_tag_t                    tag;    /**< The lifetime of this system. */
+    struct rivens                  *riven;
 
-    struct hadal_output    *outputs[HADAL_MAX_OUTPUTS];
-    at_u32                  output_count;
+    struct hadal_output            *outputs[HADAL_MAX_OUTPUTS];
+    u32                             output_count;
 
-    struct string           window_title;
-    at_u32                  window_width, window_height;
-    at_u32                  fb_width, fb_height;
+    const char                     *window_title;
+    at_u32                          window_width, window_height;
 
-    u32                     minwidth, minheight;
-    u32                     maxwidth, maxheight;
-    u32                     numer, denom;
+    u32                             minwidth, minheight;
+    u32                             maxwidth, maxheight;
+    u32                             numer, denom;
 
-    s16                     keycodes[256];
-    s16                     scancodes[keycode_last + 1];
-    s8                      keynames[keycode_last + 1][5];
+    s16                             keycodes[256];
+    s16                             scancodes[keycode_last + 1];
+    s8                              keynames[keycode_last + 1][5];
 
-    struct joystick         joysticks[16];
-    struct gamepad         *mappings;
-    at_u32                  mapping_count;
+    struct joystick                 joysticks[16];
+    struct gamepad                 *mappings;
+    at_u32                          mapping_count;
 
-    s8                      keys[keycode_last + 1];
-    s8                      mouse_buttons[mouse_button_last + 1];
+    s8                              keys[keycode_last + 1];
+    s8                              mouse_buttons[mouse_button_last + 1];
 };
 
-/** Initialzies the display backend from a given configuration and entry point. */
+/** Information needed to construct a display backend. */
+struct hadopelagic_create_info {
+    struct rivens *riven;
+    rivens_tag_t   tag;
+    u32            window_width;
+    u32            window_height;
+    const char    *window_title;
+};
+
+/** Initialzies the display backend from a given configuration and entry point. If an entry points 
+ *  fails, the next entry point from the given array is used as a fallback, until initialized 
+ *  successfully or until there are no more entry points requested to try. */
 AMWAPI attr_nonnull_all
-s32 hadal_init(
-    struct hadopelagic     *hadal,
-    PFN_hadal_entry_point   entry,
-    struct rivens          *riven,
-    rivens_tag_t            tag,
-    u32                     width,
-    u32                     height,
-    const struct string    *title,
-    b32                     verbose_backend);
+struct hadopelagic *hadal_init(
+    const PFN_hadal_entry_point          *entries,
+    u32                                   entry_count,
+    const struct hadopelagic_create_info *create_info);
 
 /** Closes the display backend and zeroes the state of hadal. */
 AMWAPI attr_nonnull_all
 void hadal_fini(struct hadopelagic *hadal);
+
+#ifdef __cplusplus
+}
+#endif

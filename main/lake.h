@@ -4,17 +4,15 @@
 
 #define LAKE_VERSION_MAJOR 0
 #define LAKE_VERSION_MINOR 1
-#define LAKE_VERSION_REVISION 2
+#define LAKE_VERSION_REVISION 3
 
 #define LAKE_VERSION (VERSION_NUM(LAKE_VERSION_MAJOR, LAKE_VERSION_MINOR, LAKE_VERSION_REVISION))
 
 struct lake {
-    struct harridan     harridan;
-    struct hadopelagic  hadal;
-    struct octavia      octa;
-
-    struct rivens      *riven;
-    rivens_tag_t        tag;
+    struct octavarium      *octavia;
+    struct pelagic_ocean   *pelagial;
+    struct hadopelagic     *hadal;
+    struct rivens          *riven;
 
     b32 exit_game;
     b32 restart_engine;
@@ -23,12 +21,20 @@ struct lake {
 
 struct framedata {
     WORK_STRUCTURE_HEADER
+    /** A frame index incremented every frame. Can be cycled to access per-frame resources via an array index. */
     u64 index;
-    f64 dt;
+    /** Delta time of the last frame, whatever it is. */
+    f64 dt;     
+
+    /* TODO instance arrays, command buffers, skinning matrices */
 
     struct lake            *lake;
     const struct framedata *last_frame;
+    /** Next framedata, used to feed forward data like low-priority ray casts, seeds, etc.
+     *  The framedata is assumed to may have invalid/outdated state, and is really intended
+     *  only for touching long-lived data of the same gameloop stage, none other. */
     struct framedata       *next_frame;
+    /** A synchronization primitive, only one stage can work on a framedata at a time. */
     rivens_chain_t          chain;
 };
 

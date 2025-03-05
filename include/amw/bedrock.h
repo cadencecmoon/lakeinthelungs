@@ -1,5 +1,9 @@
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define VERSION_NUM_MAJOR(version) ((version) / 1000000)
 #define VERSION_NUM_MINOR(version) (((version) / 1000) % 1000)
 #define VERSION_NUM_REVISION(version) ((version) % 1000)
@@ -174,6 +178,210 @@
     #define CC_CLANG_VERSION_CHECK(major, minor, revision) (CC_CLANG_VERSION >= ((major * 10000) + (minor * 1000) + (revision)))
 #else
     #define CC_CLANG_VERSION_CHECK(major, minor, revision) (0)
+#endif
+
+/* check compiler extensions */
+#ifdef __has_attribute
+    #define HAS_ATTRIBUTE(x) __has_attribute(x)
+#else
+    #define HAS_ATTRIBUTE(x) (0)
+#endif
+#ifdef __has_builtin
+    #define HAS_BUILTIN(x) __has_builtin(x)
+#else
+    #define HAS_BUILTIN(x) (0)
+#endif
+#ifdef __has_feature
+    #define HAS_FEATURE(x) __has_feature(x)
+#else
+    #define HAS_FEATURE(x) (0)
+#endif
+#ifdef __has_warning
+    #define HAS_WARNING(x) __has_warning(x)
+#else
+    #define HAS_WARNING(x) (0)
+#endif
+
+/** Likely and unlikely branches. */
+#if !defined(LIKELY) && !defined(UNLIKELY)
+    #if defined(CC_CLANG_VERSION) || defined(CC_GNUC_VERSION)
+        #define LIKELY(x)   __builtin_expect(!!(x), 1)
+        #define UNLIKELY(x) __builtin_expect(!!(x), 0)
+    #else
+        #define LIKELY(x)   (x)
+        #define UNLIKELY(x) (x)
+    #endif
+#endif
+
+/** The compiler declares a type for you. */
+#if !defined(TYPEOF)
+    #if defined(CC_MSVC_VERSION)
+        #define TYPEOF(x) decltype((x))
+    #elif defined(CC_CLANG_VERSION) || defined(CC_GNUC_VERSION)
+        #define TYPEOF(x) __typeof__((x)) 
+    #else /* may generate errors depending on the compiler */
+        #define TYPEOF(x) typeof((x))
+    #endif
+#endif
+
+#if !defined(AMWAPI)
+    #ifdef AMW_BUILD_DLL_EXPORT
+        #if defined(PLATFORM_WINDOWS) || defined(__CYGWIN__)
+            #define AMWAPI extern __declspec(dllexport)
+        #elif defined(CC_GNUC_VERSION)
+            #define AMWAPI extern __attribute__((visibility("default")))
+        #else
+            #define AMWAPI extern
+        #endif
+    #else
+        #define AMWAPI extern
+    #endif
+#endif
+
+/** inline & noinline */
+#if defined(CC_CLANG_VERSION) || defined(CC_GNUC_VERSION)
+    #define attr_inline __attribute__((always_inline)) inline
+    #define attr_noinline __attribute__((noinline))
+#elif defined(CC_MSVC_VERSION)
+    #define attr_inline __forceinline
+    #define attr_noinline __declspec(noinline)
+#else
+    #define attr_inline static inline
+    #define attr_noinline
+#endif
+
+/** The function never returns. */
+#if HAS_ATTRIBUTE(noreturn)
+    #define attr_noreturn __attribute__((noreturn))
+#elif defined(CC_MSVC_VERSION)
+    #define attr_noreturn __declspec(noreturn)
+#else
+    #define attr_noreturn
+#endif
+
+/** Function is a cold spot and will be optimized for size. */
+#if HAS_ATTRIBUTE(cold)
+#define attr_cold __attribute__((cold))
+#else
+#define attr_cold
+#endif
+
+/** Function is a hot spot and will be optimized for speed. */
+#if HAS_ATTRIBUTE(hot)
+#define attr_hot __attribute__((hot))
+#else
+#define attr_hot
+#endif
+
+/** Function has no side-effects. */
+#if HAS_ATTRIBUTE(pure)
+#define attr_pure __attribute__((pure))
+#else
+#define attr_pure
+#endif
+
+/** Function has no side-effects, return value depends on arguments only.
+ *  Must not take pointer parameters, must not return NULL. */
+#if HAS_ATTRIBUTE(const)
+#define attr_const __attribute__((const))
+#else
+#define attr_const
+#endif
+
+/** Function never returns NULL. */
+#if HAS_ATTRIBUTE(returns_nonnull)
+#define attr_returns_nonnull __attribute__((returns_nonnull))
+#else
+#define attr_returns_nonnull
+#endif
+
+/** Function must be called with NULL as the last argument (for varargs functions). */
+#if HAS_ATTRIBUTE(sentinel)
+#define attr_sentinel __attribute__((sentinel))
+#else
+#define attr_sentinel
+#endif
+
+/** Symbol is meant to be possibly unused. */
+#if HAS_ATTRIBUTE(unused)
+#define attr_unused __attribute__((unused))
+#else
+#define attr_unused
+#endif
+
+/** Symbol should be emitted even if it appears to be unused. */
+#if HAS_ATTRIBUTE(used)
+#define attr_used __attribute__((used))
+#else
+#define attr_used
+#endif
+
+/** Function or type is deprecated and should not be used. */
+#if HAS_ATTRIBUTE(deprecated)
+#define attr_deprecated(msg) __attribute__((deprecated(msg)))
+#else
+#define attr_deprecated(msg) #warning msg
+#endif
+
+/** Function parameters at specified positions must not be NULL. */
+#if HAS_ATTRIBUTE(nonnull)
+#define attr_nonnull(...) __attribute__((nonnull(__VA_ARGS__)))
+#else
+#define attr_nonnull(...)
+#endif
+
+/** All pointer parameters must not be NULL. */
+#if HAS_ATTRIBUTE(nonnull_all)
+#define attr_nonnull_all __attribute__((nonnull))
+#else
+#define attr_nonnull_all
+#endif
+
+/** The return value of this function must not be ignored. */
+#if HAS_ATTRIBUTE(warn_unused_result)
+#define attr_nodiscard __attribute__((warn_unused_result))
+#else
+#define attr_nodiscard
+#endif
+
+/** Function takes a printf-style format string and variadic arguments. */
+#if HAS_ATTRIBUTE(format)
+#define attr_printf(fmt, va) __attribute__((format(__printf__, fmt, va)))
+#else
+#define attr_printf(fmt, va)
+#endif
+
+/** The pointer returned by this function cannot alias any other pointer valid when the function returns. */
+#if HAS_ATTRIBUTE(malloc)
+#define attr_malloc __attribute__((malloc))
+#else
+#define attr_malloc
+#endif
+
+/** Hints to the compiler that a statement that falls through to another case label is intentional. */
+#if HAS_ATTRIBUTE(fallthrough)
+#define attr_fallthrough __attribute__((fallthrough))
+#else
+#define attr_fallthrough
+#endif
+
+/** Enables detection of invalid or unsafe accesses by functions or their callers.
+ *  Possible modes are: read_only, read_write, write_only, none. */
+#if HAS_ATTRIBUTE(access)
+#define attr_access(mode, ref)              __attribute__((access(mode, ref)))
+#define attr_access_sized(mode, ref, size)  __attribute__((access(mode, ref, size)))
+#else
+#define attr_access(mode, ref)
+#define attr_access_sized(mode, ref, size)
+#endif
+
+/** Set alignment rules for a type. */
+#if HAS_ATTRIBUTE(__aligned__)
+    #define attr_aligned(alignment) __attribute__((__aligned__(alignment)))
+#elif defined(CC_MSVC_VERSION)
+    #define attr_aligned(alignment) __declspec(align(alignment))
+#else
+    #define attr_aligned(alignment) /* no alignment */
 #endif
 
 /* https://en.wikipedia.org/wiki/X86-64 */
@@ -514,214 +722,69 @@
     #define ARCH_WASM_RELAXED_SIMD
 #endif
 
-/* check compiler extensions */
-#ifdef __has_attribute
-    #define HAS_ATTRIBUTE(x) __has_attribute(x)
-#else
-    #define HAS_ATTRIBUTE(x) (0)
-#endif
-#ifdef __has_builtin
-    #define HAS_BUILTIN(x) __has_builtin(x)
-#else
-    #define HAS_BUILTIN(x) (0)
-#endif
-#ifdef __has_feature
-    #define HAS_FEATURE(x) __has_feature(x)
-#else
-    #define HAS_FEATURE(x) (0)
-#endif
-#ifdef __has_warning
-    #define HAS_WARNING(x) __has_warning(x)
-#else
-    #define HAS_WARNING(x) (0)
-#endif
+#define _ARCH_BYTEORDER_LE 1234
+#define _ARCH_BYTEORDER_BE 4321
 
-/** Likely and unlikely branches. */
-#if !defined(LIKELY) && !defined(UNLIKELY)
-    #if defined(CC_CLANG_VERSION) || defined(CC_GNUC_VERSION)
-        #define LIKELY(x)   __builtin_expect(!!(x), 1)
-        #define UNLIKELY(x) __builtin_expect(!!(x), 0)
-    #else
-        #define LIKELY(x)   (x)
-        #define UNLIKELY(x) (x)
-    #endif
-#endif
-
-/** The compiler declares a type for you. */
-#if !defined(TYPEOF)
-    #if defined(CC_MSVC_VERSION)
-        #define TYPEOF(x) decltype((x))
-    #elif defined(CC_CLANG_VERSION) || defined(CC_GNUC_VERSION)
-        #define TYPEOF(x) __typeof__((x)) 
-    #else /* may generate errors depending on the compiler */
-        #define TYPEOF(x) typeof((x))
-    #endif
-#endif
-
-#if !defined(AMWAPI)
-    #ifdef AMW_BUILD_DLL_EXPORT
-        #if defined(PLATFORM_WINDOWS) || defined(__CYGWIN__)
-            #define AMWAPI extern __declspec(dllexport)
-        #elif defined(CC_GNUC_VERSION)
-            #define AMWAPI extern __attribute__((visibility("default")))
+#ifndef _ARCH_BYTEORDER
+    #if defined(PLATFORM_LINUX)
+        #include <endian.h>
+        #define _ARCH_BYTEORDER __BYTE_ORDER
+    #elif defined(__sun) && defined(__SVR4) /* solaris */
+        #include <sys/byteorder.h>
+        #if defined(_LITTLE_ENDIAN)
+            #define _ARCH_BYTEORDER _ARCH_BYTEORDER_LE
+        #elif defined(_BIG_ENDIAN)
+            #define _ARCH_BYTEORDER _ARCH_BYTEORDER_BE
         #else
-            #define AMWAPI extern
+            #error Unsupported endianness.
         #endif
-    #else
-        #define AMWAPI extern
+    #elif defined(__OpenBSD__) || defined(__DragonFly__)
+        #include <endian.h>
+        #define _ARCH_BYTEORDER BYTE_ORDER
+    #elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__NetBSD__)
+        #include <sys/endian.h>
+        #define _ARCH_BYTEORDER BYTE_ORDER
+    /* predefs from newer GCC and CLANG versions */
+    #elif defined(__ORDER_LITTLE_ENDIAN__) && defined(__ORDER_BIG_ENDIAN__) && defined(__BYTE_ORDER__)
+        #if (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+            #define _ARCH_BYTEORDER _ARCH_BYTEORDER_LE
+        #elif (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+            #define _ARCH_BYTEORDER _ARCH_BYTEORDER_BE
+        #else
+            #error Unsupported endianness.
+        #endif
+    #else  
+        #if defined(ARCH_MIPS) || defined(ARCH_POWER) || defined(ARCH_SPARC)
+            #define _ARCH_BYTEORDER _ARCH_BYTEORDER_BE
+        #else
+            #define _ARCH_BYTEORDER _ARCH_BYTEORDER_LE
+        #endif
     #endif
 #endif
 
-/** inline & noinline */
-#if defined(CC_CLANG_VERSION) || defined(CC_GNUC_VERSION)
-    #define attr_inline __attribute__((always_inline)) inline
-    #define attr_noinline __attribute__((noinline))
-#elif defined(CC_MSVC_VERSION)
-    #define attr_inline __forceinline
-    #define attr_noinline __declspec(noinline)
-#else
-    #define attr_inline static inline
-    #define attr_noinline
+#ifndef _ARCH_FLOAT_WORD_ORDER
+    /* predefs from newer GCC and Clang versions */
+    #if defined(__ORDER_LITTLE_ENDIAN__) && defined(__ORDER_BIG_ENDIAN__) && defined(__FLOAT_WORD_ORDER__)
+        #if (__FLOAT_WORD_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+            #define _ARCH_FLOAT_WORD_ORDER _ARCH_BYTEORDER_LE
+        #elif (__FLOAT_WORD_ORDER__ == __ORDER_BIG_ENDIAN__)
+            #define _ARCH_FLOAT_WORD_ORDER _ARCH_BYTEORDER_BE
+        #else
+            #error Unsupported endianness.
+        #endif
+    #elif defined(__MAVERICK__)
+        #define _ARCH_FLOAT_WORD_ORDER _ARCH_BYTEORDER_LE
+    #elif (defined(ARCH_ARM) || defined(__thumb__)) && !defined(__VFP_FP__) && !defined(__ARM_EABI__)
+        #define _ARCH_FLOAT_WORD_ORDER _ARCH_BYTEORDER_BE
+    #else
+        #define _ARCH_FLOAT_WORD_ORDER _ARCH_BYTEORDER
+    #endif
 #endif
 
-/** The function never returns. */
-#if HAS_ATTRIBUTE(noreturn)
-    #define attr_noreturn __attribute__((noreturn))
-#elif defined(CC_MSVC_VERSION)
-    #define attr_noreturn __declspec(noreturn)
+#if _ARCH_FLOAT_WORD_ORDER == _ARCH_BYTEORDER_LE
+    #define ARCH_FLOAT_LIL_ENDIAN 1
 #else
-    #define attr_noreturn
-#endif
-
-/** Function is a cold spot and will be optimized for size. */
-#if HAS_ATTRIBUTE(cold)
-#define attr_cold __attribute__((cold))
-#else
-#define attr_cold
-#endif
-
-/** Function is a hot spot and will be optimized for speed. */
-#if HAS_ATTRIBUTE(hot)
-#define attr_hot __attribute__((hot))
-#else
-#define attr_hot
-#endif
-
-/** Function has no side-effects. */
-#if HAS_ATTRIBUTE(pure)
-#define attr_pure __attribute__((pure))
-#else
-#define attr_pure
-#endif
-
-/** Function has no side-effects, return value depends on arguments only.
- *  Must not take pointer parameters, must not return NULL. */
-#if HAS_ATTRIBUTE(const)
-#define attr_const __attribute__((const))
-#else
-#define attr_const
-#endif
-
-/** Function never returns NULL. */
-#if HAS_ATTRIBUTE(returns_nonnull)
-#define attr_returns_nonnull __attribute__((returns_nonnull))
-#else
-#define attr_returns_nonnull
-#endif
-
-/** Function must be called with NULL as the last argument (for varargs functions). */
-#if HAS_ATTRIBUTE(sentinel)
-#define attr_sentinel __attribute__((sentinel))
-#else
-#define attr_sentinel
-#endif
-
-/** Symbol is meant to be possibly unused. */
-#if HAS_ATTRIBUTE(unused)
-#define attr_unused __attribute__((unused))
-#else
-#define attr_unused
-#endif
-
-/** Symbol should be emitted even if it appears to be unused. */
-#if HAS_ATTRIBUTE(used)
-#define attr_used __attribute__((used))
-#else
-#define attr_used
-#endif
-
-/** Function or type is deprecated and should not be used. */
-#if HAS_ATTRIBUTE(deprecated)
-#define attr_deprecated(msg) __attribute__((deprecated(msg)))
-#else
-#define attr_deprecated(msg) #warning msg
-#endif
-
-/** Function parameters at specified positions must not be NULL. */
-#if HAS_ATTRIBUTE(nonnull)
-#define attr_nonnull(...) __attribute__((nonnull(__VA_ARGS__)))
-#else
-#define attr_nonnull(...)
-#endif
-
-/** All pointer parameters must not be NULL. */
-#if HAS_ATTRIBUTE(nonnull_all)
-#define attr_nonnull_all __attribute__((nonnull))
-#else
-#define attr_nonnull_all
-#endif
-
-/** The return value of this function must not be ignored. */
-#if HAS_ATTRIBUTE(warn_unused_result)
-#define attr_nodiscard __attribute__((warn_unused_result))
-#else
-#define attr_nodiscard
-#endif
-
-/** Function takes a printf-style format string and variadic arguments. */
-#if HAS_ATTRIBUTE(format)
-#define attr_printf(fmt, va) __attribute__((format(__printf__, fmt, va)))
-#else
-#define attr_printf(fmt, va)
-#endif
-
-/** The pointer returned by this function cannot alias any other pointer valid when the function returns. */
-#if HAS_ATTRIBUTE(malloc)
-#define attr_malloc __attribute__((malloc))
-#else
-#define attr_malloc
-#endif
-
-/** Hints to the compiler that a statement that falls through to another case label is intentional. */
-#if HAS_ATTRIBUTE(fallthrough)
-#define attr_fallthrough __attribute__((fallthrough))
-#else
-#define attr_fallthrough
-#endif
-
-/** Enables detection of invalid or unsafe accesses by functions or their callers.
- *  Possible modes are: read_only, read_write, write_only, none. */
-#if HAS_ATTRIBUTE(access)
-#define attr_access(mode, ref)              __attribute__((access(mode, ref)))
-#define attr_access_sized(mode, ref, size)  __attribute__((access(mode, ref, size)))
-#else
-#define attr_access(mode, ref)
-#define attr_access_sized(mode, ref, size)
-#endif
-
-/** Set alignment rules for a type. */
-#if HAS_ATTRIBUTE(__aligned__)
-    #define attr_aligned(alignment) __attribute__((__aligned__(alignment)))
-#elif defined(CC_MSVC_VERSION)
-    #define attr_aligned(alignment) __declspec(align(alignment))
-#else
-    #define attr_aligned(alignment) /* no alignment */
-#endif
-
-#if defined(ARCH_X86_AVX) || defined(ARCH_X86_AVX2) || defined(ARCH_RISCV_V)
-#define VECTOR_ALIGNMENT (32)
-#else
-#define VECTOR_ALIGNMENT (16)
+    #define ARCH_FLOAT_BIG_ENDIAN 1
 #endif
 
 #ifndef __cplusplus
@@ -820,28 +883,52 @@ typedef _Atomic usize           at_usize;
 #define zerop(mem)      memset((mem), 0, sizeof(*(mem)))
 #define zeroa(mem)      memset((mem), 0, sizeof((mem)))
 
-typedef s32                     svec2[2];
-typedef s32                     svec3[3];
-typedef s32                     svec4[4];
+attr_inline attr_const 
+u16 bswap16(u16 x) {
+#if HAS_BUILTIN(__builtin_bswap16)
+    return __builtin_bswap16(x);
+#elif CC_MSVC_VERSION_CHECK(14,0,0)
+    return _byteswap_ushort(x);
+#else
+#error Implement bswap for this platform
+#endif
+}
 
-typedef f32                     vec2[2];
-typedef f32                     vec3[3];
-typedef attr_aligned(16) f32    vec4[4];
+attr_inline attr_const 
+u32 bswap32(u32 x) {
+#if HAS_BUILTIN(__builtin_bswap32)
+    return __builtin_bswap32(x);
+#elif CC_MSVC_VERSION_CHECK(14,0,0)
+    return _byteswap_ulong(x);
+#endif
+}
 
-typedef vec4                    quat; /* quaternion */
+attr_inline attr_const 
+u64 bswap64(u64 x) {
+#if HAS_BUILTIN(__builtin_bswap64)
+    return __builtin_bswap64(x);
+#elif CC_MSVC_VERSION_CHECK(14,0,0)
+    return _byteswap_uint64(x);
+#endif
+}
 
-typedef attr_aligned(16) vec2   mat2[2];    /* 2x2 matrix */
-typedef vec3                    mat2x3[2];
-typedef vec4                    mat2x4[2];
-
-typedef vec3                    mat3[3];    /* 3x3 matrix */
-typedef vec2                    mat3x2[3];
-typedef vec4                    mat3x4[3];
-
-typedef attr_aligned(VECTOR_ALIGNMENT) 
-        vec4                    mat4[4];    /* 4x4 matrix */
-typedef vec2                    mat4x2[4];
-typedef vec3                    mat4x3[4];
+#if _ARCH_BYTEORDER == _ARCH_BYTEORDER_LE
+    #define ARCH_LIL_ENDIAN 1
+    #define bswap16le(x) (x)
+    #define bswap32le(x) (x)
+    #define bswap64le(x) (x)
+    #define bswap16be(x) bswap16(x) 
+    #define bswap32be(x) bswap32(x)
+    #define bswap64be(x) bswap64(x)
+#else
+    #define ARCH_BIG_ENDIAN 1
+    #define bswap16le(x) bswap16(x) 
+    #define bswap32le(x) bswap32(x)
+    #define bswap64le(x) bswap64(x)
+    #define bswap16be(x) (x)
+    #define bswap32be(x) (x)
+    #define bswap64be(x) (x)
+#endif
 
 #define const_epsilon   DBL_EPSILON
 #define const_epsilonf  FLT_EPSILON
@@ -874,27 +961,41 @@ typedef vec3                    mat4x3[4];
 #define const_sqrt2f    ((f32)const_sqrt2)
 #define const_sqrt1_2f  ((f32)const_sqrt1_2)
 
-#ifndef AMW_MAX_FRAMES_IN_FLIGHT
-#define AMW_MAX_FRAMES_IN_FLIGHT 4
-#endif
+typedef s32                     svec2[2];
+typedef s32                     svec3[3];
+typedef s32                     svec4[4];
 
-enum result {
-    result_error = -1,
-    result_success = 0,
-    result_reiterate = 1,
-};
+typedef f32                     vec2[2];
+typedef f32                     vec3[3];
+typedef attr_aligned(16) f32    vec4[4];
 
-enum work_type {
-    work_type_continue = 0,
-    work_type_assembly, 
-    work_type_reassembly, 
-    work_type_disassembly, 
-};
+typedef vec4                    quat; /* quaternion */
+
+typedef attr_aligned(16) vec2   mat2[2];    /* 2x2 matrix */
+typedef vec3                    mat2x3[2];
+typedef vec4                    mat2x4[2];
+
+typedef vec3                    mat3[3];    /* 3x3 matrix */
+typedef vec2                    mat3x2[3];
+typedef vec4                    mat3x4[3];
+
+typedef attr_aligned(32) vec4   mat4[4];    /* 4x4 matrix */
+typedef vec2                    mat4x2[4];
+typedef vec3                    mat4x3[4];
 
 #define WORK_STRUCTURE_HEADER \
-    s32 result; \
-    s32 type;
+    s32 result;
 
-struct work {
+enum result {
+    result_success = 0,
+    result_warn,
+    result_error,
+};
+
+struct work_header {
     WORK_STRUCTURE_HEADER
 };
+
+#ifdef __cplusplus
+}
+#endif

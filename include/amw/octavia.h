@@ -2,41 +2,85 @@
 
 #include <amw/bedrock.h>
 #include <amw/riven.h>
-#include <amw/string.h>
 
-struct octavia;
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-/** Numeric values to distinguish between the available audio backends. */
-enum octavia_backend_id {
-    octavia_backend_invalid = 0,
-    octavia_backend_coreaudio,
-    octavia_backend_wasapi,
-    octavia_backend_xaudio2,
-    octavia_backend_webaudio,
-    octavia_backend_aaudio,
-    octavia_backend_alsa,
-    octavia_backend_jack,
-    octavia_backend_pipewire,
-    octavia_backend_pulseaudio,
-    octavia_backend_oss,
-    octavia_backend_dummy,
-};
+struct octavarium;
+struct octavarium_interface;
+struct octavarium_create_info;
+
+/** Arguments of the entry point to the audio backend. */
+#define _OCTAVIA_ENTRY_POINT_ARGS                              \
+    struct octavarium_interface         *restrict interface,   \
+    const struct octavarium_create_info *restrict create_info
 
 /** Defines an entry point for the audio backend. Verbose will enable log messages, including errors. */
-typedef s32 (*PFN_octavia_entry_point)(struct octavia *octa, b32 verbose);
+typedef enum result attr_nonnull_all (*PFN_octavia_entry_point)(_OCTAVIA_ENTRY_POINT_ARGS);
 
-/** Implements the audio backend. */
-struct octavia_interface {
-    s32                         id;     /**< The numeric identifier of the display backend. */
-    struct string               name;   /**< A readable name of the display backend, for logging. */
+/** Declares a pelagial entry point implementation. */
+#define OCTAVIA_ENTRY_POINT(name) \
+    s32 attr_nonnull_all octavia_##name##_entry_point(_OCTAVIA_ENTRY_POINT_ARGS)
+
+/* Predefined audio backends available. */
+AMWAPI OCTAVIA_ENTRY_POINT(coreaudio);  /* TODO reserved */
+AMWAPI OCTAVIA_ENTRY_POINT(wasapi);     /* TODO reserved */
+AMWAPI OCTAVIA_ENTRY_POINT(xaudio2);    /* TODO reserved */
+AMWAPI OCTAVIA_ENTRY_POINT(webaudio);   /* TODO reserved */
+AMWAPI OCTAVIA_ENTRY_POINT(aaudio);     /* TODO reserved */
+AMWAPI OCTAVIA_ENTRY_POINT(alsa);       /* TODO reserved */
+AMWAPI OCTAVIA_ENTRY_POINT(jack);       /* TODO reserved */
+AMWAPI OCTAVIA_ENTRY_POINT(pipewire);   /* TODO reserved */
+AMWAPI OCTAVIA_ENTRY_POINT(pulseaudio); /* TODO reserved */
+AMWAPI OCTAVIA_ENTRY_POINT(oss);        /* TODO reserved */
+AMWAPI OCTAVIA_ENTRY_POINT(dummy);
+
+/** Picks the first valid entry point from the available above. */
+AMWAPI enum result octavia_entry_point(_OCTAVIA_ENTRY_POINT_ARGS);
+
+/** Initializes the audio backend. */
+typedef enum result (*PFN_octavia_audio_init)(
+    struct octavarium                   *octavia,
+    const struct octavarium_create_info *create_info);
+
+/** Cleanups the audio backend. */
+typedef void (*PFN_octavia_audio_fini)(void *internal);
+
+/** Procedures implemented by the audio backend. */
+struct octavarium_interface {
+    const char                 *name;       /**< A readable name of the audio backend, for logging. */
+    void                       *internal;   /**< The audio backend. */
+
+    PFN_octavia_audio_init      audio_init;
+    PFN_octavia_audio_fini      audio_fini;
 };
 
-/** An audio engine. */
-struct octavia {
+/** An context of the audio engine. */
+struct octavarium {
     at_u32                      flags;
-    rivens_tag_t                tag;
-    struct rivens              *riven;
+    struct octavarium_interface interface;
 
-    void                       *backend;
-    struct octavia_interface    interface;
+    rivens_tag_t                tag;    /**< The lifetime of this system. */
+    struct rivens              *riven;
 };
+
+/** Information needed to construct an audio backend. */
+struct octavarium_create_info {
+    struct rivens          *riven;
+    rivens_tag_t            tag;
+};
+
+/** Initialize the backend instance for the renderer. */
+AMWAPI attr_nonnull_all
+struct octavarium *octavia_init(
+    PFN_octavia_entry_point       *entries,
+    u32                            entry_count,
+    struct octavarium_create_info *create_info);
+
+AMWAPI attr_nonnull_all
+void octavia_fini(struct octavarium *octavia);
+
+#ifdef __cplusplus
+}
+#endif

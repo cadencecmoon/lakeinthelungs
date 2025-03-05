@@ -3,18 +3,14 @@
 #include <amw/bedrock.h>
 
 #include <amw/bits.h>
-#include <amw/endian.h>
 #include <amw/hadal.h>
-#include <amw/harridan.h>
 #include <amw/hash_table.h>
 #include <amw/input.h>
 #include <amw/log.h>
 #include <amw/octavia.h>
-#include <amw/plugin.h>
+#include <amw/pelagial.h>
 #include <amw/process.h>
 #include <amw/riven.h>
-#include <amw/random.h>
-#include <amw/string.h>
 #include <amw/threads.h>
 #include <amw/time.h>
 
@@ -48,11 +44,6 @@ extern s32 amw_main(s32 argc, char **argv);
 
 #define DIRECTINPUT_VERSION 0x0800
 #define OEMRESOURCE
-
-#include <windows.h>
-
-#undef near
-#undef far
 
 int WINAPI WinMain(
     _In_ HINSTANCE     hInstance, 

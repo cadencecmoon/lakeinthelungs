@@ -3,6 +3,10 @@
 #include <amw/bedrock.h>
 #include <amw/riven.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct hash_node {
     struct hash_node   *next;
     void               *key;
@@ -48,10 +52,14 @@ b32 hash_table_find(
     s32              **out_value);
 
 /** Runs custom procedures for traversing through the entire hash table. */
-typedef s32 (*PFN_hash_for_each)(const void *key, usize length, s32 *value, void *data);
+typedef enum result (*PFN_hash_for_each)(const void *key, usize length, s32 *value, void *data);
 
 /** Runs the custom procedure for every key in the hash table. */
 AMWAPI void hash_table_for_each(
     struct hash_table *ht,
     PFN_hash_for_each  proc,
     void              *data);
+
+#ifdef __cplusplus
+}
+#endif

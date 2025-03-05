@@ -2,6 +2,10 @@
 
 #include <amw/bedrock.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #if __STDC_VERSION__ >= 202000
     /* static_assert is already defined */
 #else
@@ -105,3 +109,7 @@ AMWAPI void log_set_quiet(b32 set_quiet);
 #define log_warn(fmt, ...)      log_message(log_level_warn,    __func__, SOURCE_FILENAME, __LINE__, fmt, ##__VA_ARGS__)
 #define log_error(fmt, ...)     log_message(log_level_error,   __func__, SOURCE_FILENAME, __LINE__, fmt, ##__VA_ARGS__)
 #define log_fatal(fmt, ...)     log_message(log_level_fatal,   __func__, SOURCE_FILENAME, __LINE__, fmt, ##__VA_ARGS__)
+
+#ifdef __cplusplus
+}
+#endif

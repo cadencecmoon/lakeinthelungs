@@ -2,8 +2,18 @@ if sys == 'windows'
     #engine_sources += files('')
     defs += [
         '-DPLATFORM_WINDOWS=1',
+        '-DUNICODE',
+        '-D_WIN32_WINNT=0x0A00',
         '-DVK_USE_PLATFORM_WIN32_KHR' ]
     deps += dep_threads
+
+    dep_d3d12 = cc.find_library('d3d12', required : get_option('d3d12'))
+    dep_dxcore = cc.find_library('dxcore', required : cc.get_id() == 'msvc')
+    if dep_d3d12.found()
+        #engine_sources += files('')
+        defs += '-DPELAGIAL_D3D12=1'
+        deps += [ dep_d3d12, dep_dxcore ]
+    endif
 
     found_wasapi = cc.check_header('audioclient.h', required : get_option('wasapi'))
     if found_wasapi
@@ -19,5 +29,6 @@ if sys == 'windows'
     if dep_xaudio.found()
         #engine_sources += files('')
         defs += '-DOCTAVIA_XAUDIO2=1'
+        deps += dep_xaudio
     endif
 endif

@@ -2,6 +2,10 @@
 
 #include <amw/bedrock.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 enum keycode {
     keycode_space         = 32,
     keycode_apostrophe    = 39,  /* ' */
@@ -622,3 +626,7 @@ struct finger {
     f32 x, y;
     f32 pressure;
 };
+
+#ifdef __cplusplus
+}
+#endif

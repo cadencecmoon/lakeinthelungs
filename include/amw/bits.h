@@ -2,7 +2,7 @@
 
 #include <amw/bedrock.h>
 
-/** @file amw/bits.h
+/** @file amw/math/bits.h
  *
  *  The article on fast population-count by Wojciech Muła, and his github repository
  *  were very helpful in implementing these operations:

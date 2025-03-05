@@ -1,15 +1,13 @@
 #pragma once
 
-#include <amw/bedrock.h>
-#include <amw/log.h>
-#include <amw/riven.h>
-#include <amw/string.h>
+#include <amw/pelagial.h>
 
 #ifndef VK_NO_PROTOTYPES
     #define VK_NO_PROTOTYPES
 #endif
 
 #if defined(VK_USE_PLATFORM_WIN32_KHR)
+    /* to avoid including windows.h */
     #ifndef UNICODE
         #define UNICODE 1
     #endif
@@ -48,80 +46,117 @@
     #include <vulkan/vulkan.h>
 #endif
 
-struct hadopelagic;
-struct harridan;
+s32 pelagial_vulkan_renderer_init(
+    struct pelagic_ocean                   *restrict pelagial,
+    const struct pelagic_ocean_create_info *restrict create_info);
+
+void pelagial_vulkan_renderer_fini(void *restrict internal);
 
 /** Collects bits for checking availability of Vulkan extensions and features that interest us. 
  *  These bits are only set once at initialization, represented as a 64-bit integer value.
  *  With our Vulkan renderer we target a minimum of Vulkan core 1.2 with dynamic rendering. */
-enum vk_extensions {
+enum vulkan_extensions {
     /* instance extensions */
-    vk_extension_surface_bit                            = (1ull << 0),  /**< VK_KHR_surface */
-    vk_extension_win32_surface_bit                      = (1ull << 1),  /**< VK_KHR_win32_surface */
-    vk_extension_metal_surface_bit                      = (1ull << 2),  /**< VK_EXT_metal_surface */
-    vk_extension_android_surface_bit                    = (1ull << 3),  /**< VK_KHR_android_surface */
-    vk_extension_wayland_surface_bit                    = (1ull << 4),  /**< VK_KHR_wayland_surface */
-    vk_extension_xcb_surface_bit                        = (1ull << 5),  /**< VK_KHR_xcb_surface */
-    vk_extension_headless_surface_bit                   = (1ull << 6),  /**< VK_KHR_headless_surface */
-    vk_extension_display_bit                            = (1ull << 7),  /**< VK_KHR_display */
+    vulkan_ext_surface_bit                      = (1ull << 0),  /**< VK_KHR_surface */
+    vulkan_ext_win32_surface_bit                = (1ull << 1),  /**< VK_KHR_win32_surface */
+    vulkan_ext_metal_surface_bit                = (1ull << 2),  /**< VK_EXT_metal_surface */
+    vulkan_ext_android_surface_bit              = (1ull << 3),  /**< VK_KHR_android_surface */
+    vulkan_ext_wayland_surface_bit              = (1ull << 4),  /**< VK_KHR_wayland_surface */
+    vulkan_ext_xcb_surface_bit                  = (1ull << 5),  /**< VK_KHR_xcb_surface */
+    vulkan_ext_headless_surface_bit             = (1ull << 6),  /**< VK_KHR_headless_surface */
+    vulkan_ext_display_bit                      = (1ull << 7),  /**< VK_KHR_display */
     /* instance extensions, debug builds only */
-    vk_extension_debug_utils_bit                        = (1ull << 8),  /**< VK_EXT_debug_utils */
-    vk_extension_layer_validation_bit                   = (1ull << 9),  /**< VK_LAYER_KHRONOS_validation */
+    vulkan_ext_debug_utils_bit                  = (1ull << 8),  /**< VK_EXT_debug_utils */
+    vulkan_ext_layer_validation_bit             = (1ull << 9),  /**< VK_LAYER_KHRONOS_validation */
     
     /* device extensions */
-    vk_extension_swapchain_bit                          = (1ull << 10), /**< VK_KHR_swapchain */
-    vk_extension_device_fault_bit                       = (1ull << 11), /**< VK_EXT_device_fault */
-    vk_extension_memory_budget_bit                      = (1ull << 12), /**< VK_EXT_memory_budget */
-    vk_extension_memory_priority_bit                    = (1ull << 13), /**< VK_EXT_memory_priority */
-    vk_extension_mesh_shader_bit                        = (1ull << 14), /**< VK_EXT_mesh_shader */
-    vk_extension_fragment_shading_rate_bit              = (1ull << 15), /**< VK_KHR_fragment_shading_rate */
-    vk_extension_deferred_host_operations_bit           = (1ull << 16), /**< VK_KHR_deferred_host_operations */
-    vk_extension_acceleration_structure_bit             = (1ull << 17), /**< VK_KHR_acceleration_structure */
-    vk_extension_pipeline_library_bit                   = (1ull << 18), /**< VK_KHR_pipeline_library */
-    vk_extension_ray_query_bit                          = (1ull << 19), /**< VK_KHR_ray_query */
-    vk_extension_ray_tracing_pipeline_bit               = (1ull << 20), /**< VK_KHR_ray_tracing_pipeline */
-    vk_extension_ray_tracing_maintenance1_bit           = (1ull << 21), /**< VK_KHR_ray_tracing_maintenance1 */
-    vk_extension_video_queue_bit                        = (1ull << 22), /**< VK_KHR_video_queue */
-    vk_extension_video_decode_queue_bit                 = (1ull << 23), /**< VK_KHR_video_decode_queue */
+    vulkan_ext_swapchain_bit                    = (1ull << 10), /**< VK_KHR_swapchain */
+    vulkan_ext_device_fault_bit                 = (1ull << 11), /**< VK_EXT_device_fault */
+    vulkan_ext_memory_budget_bit                = (1ull << 12), /**< VK_EXT_memory_budget */
+    vulkan_ext_memory_priority_bit              = (1ull << 13), /**< VK_EXT_memory_priority */
+    vulkan_ext_mesh_shader_bit                  = (1ull << 14), /**< VK_EXT_mesh_shader */
+    vulkan_ext_fragment_shading_rate_bit        = (1ull << 15), /**< VK_KHR_fragment_shading_rate */
+    vulkan_ext_deferred_host_operations_bit     = (1ull << 16), /**< VK_KHR_deferred_host_operations */
+    vulkan_ext_acceleration_structure_bit       = (1ull << 17), /**< VK_KHR_acceleration_structure */
+    vulkan_ext_pipeline_library_bit             = (1ull << 18), /**< VK_KHR_pipeline_library */
+    vulkan_ext_ray_query_bit                    = (1ull << 19), /**< VK_KHR_ray_query */
+    vulkan_ext_ray_tracing_pipeline_bit         = (1ull << 20), /**< VK_KHR_ray_tracing_pipeline */
+    vulkan_ext_ray_tracing_maintenance1_bit     = (1ull << 21), /**< VK_KHR_ray_tracing_maintenance1 */
+    vulkan_ext_video_queue_bit                  = (1ull << 22), /**< VK_KHR_video_queue */
+    vulkan_ext_video_decode_queue_bit           = (1ull << 23), /**< VK_KHR_video_decode_queue */
+    vulkan_ext_video_encode_queue_bit           = (1ull << 24), /**< VK_KHR_video_encode_queue */
+    vulkan_ext_video_maintenance1_bit           = (1ull << 25), /**< VK_KHR_video_maintenance1 */
     /* AMD hardware */
-    vk_extension_amd_device_coherent_memory_bit         = (1ull << 24), /**< VK_AMD_device_coherent_memory */
+    vulkan_ext_amd_device_coherent_memory_bit   = (1ull << 26), /**< VK_AMD_device_coherent_memory */
     /* core 1.4, for backwards compatibility */
-    vk_extension_dynamic_rendering_local_read_bit       = (1ull << 25), /**< VK_KHR_dynamic_rendering_local_read */
-    vk_extension_maintenance5_bit                       = (1ull << 26), /**< VK_KHR_maintenance5 */
+    vulkan_ext_dynamic_rendering_local_read_bit = (1ull << 27), /**< VK_KHR_dynamic_rendering_local_read */
+    vulkan_ext_maintenance5_bit                 = (1ull << 28), /**< VK_KHR_maintenance5 */
     /* core 1.3, for backwards compatibility */
-    vk_extension_dynamic_rendering_bit                  = (1ull << 27), /**< VK_KHR_dynamic_rendering */
-    vk_extension_synchronization2_bit                   = (1ull << 28), /**< VK_KHR_synchronization2 */
-    vk_extension_maintenance4_bit                       = (1ull << 29), /**< VK_KHR_maintenance4 */
+    vulkan_ext_dynamic_rendering_bit            = (1ull << 29), /**< VK_KHR_dynamic_rendering */
+    vulkan_ext_synchronization2_bit             = (1ull << 30), /**< VK_KHR_synchronization2 */
+    vulkan_ext_maintenance4_bit                 = (1ull << 31), /**< VK_KHR_maintenance4 */
 };
-#define vk_extension_mask_raytracing \
-    (vk_extension_deferred_host_operations_bit | \
-     vk_extension_acceleration_structure_bit | \
-     vk_extension_ray_query_bit)
-#define vk_extension_mask_raytracing_pipeline \
-    (vk_extension_mask_raytracing | \
-     vk_extension_pipeline_library_bit | \
-     vk_extension_ray_tracing_pipeline_bit)
-#define vk_extension_mask_api14 \
-    (vk_extension_dynamic_rendering_local_read_bit | \
-     vk_extension_maintenance5_bit)
-#define vk_extension_mask_api13 \
-    (vk_extension_dynamic_rendering_bit | \
-     vk_extension_synchronization2_bit | \
-     vk_extension_maintenance4_bit)
-#define vk_extension_mask_video \
-    (vk_extension_synchronization2_bit | \
-     vk_extension_video_queue_bit | \
-     vk_extension_video_decode_queue_bit)
-#define vk_extension_mask_required_device \
-    (vk_extension_swapchain_bit | \
-     vk_extension_dynamic_rendering_local_read_bit | \
-     vk_extension_dynamic_rendering_bit | \
-     vk_extension_synchronization2_bit)
+#define vulkan_ext_mask_raytracing \
+    (vulkan_ext_deferred_host_operations_bit | \
+     vulkan_ext_acceleration_structure_bit | \
+     vulkan_ext_ray_query_bit)
+#define vulkan_ext_mask_raytracing_pipeline \
+    (vulkan_ext_mask_raytracing | \
+     vulkan_ext_pipeline_library_bit | \
+     vulkan_ext_ray_tracing_pipeline_bit)
+#define vulkan_ext_mask_api14 \
+    (vulkan_ext_dynamic_rendering_local_read_bit | \
+     vulkan_ext_maintenance5_bit)
+#define vulkan_ext_mask_api13 \
+    (vulkan_ext_dynamic_rendering_bit | \
+     vulkan_ext_synchronization2_bit | \
+     vulkan_ext_maintenance4_bit)
+#define vulkan_ext_mask_video \
+    (vulkan_ext_synchronization2_bit | \
+     vulkan_ext_video_queue_bit | \
+     vulkan_ext_video_decode_queue_bit | \
+     vulkan_ext_video_encode_queue_bit)
+#define vulkan_ext_mask_required_device \
+    (vulkan_ext_swapchain_bit | \
+     vulkan_ext_dynamic_rendering_local_read_bit | \
+     vulkan_ext_dynamic_rendering_bit | \
+     vulkan_ext_synchronization2_bit)
 
-/** Vulkan API of globa, instance and device procedures. */
-struct vk_api {
-    void                                                       *module;
+/** Get a (very helpful I guess) message of a given Vulkan error code. */
+AMWAPI attr_const
+const char *vulkan_result_string(VkResult result);
+
+#if !defined(NDEBUG)
+    #define VERIFY_VK(x) { \
+        VkResult res__ = (x); \
+        if (res__ != VK_SUCCESS) { \
+            log_error("Failed to assert VK_SUCCESS for: %s", #x); \
+            log_error("The Vulkan error message: %s", vulkan_result_string(res__)); \
+            assert_debug(!"VkResult assertion"); \
+        } \
+    }
+#else
+    #define VERIFY_VK(x) (void)(x)
+#endif
+
+/** Internal state of pelagic_ocean, the shared context of a renderer. Only one such 
+ *  instance of a Vulkan backend can exist, this is verified from the entry point. */
+struct vulkan_backend {
+    /** An instance makes Vulkan functions available to us. It is used for driver calls,
+     *  and holds information about the application before passing it to a logical device. */
+    VkInstance                                                  instance;
+    /** Used for logging messages and profiling with debug mode and validation layers enabled. */
+    VkDebugUtilsMessengerEXT                                    debug_messenger;
+    /** TODO (for now NULL) Host allocation callbacks implemented with riven. */
+    VkAllocationCallbacks                                      *allocator;
+    /** Bits for checking availability of Vulkan extensions that are of interest to us. */
     u64                                                         extensions;
+    /** The shared rendering context owning this backend. */
+    struct pelagic_ocean                                       *pelagial;
+    /** The loaded driver library. */
+    void                                                       *module;
+
+    /* for retrieving procedures */
     PFN_vkGetInstanceProcAddr                                   vkGetInstanceProcAddr;
     PFN_vkGetDeviceProcAddr                                     vkGetDeviceProcAddr;
 
@@ -164,23 +199,29 @@ struct vk_api {
     PFN_vkCreateWin32SurfaceKHR                                 vkCreateWin32SurfaceKHR;
     PFN_vkGetPhysicalDeviceWin32PresentationSupportKHR          vkGetPhysicalDeviceWin32PresentationSupportKHR;
 #endif /* VK_KHR_win32_surface */
+
 #if defined(VK_EXT_metal_surface)
     PFN_vkCreateMetalSurfaceEXT                                 vkCreateMetalSurfaceEXT;
 #endif /* VK_EXT_metal_surface */
+
 #if defined(VK_KHR_wayland_surface)
     PFN_vkCreateWaylandSurfaceKHR                               vkCreateWaylandSurfaceKHR;
     PFN_vkGetPhysicalDeviceWaylandPresentationSupportKHR        vkGetPhysicalDeviceWaylandPresentationSupportKHR;
 #endif /* VK_KHR_wayland_surface */
+
 #if defined(VK_KHR_xcb_surface)
     PFN_vkCreateXcbSurfaceKHR                                   vkCreateXcbSurfaceKHR;
     PFN_vkGetPhysicalDeviceXcbPresentationSupportKHR            vkGetPhysicalDeviceXcbPresentationSupportKHR;
 #endif /* VK_KHR_xcb_surface */
+
 #if defined(VK_KHR_android_surface)
     PFN_vkCreateAndroidSurfaceKHR                               vkCreateAndroidSurfaceKHR;
 #endif /* VK_KHR_android_surface */
+
 #if defined(VK_EXT_headless_surface)
     PFN_vkCreateHeadlessSurfaceEXT                              vkCreateHeadlessSurfaceEXT;
 #endif /* VK_EXT_headless_surface */
+
 #if defined(VK_KHR_display)
     PFN_vkCreateDisplayModeKHR                                  vkCreateDisplayModeKHR;
     PFN_vkCreateDisplayPlaneSurfaceKHR                          vkCreateDisplayPlaneSurfaceKHR;
@@ -203,6 +244,98 @@ struct vk_api {
     PFN_vkCreateDebugUtilsMessengerEXT                          vkCreateDebugUtilsMessengerEXT;
     PFN_vkDestroyDebugUtilsMessengerEXT                         vkDestroyDebugUtilsMessengerEXT;
     PFN_vkSubmitDebugUtilsMessageEXT                            vkSubmitDebugUtilsMessageEXT;
+
+    /* video coding */
+    PFN_vkGetPhysicalDeviceVideoCapabilitiesKHR                 vkGetPhysicalDeviceVideoCapabilitiesKHR;
+    PFN_vkGetPhysicalDeviceVideoFormatPropertiesKHR             vkGetPhysicalDeviceVideoFormatPropertiesKHR;
+};
+
+/** The device is a context of execution for our renderer, interfacing a GPU. */
+struct vulkan_device {
+    struct pelagic_ocean                                       *pelagial;
+    /** A resource tag for the lifetime of this rendering device. */
+    rivens_tag_t                                                tag;
+    /** An unique id of the rendering device. */
+    u32                                                         uid;
+    /** How many instances of buffered state is in use. This value is mostly between 2-4. */
+    u32                                                         frames_in_flight;
+
+    /** The Vulkan context of a rendering device, using the given physical device. */
+    VkDevice                                                    logical;
+    /** A handle to the physical device used to create this rendering device. */
+    VkPhysicalDevice                                            physical;
+    /** Used to execute draw commands within a render pass, and for presenting to the window. */
+    VkQueue                                                     graphics_queue;
+    /** Used for dispatch commands on compute pipelines. */
+    VkQueue                                                     compute_queue;
+    /** Used for copy, updates and transfers of GPU resources. */
+    VkQueue                                                     transfer_queue;
+    /** Used for sparse binding resources, like huge virtual textures. */
+    VkQueue                                                     sparse_queue;
+    /** Used for video decoding, mostly H.264 format. */
+    VkQueue                                                     decode_queue;
+    /** Used for video encoding, mostly H.264 format. */
+    VkQueue                                                     encode_queue;
+
+    /* indices of queue families for queues listed above */
+    u32                                                         graphics_queue_family_index;
+    u32                                                         compute_queue_family_index;
+    u32                                                         transfer_queue_family_index;
+    u32                                                         sparse_queue_family_index;
+    u32                                                         decode_queue_family_index;
+    u32                                                         encode_queue_family_index;
+    /** For convenience we put unique indices in an array. */
+    u32                                                        *queue_family_indices;
+    /** How many unique queue families are currently in use, very much device dependent. */
+    u32                                                         queue_family_count;
+
+    /** Surface capabilities of the physical device in use. */
+    VkSurfaceCapabilitiesKHR                                    surface_capabilities;
+    /** Information about hardware properties of the physical device. */
+    VkPhysicalDeviceProperties2                                 properties2;
+    VkPhysicalDeviceVulkan11Properties                          properties_11;
+    VkPhysicalDeviceVulkan12Properties                          properties_12;
+    VkPhysicalDeviceVulkan13Properties                          properties_13;
+    VkPhysicalDeviceVulkan14Properties                          properties_14;
+    VkPhysicalDeviceAccelerationStructurePropertiesKHR          acceleration_structure_properties;
+    VkPhysicalDeviceRayTracingPipelinePropertiesKHR             raytracing_pipeline_properties;
+    VkPhysicalDeviceDescriptorIndexingProperties                descriptor_indexing_properties;
+    VkPhysicalDeviceFragmentShadingRatePropertiesKHR            fragment_shading_rate_properties;
+    VkPhysicalDeviceMeshShaderPropertiesEXT                     mesh_shader_properties;
+    VkPhysicalDeviceMemoryProperties2                           memory_properties2;
+    VkPhysicalDeviceMemoryBudgetPropertiesEXT                   memory_budget;
+
+    /** Information about features supported by the physical device. */
+    VkPhysicalDeviceFeatures2                                   features2;
+    VkPhysicalDeviceVulkan11Features                            features_11;
+    VkPhysicalDeviceVulkan12Features                            features_12;
+    VkPhysicalDeviceVulkan13Features                            features_13;
+    VkPhysicalDeviceVulkan14Features                            features_14;
+    VkPhysicalDeviceAccelerationStructureFeaturesKHR            acceleration_structure_features;
+    VkPhysicalDeviceRayTracingPipelineFeaturesKHR               raytracing_pipeline_features;
+    VkPhysicalDeviceRayQueryFeaturesKHR                         raytracing_query_features;
+    VkPhysicalDeviceDescriptorIndexingFeatures                  descriptor_indexing_features;
+    VkPhysicalDeviceFragmentShadingRateFeaturesKHR              fragment_shading_rate_features;
+    VkPhysicalDeviceMeshShaderFeaturesEXT                       mesh_shader_features;
+
+    /** Information about capabilities of accelerated H.264 video coding. */
+    VkVideoDecodeH264ProfileInfoKHR                             decode_h264_profile;
+    VkVideoDecodeH264CapabilitiesKHR                            decode_h264_capabilities;
+    VkVideoEncodeH264ProfileInfoKHR                             encode_h264_profile;
+    VkVideoEncodeH264CapabilitiesKHR                            encode_h264_capabilities;
+
+    /** Information about capabilities of accelerated AV1 video coding. */
+    VkVideoDecodeAV1ProfileInfoKHR                              decode_av1_profile;
+    VkVideoDecodeAV1CapabilitiesKHR                             decode_av1_capabilities;
+    VkVideoEncodeAV1ProfileInfoKHR                              encode_av1_profile;
+    VkVideoEncodeAV1CapabilitiesKHR                             encode_av1_capabilities;
+
+    struct vulkan_video_capability {
+        VkVideoProfileInfoKHR                                   profile;
+        VkVideoDecodeCapabilitiesKHR                            decode_capabilities;
+        VkVideoEncodeCapabilitiesKHR                            encode_capabilities;
+        VkVideoCapabilitiesKHR                                  video_capabilities;
+    } video_h264_capability, video_av1_capability;
 
     /* core 1.0 */
 	PFN_vkAllocateCommandBuffers                                vkAllocateCommandBuffers;
@@ -437,200 +570,156 @@ struct vk_api {
     PFN_vkCreateVideoSessionParametersKHR                       vkCreateVideoSessionParametersKHR;
     PFN_vkDestroyVideoSessionKHR                                vkDestroyVideoSessionKHR;
     PFN_vkDestroyVideoSessionParametersKHR                      vkDestroyVideoSessionParametersKHR;
-    PFN_vkGetPhysicalDeviceVideoCapabilitiesKHR                 vkGetPhysicalDeviceVideoCapabilitiesKHR; /* instance */
-    PFN_vkGetPhysicalDeviceVideoFormatPropertiesKHR             vkGetPhysicalDeviceVideoFormatPropertiesKHR; /* instance */
     PFN_vkGetVideoSessionMemoryRequirementsKHR                  vkGetVideoSessionMemoryRequirementsKHR;
     PFN_vkUpdateVideoSessionParametersKHR                       vkUpdateVideoSessionParametersKHR;
 };
 
-/** Loads the Vulkan driver library and saves global entry point procedures. */
-AMWAPI b32 open_vulkan_driver(struct vk_api *api, b32 verbose);
-
-/** Unloads the Vulkan driver library, after this point none of the Vulkan calls are valid. */
-AMWAPI void close_vulkan_driver(struct vk_api *api);
-
-/** Fills the pointers to procedures defined in vk_instance_api, after instance creation. */
-AMWAPI attr_nonnull(1,2)
-b32 load_vulkan_instance_procedures(struct vk_api *api, VkInstance instance);
-
-/** Fills the pointers to procedures defined in vk_device_api, after device creation. */
-AMWAPI attr_nonnull(1,2)
-b32 load_vulkan_device_procedures(struct vk_api *api, VkDevice device, u32 api_version);
-
-/** Get a (very helpful I guess) message of a given Vulkan error code. */
-AMWAPI attr_const
-const char *vulkan_result_string(VkResult result);
-
-#if !defined(NDEBUG)
-    #define VERIFY_VK(x) { \
-        VkResult res__ = (x); \
-        if (res__ != VK_SUCCESS) { \
-            log_error("Failed to assert VK_SUCCESS for: %s", #x); \
-            log_error("The Vulkan error message: %s", vulkan_result_string(res__)); \
-            assert_debug(!"VkResult assertion"); \
-        } \
-    }
-#else
-    #define VERIFY_VK(x) (void)(x)
-#endif
-
-/** We use the swapchain as a way to present to the window surface. */
-struct swapchain {
-    /** A swapchain created by the means of our display backend. */
+/** We use the swapchain as a way to present rendered images to the window surface. */
+struct vulkan_swapchain {
+    /** A swapchain created by the means of our display backend provided surface. */
     VkSwapchainKHR              sc;
-    /** A surface created within the context of a window. */
+    /** A surface for the renderer to interface with the system window. */
     VkSurfaceKHR                surface;
-    /** The format of images held in the swapchain. */
+    /** The format of images, in pixels. */
     VkFormat                    format;
-    /** The resolution of images, in pixels. */
-    VkExtent2D                  extent;
-    /** Surface capabilities of the physical device in use. */
-    VkSurfaceCapabilitiesKHR    surface_capabilities;
-    /** Selected presentation mode. */
+    /** Selected mode of image presentation. */
     VkPresentModeKHR            present_mode;
-    /** Semaphores for synchronizing presentation with the graphics queue.
-     *  One semaphore per swapchain image. */
-    VkSemaphore                 image_available_sem[AMW_MAX_FRAMES_IN_FLIGHT<<1];
     /** An array of images held in the swapchain. */
-    VkImage                     images[AMW_MAX_FRAMES_IN_FLIGHT<<1];
+    VkImage                     images[AMW_MAX_FRAMES_IN_FLIGHT];
     /** An image view for each image in the swapchain. */
-    VkImageView                 image_views[AMW_MAX_FRAMES_IN_FLIGHT<<1];
-    /** Number of swapchain images. */
+    VkImageView                 image_views[AMW_MAX_FRAMES_IN_FLIGHT];
+    /** Semaphores for synchronizing presentation with the device in control of the swapchain. */
+    VkSemaphore                 image_available_sem[AMW_MAX_FRAMES_IN_FLIGHT];
+    /** Number of images in the swapchain. */
     u32                         image_count;
+    /** An unique id of the rendering device controling this swapchain. */
+    u32                         uid;
 };
 
-/** Collects bits of optional features or condition of the physical device. */
-enum harridan_feat {
-    harridan_feat_is_discrete           = (1u << 1), /**< When the GPU is of discrete type. */
-    harridan_feat_async_compute         = (1u << 2), /**< When the compute queue is not overloaded with the graphics queue. */
-    harridan_feat_async_transfer        = (1u << 3), /**< When the transfer queue is not overloaded with the graphics queue. */
-    harridan_feat_async_sparse_binding  = (1u << 4), /**< When the sparse binding queue is not overloaded with the graphics queue. */
-    harridan_feat_async_decode_video    = (1u << 5), /**< When the sparse binding queue is not overloaded with the graphics queue. */
-    harridan_feat_h264_video_coding     = (1u << 6), /**< Whether accelerated video coding of format H.264 is available. */
-    harridan_feat_presentation_support  = (1u << 7), /**< The GPU can present to a window surface via the swapchain. */
+/** Enums for intended memory usage. */
+enum vulkan_memory_usage {
+    vulkan_memory_usage_unknown = 0,           /**< No intended memory usage specified. */
+    vulkan_memory_usage_lazily_allocated,      /**< Lazily allocated GPU memory, exists mostly on mobile platforms. Implies a dedicated allocation. */
+    vulkan_memory_usage_auto,                  /**< Selects best memory type for GPU resources, figured out from the context of an allocation. */
+    vulkan_memory_usage_auto_prefer_device,    /**< Selects best memory type for GPU resources, with preference for GPU (device) memory. */
+    vulkan_memory_usage_auto_prefer_host,      /**< Selects best memory type for GPU resources, with preference for CPU (host) memory. */
 };
 
-/** Controls the rendering device overall state. */
-enum harridan_flags {
-    harridan_flag_device_is_valid       = (1u << 0), /**< True for a valid rendering device. */
-    harridan_flag_debug_utils           = (1u << 1), /**< Set when debug labeling and validation layers are enabled. */
-    harridan_flag_vsync_enabled         = (1u << 2), /**< To enable vertical synchronization. */
-    harridan_flag_surface_lost          = (1u << 3), /**< Set on lost surface errors. */
-    harridan_flag_screenshot_supported  = (1u << 4), /**< Set if we can capture the swapchain images directly. */
+enum vulkan_allocation_flags {
+    /** Set this if the allocation should have its own device memory block. */
+    vulkan_allocation_flag_dedicated_memory                = (1u << 0),
+    /** Set this to only try suballocate from existing device memory, and never create new such blocks. */
+    vulkan_allocation_flag_never_allocate                  = (1u << 1),
+    /** Set this to use a memory that will be persistently mapped. */
+    vulkan_allocation_flag_mapped                          = (1u << 2),
+    /** Set this if the allocated memory will have aliasing resources. */
+    vulkan_allocation_flag_can_alias                       = (1u << 3),
+    /** Request possibility to map the allocation (either flag_mapped or later with map memory API calls).
+     *  Declares that mapped memory will only be written sequentially, e.g. using 'memcpy()' or a loop
+     *  writing byte-by-byte, never read, or accessed randomly from the CPU, so a memory type can be 
+     *  selected that is uncached and write-combined. */
+    vulkan_allocation_flag_host_access_sequential_write    = (1u << 4),
+    /** Request possibility to map the allocation (either flag_mapped or later with map memory API calls).
+     *  Declares that mapped memory can be read, written, and accessed in random order, so a host cached 
+     *  memory type is preferred. */
+    vulkan_allocation_flag_host_access_random              = (1u << 5),
 };
 
-struct harridan {
-    at_u32                      flags;
-    u32                         feats;
-
-    rivens_tag_t                device_tag;
-    rivens_tag_t                render_state_tag;
-    struct rivens              *riven;
-
-    /** An instance makes Vulkan functions available to us. It is used for driver calls,
-     *  and holds information about the application before passing it to a rendering device. */
-    VkInstance                  instance;
-    /** The Vulkan object of a logical rendering device, using the given physical device. */
-    VkDevice                    logical;
-    /** A handle of the physical device used to create this rendering device. */
-    VkPhysicalDevice            physical;
-    /** Used for logging messages and profiling with debug mode and validation layers enabled. */
-    VkDebugUtilsMessengerEXT    debug_messenger;
-    /** TODO Host allocation callbacks implemented with riven. */
-    VkAllocationCallbacks       allocation_callbacks;
-
-    u32                         graphics_queue_family;
-    u32                         compute_queue_family;
-    u32                         transfer_queue_family;
-    u32                         sparse_queue_family;
-    u32                         decode_queue_family;
-    /** For convenience we put unique indices in an array. */
-    u32                        *queue_family_indices;
-    /** How many unique queue families are currently in use, very much device dependent. */
-    u32                         queue_family_count;
-
-    VkQueue                     graphics_queue;
-    VkQueue                     compute_queue;
-    VkQueue                     transfer_queue;
-    VkQueue                     sparse_queue;
-    VkQueue                     decode_queue;
-
-    /** Our means of presenting rendered images. */
-    struct swapchain            swapchain;
-    /** Vulkan procedures loaded from the drivers. */
-    struct vk_api               api;
-
-    /** Information about hardware properties of the physical device. */
-    VkPhysicalDeviceProperties2                         properties2;
-    VkPhysicalDeviceVulkan11Properties                  properties_11;
-    VkPhysicalDeviceVulkan12Properties                  properties_12;
-    VkPhysicalDeviceVulkan13Properties                  properties_13;
-    VkPhysicalDeviceVulkan14Properties                  properties_14;
-    VkPhysicalDeviceAccelerationStructurePropertiesKHR  acceleration_structure_properties;
-    VkPhysicalDeviceRayTracingPipelinePropertiesKHR     raytracing_pipeline_properties;
-    VkPhysicalDeviceFragmentShadingRatePropertiesKHR    fragment_shading_rate_properties;
-    VkPhysicalDeviceMeshShaderPropertiesEXT             mesh_shader_properties;
-    VkPhysicalDeviceMemoryProperties2                   memory_properties2;
-    VkPhysicalDeviceMemoryBudgetPropertiesEXT           memory_budget;
-
-    /** Information about features supported by the physical device. */
-    VkPhysicalDeviceFeatures2                           features2;
-    VkPhysicalDeviceVulkan11Features                    features_11;
-    VkPhysicalDeviceVulkan12Features                    features_12;
-    VkPhysicalDeviceVulkan13Features                    features_13;
-    VkPhysicalDeviceVulkan14Features                    features_14;
-    VkPhysicalDeviceAccelerationStructureFeaturesKHR    acceleration_structure_features;
-    VkPhysicalDeviceRayTracingPipelineFeaturesKHR       raytracing_pipeline_features;
-    VkPhysicalDeviceRayQueryFeaturesKHR                 raytracing_query_features;
-    VkPhysicalDeviceFragmentShadingRateFeaturesKHR      fragment_shading_rate_features;
-    VkPhysicalDeviceMeshShaderFeaturesEXT               mesh_shader_features;
-
-    /** Information about capabilities of accelerated video coding. */
-    VkVideoDecodeH264ProfileInfoKHR                     decode_h264_profile;
-    VkVideoDecodeH264CapabilitiesKHR                    decode_h264_capabilities;
-    VkVideoProfileInfoKHR                               video_profile;
-    VkVideoDecodeCapabilitiesKHR                        video_decode_capabilities;
-    VkVideoCapabilitiesKHR                              video_capabilities;
+struct vulkan_allocation_create_info {
+    /** Flags of enum vulkan_allocation_flags */
+    VkFlags                     flags;
+    /** Defines for what purpose is this allocation. */
+    enum vulkan_memory_usage    usage;
+    /** Flags that must be set in a memory type chosen for an allocation. */
+    VkMemoryPropertyFlags       required_flags;
+    /** Flags that preferably should be set in a memory type chosen for an allocation. */
+    VkMemoryPropertyFlags       preferred_flags;
+    /** Bitmask containing one bit set for every memory type acceptable for this allocation.
+     *  A value of 0 is equivalent to UINT32_MAX, so any valid memory type may be accepted. */
+    u32                         memory_type_bits;
+    /** The size of the memory allocation. If 0, we'll try to calculate it if possible. */
+    VkDeviceSize                size;
 };
 
-/** Creates a rendering backend. */
-AMWAPI attr_nonnull_all
-s32 harridan_init(
-    struct harridan        *harridan,
-    struct hadopelagic     *hadal,
-    struct rivens          *riven,
-    rivens_tag_t            tag,
-    const char             *app_name,
-    u32                     app_version,
-    const char             *engine_name,
-    u32                     engine_version,
-    s32                     select_device_index,
-    b32                     verbose,
-    b32                     debug_utilities);
-
-/** Destroys the rendering backend. */
-AMWAPI attr_nonnull_all
-void harridan_fini(struct harridan *harridan);
-
-struct harridan_orchestrate_swapchain_work {
-    WORK_STRUCTURE_HEADER
-    struct harridan    *harridan;
-    struct hadopelagic *hadal;
-    struct swapchain   *swapchain;
-    b32                 use_vsync;
+/** Information necessary for subdividing large device memory allocations, 
+ *  and the offset used for binding GPU resources like buffers and textures. */
+struct vulkan_allocation {
+    VkDeviceMemory              memory;                 /**< The actual memory allocation we access, can be NULL. */
+    u32                         memory_type;            /**< Memory type index that this allocation was allocated from. */
+    VkDeviceSize                size;                   /**< The size of this allocation, in bytes. */
+    VkDeviceSize                offset;                 /**< The heap offset to the beginning of this allocation, in bytes. */
+    void                       *mapped;                 /**< Pointer to the beginning of this allocation as mapped data, can be NULL. */
+    VkBool32                    dedicated_allocation;   /**< Non-zero value if this is a dedicated GPU allocation. */
 };
 
-/** Controls the state of the swapchain and presentation semaphores. */
-AMWAPI attr_nonnull_all
-void harridan_orchestrate_swapchain(struct harridan_orchestrate_swapchain_work *work);
+/** Helps to find memory_type_index, from given memory_type_bits and allocation_create_info.
+ *  This will try to find a memory type that:
+ *  - Is allowed by memory_type_bits.
+ *  - Contains all the flags from allocation_create_info->required_flags. 
+ *  - Matches intended usage.
+ *  - Has as many flags from allocation_create_info->preferred_flags as possible. */
+attr_nonnull_all
+VkResult vulkan_find_memory_type_index(
+    struct vulkan_device                       *device,
+    u32                                         memory_type_bits,
+    const struct vulkan_allocation_create_info *allocation_create_info,
+    u32                                        *out_memory_type_index);
 
-#define HARRIDAN_DECL_JOB(fn)                               \
-    attr_inline void harridan_##fn##_job__(                 \
-        struct harridan_##fn##_work *work,                  \
-        struct rivens_work *context)                        \
-    {                                                       \
-        context->procedure = (PFN_rivens_job)harridan_##fn; \
-        context->argument = (rivens_arg_t)work;             \
-        context->name = "harridan:" #fn;                    \
-    }
-HARRIDAN_DECL_JOB(orchestrate_swapchain)
+/** Helps to find memory_type_index, given VkImageCreateInfo and allocation_create_info. */
+attr_nonnull_all
+VkResult vulkan_find_memory_type_index_for_texture_info(
+    struct vulkan_device                       *device,
+    const VkImageCreateInfo                    *image_create_info,
+    const struct vulkan_allocation_create_info *allocation_create_info,
+    u32                                        *out_memory_type_index);
+
+/** Helps to find memory_type_index, given VkBufferCreateInfo and allocation_create_info. */
+attr_nonnull_all
+VkResult vulkan_find_memory_type_index_for_buffer_info(
+    struct vulkan_device                       *device,
+    const VkBufferCreateInfo                   *buffer_create_info,
+    const struct vulkan_allocation_create_info *allocation_request,
+    u32                                        *out_memory_type_index);
+
+/** Combines a Vulkan image object, with meta-data, the view and suballocation info. */
+struct vulkan_texture {
+    VkImage                     image;                  /**< The Vulkan handle of a texture resource. */
+    VkImageView                 view;                   /**< A view onto the contents of this texture or NULL if no view was requested. */
+    VkDeviceSize                size;                   /**< The minimum size of this individual image, in bytes. */
+    VkDeviceSize                offset;                 /**< The offset of this image within the bound memory allocation, in bytes. */
+    struct vulkan_allocation   *allocation;             /**< Information needed to access memory for this texture. */
+};
+
+/** Combines a Vulkan buffer object with suballocation info. */
+struct vulkan_buffer {
+    VkBuffer                    buffer;                 /**< The Vulkan handle of a buffer resource. */
+    VkDeviceSize                size;                   /**< The minimum size of this buffer, in bytes. */
+    VkDeviceSize                offset;                 /**< The offset of this buffer within the bound memory allocation, in bytes. */
+    struct vulkan_allocation   *allocation;             /**< Information needed to access memory for this buffer. */
+};
+
+/** Computes the number of mipmap levels needed to get from a resource of the 
+ *  given size to one texel. This is the max number of mipmapc that can be created. */
+attr_inline u32 vulkan_get_mipmap_count_1d(u32 width) {
+	s32 padded_width = (s32)(2 * width - 1);
+	u32 mipmap_count = 0;
+	while (padded_width > 0) {
+		padded_width &= 0x7ffffffe;
+		padded_width >>= 1;
+		++mipmap_count;
+	}
+	return mipmap_count;
+}
+
+/** The maximum of 'get_mipmap_count_1d' for all given extents. */
+attr_inline u32 vulkan_get_mipmap_count_3d(VkExtent3D *extent) {
+	u32 counts[3] = {
+		vulkan_get_mipmap_count_1d(extent->width),
+		vulkan_get_mipmap_count_1d(extent->height),
+		vulkan_get_mipmap_count_1d(extent->depth)
+	};
+	u32 result = counts[0];
+	result = (result < counts[1]) ? counts[1] : result;
+	result = (result < counts[2]) ? counts[2] : result;
+	return result;
+}

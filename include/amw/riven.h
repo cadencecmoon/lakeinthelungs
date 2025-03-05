@@ -3,33 +3,37 @@
 #include <amw/bedrock.h>
 #include <amw/threads.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct rivens;
 
 /** An unique tag groups resources of a shared lifetime, to be freed all at once. */
-typedef u32 rivens_tag_t;
+typedef u64 rivens_tag_t;
 
-#define rivens_tag_simulate_forward_cycle  (2u)
-#define rivens_tag_instance_arrays_cycle   (3u)
-#define rivens_tag_skinning_matrices_cycle (3u)
-#define rivens_tag_command_buffers_cycle   (3u)
+#define rivens_tag_simulation_forward_cycle      (2llu)
+#define rivens_tag_simulation_to_rendering_cycle (3llu)
+#define rivens_tag_simulation_to_gpuexec_cycle   (3llu)
+#define rivens_tag_rendering_to_gpuexec_cycle    (3llu)
 
 /** Predefined tags for expected lifetime frequencies of game resources. Tags of other values can be 
  *  used for other uses, like allocating memory for assets: scenes, textures, meshes, audio, etc. */
 enum rivens_tag {
     /** Not a valid lifetime, for internal use. */
-    rivens_tag_invalid = UINT32_MAX,
+    rivens_tag_invalid = UINT64_MAX,
     /** Resources under this tag cannot be freed, they will share the lifetime of Riven. */
-    rivens_tag_roots = 0u,
+    rivens_tag_roots = 0llu,
     /** For resources to live through to the next frame (cycled by frame index modulo 2). */
-    rivens_tag_simulate_forward,
+    rivens_tag_simulation_forward,
     /** Simulation to rendering stage, e.g. object instance arrays (cycled by frame index modulo 3). */
-    rivens_tag_instance_arrays = rivens_tag_simulate_forward + rivens_tag_simulate_forward_cycle,
+    rivens_tag_simulation_to_rendering = rivens_tag_simulation_forward + rivens_tag_simulation_forward_cycle,
     /** Simulation to GPU execution stage, e.g. skinning matrices (cycled by frame index modulo 3). */
-    rivens_tag_skinning_matrices = rivens_tag_instance_arrays + rivens_tag_instance_arrays_cycle,
+    rivens_tag_simulation_to_gpuexec = rivens_tag_simulation_to_rendering + rivens_tag_simulation_to_rendering_cycle,
     /** Rendering to GPU execution stage, e.g command buffers (cycled by frame index modulo 3). */
-    rivens_tag_command_buffers = rivens_tag_skinning_matrices + rivens_tag_skinning_matrices_cycle,
+    rivens_tag_rendering_to_gpuexec = rivens_tag_simulation_to_gpuexec + rivens_tag_simulation_to_gpuexec_cycle,
     /** A minimum count of tagged heaps that will be in use. */
-    rivens_tag_reserved_count = rivens_tag_command_buffers + rivens_tag_command_buffers_cycle,
+    rivens_tag_reserved_count = rivens_tag_rendering_to_gpuexec + rivens_tag_rendering_to_gpuexec_cycle,
     /** Scratch memory for the simulation stage. */
     rivens_tag_simulation = rivens_tag_reserved_count,
     /** Scratch memory for the rendering stage. */
@@ -57,6 +61,8 @@ typedef void (*PFN_rivens_job)(rivens_arg_t argument);
 /** Applications entry point to the entire system. */
 typedef s32 (*PFN_rivens_heart)(
     struct rivens  *riven, 
+    thread_t       *threads,
+    u32             thread_count,
     rivens_arg_t    argument);
 
 /** Defines a job that will be running within a fiber's context. Name is used for profilling, can be NULL. */
@@ -117,7 +123,7 @@ void riven_release_exile(rivens_chain_t chain)
 /** Returns the thread index of the current thread. The index is acquired by a hash lookup of the thread id.
  *  The out_thread_count is optional, if one wishes to retrieve the total number of threads in the system. */
 AMWAPI attr_hot attr_nonnull(1)
-u32 riven_thread_index(struct rivens *riven, u32 *out_thread_count);
+u32 riven_thread_index(struct rivens *riven);
 
 /** Allocates memory of any size under a given heap tag. Different allocation strategies are used 
  *  depending on internal parameters of Riven, on the tag, and on the requested size. */
@@ -129,7 +135,7 @@ void *riven_alloc(
     usize          alignment);
 
 /** Frees resources that were allocated under a given tagged heap. */
-AMWAPI attr_hot attr_nonnull(1)
+AMWAPI attr_hot attr_nonnull_all
 void riven_free(
     struct rivens *riven,
     rivens_tag_t   tag);
@@ -137,7 +143,7 @@ void riven_free(
 /** Advises on commitment of host memory resources. Returns non-zero value if changes were made.
  *  On growth request, the heap will only commit if there is not enough contiguous space. On freeing
  *  resources, changes will be made only if the heap can be safely trimmed. */
-AMWAPI attr_nonnull(1)
+AMWAPI attr_nonnull_all
 usize riven_advise(
     struct rivens *riven,
     usize          size,
@@ -168,3 +174,7 @@ AMWAPI s32 riven_moonlit_walk(
     u32                 log2_memory_count,
     PFN_rivens_heart    main_procedure,
     rivens_arg_t        main_argument);
+
+#ifdef __cplusplus
+}
+#endif

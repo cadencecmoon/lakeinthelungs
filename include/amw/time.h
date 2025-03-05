@@ -2,6 +2,10 @@
 
 #include <amw/bedrock.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define const_ms_per_sec    1000
 #define const_us_per_sec    1000000
 #define const_ns_per_sec    1000000000LL
@@ -31,3 +35,7 @@ AMWAPI f32 median_frame_time(void);
 /** Prints the current estimate of the total frame time periodically, namely once 
  *  per given time interval, assuming this function is called once per frame. */
 AMWAPI void print_frame_time(f32 interval_ms);
+
+#ifdef __cplusplus
+}
+#endif

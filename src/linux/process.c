@@ -9,7 +9,7 @@
 
 #include <string.h>
 
-void proc_cpuinfo(s32 *threads, s32 *cores, s32 *packages)
+void process_cpuinfo(s32 *threads, s32 *cores, s32 *packages)
 {
     static s32 cpu_threads, cpu_cores, cpu_packages = 0;
     s32 fd, len, pos, end;
@@ -79,7 +79,7 @@ result_cpuinfo:
     if (packages) *packages = cpu_packages;
 }
 
-void proc_meminfo(usize *systemram, usize *pagesize)
+void process_meminfo(usize *systemram, usize *pagesize)
 {
     ssize count, page, bytes;
 
@@ -102,7 +102,7 @@ void proc_meminfo(usize *systemram, usize *pagesize)
     if (pagesize)  *pagesize = page;
 }
 
-void proc_hugetlbinfo(usize *hugepagesize, usize max_target_hugepagesize)
+void process_hugetlbinfo(usize *hugepagesize, usize max_target_hugepagesize)
 {
     if (!hugepagesize) return;
 
