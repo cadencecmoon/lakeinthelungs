@@ -27,6 +27,6 @@ else
 endif
 
 engine_sources += files(
-    'asm/jump_fcontext_' + assembly_arch + '_' + assembly_source,
-    'asm/make_fcontext_' + assembly_arch + '_' + assembly_source,
+    'jump_fcontext_' + assembly_arch + '_' + assembly_source,
+    'make_fcontext_' + assembly_arch + '_' + assembly_source,
 )

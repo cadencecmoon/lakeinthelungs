@@ -240,10 +240,10 @@ extern "C" {
 
 /** inline & noinline */
 #if defined(CC_CLANG_VERSION) || defined(CC_GNUC_VERSION)
-    #define attr_inline __attribute__((always_inline)) inline
+    #define attr_inline static __attribute__((always_inline)) inline
     #define attr_noinline __attribute__((noinline))
 #elif defined(CC_MSVC_VERSION)
-    #define attr_inline __forceinline
+    #define attr_inline static __forceinline
     #define attr_noinline __declspec(noinline)
 #else
     #define attr_inline static inline
@@ -988,13 +988,18 @@ typedef vec3                    mat4x3[4];
 
 enum result {
     result_success = 0,
-    result_warn,
-    result_error,
+    result_continue,
+    result_warn,    /* TODO expand */
+    result_error,   /* TODO expand */
 };
 
 struct work_header {
     WORK_STRUCTURE_HEADER
 };
+
+#ifndef MAX_FRAMES_IN_FLIGHT
+#define MAX_FRAMES_IN_FLIGHT 4
+#endif
 
 #ifdef __cplusplus
 }

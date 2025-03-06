@@ -137,7 +137,6 @@ static_assert(sizeof(usize) >= sizeof(void *), "size_t can't hold pointers");
 static_assert(((RIVEN_BLOCK_SIZE != 0) && ((RIVEN_BLOCK_SIZE & (RIVEN_BLOCK_SIZE-1)) == 0)), "block size must be a power of 2");
 
 #define A16(x)   (((x) + 15lu) & ~15lu)
-#define AVEC(x)  (((x) + VECTOR_ALIGNMENT-1lu) & ~(VECTOR_ALIGNMENT-1lu))
 #define A4KB(x)  (((x) + 4095lu) & ~4095lu)
 #define A2MB(x)  (((x) + RIVEN_BLOCK_SIZE-1lu) & ~(RIVEN_BLOCK_SIZE-1lu))
 #define A16MB(x) (((x) + 8*RIVEN_BLOCK_SIZE-1lu) & ~(8lu*RIVEN_BLOCK_SIZE-1lu))
@@ -217,6 +216,8 @@ static void *map_virtual_memory(usize budget, usize huge_page_size)
         log_fatal("Failed to reserve virtual memory (VirtualAlloc) of %lu bytes (%lumb), error: %lu.", budget, budget>>20, GetLastError());
         return NULL;
     }
+#elif defined(PLATFORM_EMSCRIPTEN)
+#error implement wasm heapbase
 #endif
     return mapped;
 }
@@ -230,6 +231,8 @@ static void unmap_virtual_memory(void *mapped, usize size)
 #elif defined(PLATFORM_WINDOWS)
     BOOL res = VirtualFreeEx(GetCurrentProcess(), (LPVOID)mapped, 0, MEM_RELEASE);
     assert_debug(res != FALSE)
+#elif defined(PLATFORM_EMSCRIPTEN)
+#error implement wasm heapbase
 #endif
 }
 
@@ -258,6 +261,8 @@ static b32 commit_physical_memory(void *mapped, usize page_offset, usize size)
                 size, size >> 20, page_offset, page_offset >> 20, GetLastError());
         return false;
     }
+#elif defined(PLATFORM_EMSCRIPTEN)
+#error implement wasm heapbase
 #endif
 #ifdef DEBUG
     log_debug("Commited %lu bytes (%lu MB) of physical memory at %lu offset (%lu MB).", 
@@ -290,6 +295,8 @@ static b32 decommit_physical_memory(void *mapped, usize page_offset, usize size)
                   size, size >> 20, page_offset, page_offset >> 20, GetLastError());
         return false;
     }
+#elif defined(PLATFORM_EMSCRIPTEN)
+#error implement wasm heapbase
 #endif
 #ifdef DEBUG
     log_debug("Released %lu bytes (%lu MB) of physical memory at %lu offset (%lu MB).", 
@@ -345,7 +352,7 @@ struct allocation {
 union mpmc_data {
     struct job          job;         
     struct allocation  *allocation;
-    u8                  padding[32];
+    u8                  padding[40];
 };
 
 static_assert(sizeof(union mpmc_data) == sizeof(((union mpmc_data *)NULL)->padding), "MPMC data padding not large enough");
@@ -492,7 +499,7 @@ struct tagged_heap {
 struct heart_data {
     struct rivens          *riven;
     PFN_rivens_heart        procedure;
-    rivens_arg_t            argument;
+    rivens_song_t           argument;
     s32                     result;
 };
 
@@ -529,12 +536,14 @@ struct rivens {
     u32                     tagged_heap_count;
     u32                     thread_count;
     u32                     fiber_count;
+
+    const struct rivens_metadata *metadata;
 };
 
-static attr_inline
+attr_inline
 struct tls *get_thread_local_storage(struct rivens *riven)
 {
-    u32 index = riven_thread_index(riven, NULL);
+    u32 index = riven_thread_index(riven);
     return &riven->tls[index];
 }
 
@@ -742,7 +751,7 @@ static void *dirty_deeds_done_dirt_cheap(void *raw_tls)
 }
 
 static attr_noreturn
-void d4c_love_train(rivens_arg_t raw_riven)
+void d4c_love_train(rivens_song_t raw_riven)
 {
     struct rivens *riven = (struct rivens *)raw_riven;
     struct tls *tls = get_thread_local_storage(riven);
@@ -767,13 +776,13 @@ void heart(void *raw_heart_data)
     struct rivens *riven = data->riven;
     const u32 thread_count = riven->thread_count;
 
-    data->result = data->procedure(riven, data->argument);
+    data->result = data->procedure(riven, riven->metadata, riven->threads, riven->thread_count, data->argument);
 
     /* returned from main, tell all threads to kys */
     for (u32 i = 0; i < thread_count; i++) {
         riven->ends[i].procedure = d4c_love_train;
-        riven->ends[i].argument = (rivens_arg_t)riven;
-        riven->ends[i].name = "riven:d4c_love_train";
+        riven->ends[i].argument = (rivens_song_t)riven;
+        riven->ends[i].name = str_init("riven:d4c_love_train");
     }
     riven_split_work_and_unchain(riven, riven->ends, thread_count);
     UNREACHABLE;
@@ -833,13 +842,10 @@ void riven_acquire_exile(
     if (counters) *counters = get_lock(riven, 1);
 }
 
-u32 riven_thread_index(struct rivens *riven, u32 *out_thread_count)
+u32 riven_thread_index(struct rivens *riven)
 {
     s32 *index = NULL;
     thread_t current = thread_current();
-
-    if (out_thread_count)
-        *out_thread_count = riven->thread_count;
 
     hash_table_find(&riven->table, &current, sizeof(thread_t), &index);
     return (u32)*index;
@@ -868,12 +874,6 @@ usize offset2mb_from_position(const usize pos) {
 attr_inline attr_const
 usize position_from_offset2mb(const ssize offset) {
     return offset >> 21lu;  /* 2 MB -> 1 byte */
-}
-
-/** Translate offset from 8 (8x2mb) blocks into a block position (aligned to 16mb). */
-attr_inline attr_const 
-usize position_from_offset16mb(const usize offset) {
-    return offset >> 24lu;  /* 16 MB -> 1 byte */
 }
 
 /** Get the bitmap index from 8 (8x2mb) blocks (aligned to 16mb). */
@@ -1006,6 +1006,66 @@ usize best_fit_growth(
     return 0lu;
 }
 
+usize riven_advise(
+    struct rivens *riven,
+    usize          size,
+    b32            release)
+{
+    if (!size) return 0lu;
+
+    const usize page_aligned = (size + riven->page_size-1) & ~(riven->page_size-1);
+    const usize roots = position_from_offset2mb(riven->reserved_heaps[rivens_tag_roots].head->size);
+
+    for (;;) {
+        usize expected = 0lu;
+        if (!atomic_compare_exchange_weak_explicit(&riven->growth_sync, &expected, 
+            roots, memory_order_release, memory_order_relaxed)) 
+        {
+            continue;
+        };
+        const usize commited = atomic_load_explicit(&riven->commited_size, memory_order_relaxed);
+
+        if (release) {
+            /* if possible, release unused resources */
+            const usize offset = commited - page_aligned;
+            const usize index = index_from_offset16mb(offset);
+            const usize count = index_from_offset16mb(page_aligned);
+
+            const usize bits = (count+1) * 8    /* full bytes of free blocks */
+                - (index & 0x07)                /* trim head index bits out of range */
+                - ((index + count) & 0x07);     /* trim tail index bits out of range */
+            const usize popcnt = bits_popcnt((const u8 *)riven->bitmap + index, count);
+
+            b32 res = false;
+            if (popcnt >= bits)
+                res = decommit_physical_memory((void *)riven, offset, page_aligned);
+            atomic_store_explicit(&riven->growth_sync, 0lu, memory_order_release);
+            if (res) {
+                atomic_store_explicit(&riven->commited_size, offset, memory_order_release);
+                return offset;
+            }
+            return 0lu;
+        }
+
+        usize offset = best_fit_growth(riven->bitmap, roots, page_aligned, commited, &riven->growth_sync);
+        if (offset) {
+            atomic_store_explicit(&riven->growth_sync, 0lu, memory_order_release);
+            return offset;
+        }
+        atomic_store_explicit(&riven->growth_sync, commited, memory_order_release);
+
+        /* we may want to commit memory for new resources */
+        b32 res = commit_physical_memory((void *)riven, commited, page_aligned);
+        atomic_store_explicit(&riven->growth_sync, 0lu, memory_order_release);
+        if (res) {
+            atomic_store_explicit(&riven->commited_size, commited + page_aligned, memory_order_release);
+            return commited;
+        }
+        return 0lu;
+    }
+    UNREACHABLE;
+}
+
 static attr_nonnull(1)
 struct allocation *reserve_allocation(
     struct rivens *riven,
@@ -1128,7 +1188,7 @@ void *acquire_tagged_resources(
     return (void *)(sptr)(raw + next->offset);
 }
 
-static attr_inline attr_nonnull(1,2)
+attr_inline attr_nonnull(1,2)
 void *chained_allocation(
     struct rivens      *riven,
     struct tagged_heap *heap,
@@ -1136,9 +1196,9 @@ void *chained_allocation(
     usize               alignment)
 {
     riven_unchain(riven, heap->chain);
-    riven_acquire_exile(riven, &heap->chain);
+    riven_acquire_chained(riven, &heap->chain);
     void *result = acquire_tagged_resources(riven, heap, size, alignment);
-    riven_release_exile(heap->chain);
+    riven_release_chained(heap->chain);
     return result;
 }
 
@@ -1157,7 +1217,7 @@ void *riven_alloc(
         struct tagged_heap *heap = &riven->reserved_heaps[tag];
         return chained_allocation(riven, heap, size, alignment);
     } else if (tag < rivens_tag_true_count) {
-        u32 index = riven_thread_index(riven, NULL);
+        u32 index = riven_thread_index(riven);
         struct tagged_heap *heap = &riven->drifter_heaps[tag - rivens_tag_reserved_count][index];
         return acquire_tagged_resources(riven, heap, size, alignment);
     }
@@ -1173,7 +1233,7 @@ void *riven_alloc(
     for (;;) {
         if (tail >= riven->tagged_heap_count) {
             log_error("Reached the maximum count of unique tagged heaps (%lu),"
-                      "can't perform allocation for tag: %X.", tail, tag);
+                      "can't perform allocation for tag: %lX.", tail, tag);
             return NULL;
         }
 
@@ -1243,83 +1303,155 @@ void riven_free(
     }
 }
 
-usize riven_advise(
-    struct rivens *riven,
-    usize          size,
-    b32            release)
+const struct rivens_metadata *riven_acquire_metadata(struct rivens *riven)
 {
-    if (!size) return 0lu;
+    return riven->metadata;
+}
 
-    const usize page_aligned = (size + riven->page_size-1) & ~(riven->page_size-1);
-    const usize roots = position_from_offset2mb(riven->reserved_heaps[rivens_tag_roots].head->size);
+void riven_str_format(
+    struct rivens     *riven,
+    rivens_tag_t       tag,
+    struct str * const dest,
+    const char        *fmt, ...)
+{
+    /* calculate formated length */
+    va_list args;
+    va_start(args, fmt);
+    s32 n = vsnprintf(NULL, 0, fmt, args);
+    va_end(args);
+    assert_debug(n >= 0);
 
-    for (;;) {
-        usize expected = 0lu;
-        if (!atomic_compare_exchange_weak_explicit(&riven->growth_sync, &expected, 
-            roots, memory_order_release, memory_order_relaxed)) 
-        {
-            continue;
-        };
-        const usize commited = atomic_load_explicit(&riven->commited_size, memory_order_relaxed);
+    /* format the string */
+    char *p = (char *)riven_alloc(riven, tag, n + 1, 1);
+    va_start(args, fmt);
+    vsnprintf(p, n + 1, fmt, args);
+    va_end(args);
 
-        if (release) {
-            /* if possible, release unused resources */
-            const usize offset = commited - page_aligned;
-            const usize index = index_from_offset16mb(offset);
-            const usize count = index_from_offset16mb(page_aligned);
+    p[n] = '\0';
+    *dest = (struct str){ p, n };
+}
 
-            const usize bits = (count+1) * 8    /* full bytes of free blocks */
-                - (index & 0x07)                /* trim head index bits out of range */
-                - ((index + count) & 0x07);     /* trim tail index bits out of range */
-            const usize popcnt = bits_popcnt((const u8 *)riven->bitmap + index, count);
-
-            b32 res = false;
-            if (popcnt >= bits)
-                res = decommit_physical_memory((void *)riven, offset, page_aligned);
-            atomic_store_explicit(&riven->growth_sync, 0lu, memory_order_release);
-            if (res) {
-                atomic_store_explicit(&riven->commited_size, offset, memory_order_release);
-                return offset;
-            }
-            return 0lu;
-        }
-
-        usize offset = best_fit_growth(riven->bitmap, roots, page_aligned, commited, &riven->growth_sync);
-        if (offset) {
-            atomic_store_explicit(&riven->growth_sync, 0lu, memory_order_release);
-            return offset;
-        }
-        atomic_store_explicit(&riven->growth_sync, commited, memory_order_release);
-
-        /* we may want to commit memory for new resources */
-        b32 res = commit_physical_memory((void *)riven, commited, page_aligned);
-        atomic_store_explicit(&riven->growth_sync, 0lu, memory_order_release);
-        if (res) {
-            atomic_store_explicit(&riven->commited_size, commited + page_aligned, memory_order_release);
-            return commited;
-        }
-        return 0lu;
+void riven_str_cat(
+    struct rivens     *riven,
+    rivens_tag_t       tag,
+    struct str * const dest,
+    const struct str  *src,
+    usize              count)
+{
+    if (!src) {
+        str_clear(dest);
+        return;
     }
-    UNREACHABLE;
+
+    /* calculate total length */
+    usize sum = 0;
+    for (usize o = count; o > 0; --o)
+        sum += str_len(*src++);
+
+    if (sum == 0)
+        return;
+
+    char * const buf = (char *)riven_alloc(riven, tag, sum + 1, 1);
+
+    char *p = buf;
+    for (usize o = count; o > 0; --o) {
+        const struct str s = *src++;
+        p = (char *)(memcpy(p, str_ptr(s), str_len(s)) + str_len(s));
+    }
+
+    *p = '\0';
+    dest->ptr = buf;
+    dest->length = sum;
+}
+
+void riven_encore(rivens_song_t overture)
+{
+    struct rivens_overture_header *header = (struct rivens_overture_header *)overture;
+
+    assert_debug(header->riven);
+    assert_debug(header->tag != rivens_tag_invalid);
+    assert_debug(header->name.ptr);
+    assert_debug(header->interface);
+    assert_debug(header->encores);
+
+    const char *fmt = "Interface '%s:%s' is missing header procedure - 'PFN_rivens_interface_%s'.";
+    b32 check;
+
+    for (u32 i = 0; i < header->count; i++) {
+        *header->interface = header->encores[i](overture);
+        
+        if (!*header->interface)
+            continue;
+
+        /* ensure the interface implementation is complete */
+        struct rivens_interface_header *interface = (struct rivens_interface_header *)*header->interface;
+        check = true;
+
+#define CHECK(fn) \
+        if (interface->fn == NULL) { log_warn(fmt, header->name.ptr, interface->name.ptr, #fn); check = false; }
+        CHECK(fini)
+        CHECK(validate)
+#undef CHECK
+        if (check && interface->validate(interface)) return; 
+
+        /* destroy the interface */
+        if (interface->fini)
+            interface->fini(interface);
+        zerop(interface);
+        *header->interface = NULL;
+    }
+}
+
+void riven_finale(rivens_song_t interface)
+{
+    if (!interface) return;
+
+    struct rivens_interface_header *header = (struct rivens_interface_header *)interface;
+    header->fini(interface);
+    /* the interface is no longer valid */
+    zerop(header);
+}
+
+void riven_equinox(
+    struct rivens    *riven, 
+    PFN_rivens_job    procedure, 
+    const struct str *name, 
+    rivens_song_t    *arguments, 
+    u32               work_count,
+    rivens_chain_t   *chain)
+{
+    if (!work_count) return;
+
+    struct rivens_work *work = (struct rivens_work *)
+        riven_alloc(riven, rivens_tag_drifter, sizeof(struct rivens_work) * work_count, _Alignof(struct rivens_work));
+    for (u32 i = 0; i < work_count; i++) {
+        struct str s[3] = { str_init("riven_equinox:"), {name->ptr, name->length}, str_null };
+        riven_str_format(riven, rivens_tag_drifter, &s[2], "_%u", i); 
+        riven_str_cat(riven, rivens_tag_drifter, &work->name, s, 3);
+        work->argument = arguments[i];
+        work->procedure = procedure;
+    }
+    riven_split_work(riven, work, work_count, chain);
 }
 
 s32 riven_moonlit_walk(
-    usize               memory_budget_size,
-    usize               fiber_stack_size,
-    u32                 fiber_count,
-    u32                 thread_count,
-    u32                 tagged_heap_count,
-    u32                 log2_work_count,
-    u32                 log2_memory_count,
-    PFN_rivens_heart    main_procedure,
-    rivens_arg_t        main_argument)
+    usize                         memory_budget_size,
+    usize                         fiber_stack_size,
+    u32                           fiber_count,
+    u32                           thread_count,
+    u32                           tagged_heap_count,
+    u32                           log2_work_count,
+    u32                           log2_memory_count,
+    const struct rivens_metadata *metadata,
+    PFN_rivens_heart              main_procedure,
+    rivens_song_t                 main_argument)
 {
     usize ram_size, page_size, huge_page_size = 0;
-    proc_meminfo(&ram_size, &page_size);
-    proc_hugetlbinfo(&huge_page_size, A16MB(RIVEN_BLOCK_SIZE));
+    process_meminfo(&ram_size, &page_size);
+    process_hugetlbinfo(&huge_page_size, A16MB(RIVEN_BLOCK_SIZE));
 
     u32 cpu_count = 0;
-    proc_cpuinfo((s32 *)&cpu_count, NULL, NULL);
+    process_cpuinfo((s32 *)&cpu_count, NULL, NULL);
 
     /* provide defaults */
 #if RIVEN_USE_HUGEPAGES
@@ -1364,7 +1496,7 @@ s32 riven_moonlit_walk(
     usize tagged_array_bytes        = A16(sizeof(struct tagged_heap *) * tagged_heap_count);
     usize tagged_heap_bytes         = A16(sizeof(struct tagged_heap) * tagged_heap_count);
     usize pages_count               = position_from_offset2mb(memory_budget_size);
-    usize bitmap_bytes              = AVEC(index_from_position(pages_count));
+    usize bitmap_bytes              = A16(index_from_position(pages_count));
     usize stack_bytes               = A16(fiber_stack_size);
     usize stack_heap_bytes          = stack_bytes * fiber_count;
 
@@ -1388,8 +1520,6 @@ s32 riven_moonlit_walk(
 
     usize roots_allocation_size = A2MB(total_bytes);
     usize init_commit_size = min(A16MB(roots_allocation_size<<1), memory_budget_size);
-
-    /* TODO verbose log */
 
     /* address to riven is offset == 0 */
     riven = (struct rivens *)map_virtual_memory(memory_budget_size, huge_page_size);
@@ -1435,6 +1565,7 @@ s32 riven_moonlit_walk(
     riven->tagged_heap_count = tagged_heap_count;
     riven->thread_count = thread_count;
     riven->fiber_count = fiber_count;
+    riven->metadata = metadata;
 
     assert_debug(!(((sptr)work_cells)           & 15))
     assert_debug(!(((sptr)allocation_cells)     & 15))
@@ -1493,7 +1624,7 @@ s32 riven_moonlit_walk(
     }
     thread_affinity(riven->stack, riven->threads, thread_count, cpu_count, 0);
     atomic_store_explicit(&riven->tls_sync, (usize)1, memory_order_release);
-    
+
     /* enter main */
     struct heart_data main_data = {
         .riven = riven,
@@ -1503,8 +1634,8 @@ s32 riven_moonlit_walk(
     };
     struct rivens_work main_work = {
         .procedure = heart,
-        .argument = (rivens_arg_t)&main_data,
-        .name = "riven:heart",
+        .argument = (rivens_song_t)&main_data,
+        .name = str_init("riven:heart"),
     };
 
     riven_split_work(riven, &main_work, 1, NULL);

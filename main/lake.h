@@ -9,10 +9,14 @@
 #define LAKE_VERSION (VERSION_NUM(LAKE_VERSION_MAJOR, LAKE_VERSION_MINOR, LAKE_VERSION_REVISION))
 
 struct lake {
-    struct octavarium      *octavia;
-    struct pelagic_ocean   *pelagial;
-    struct hadopelagic     *hadal;
-    struct rivens          *riven;
+    struct octavia *octavia;
+    struct silvera *silvera;
+    struct hadal   *hadal;
+
+    struct rivens                *riven;
+    const struct rivens_metadata *metadata;
+    thread_t                     *threads;
+    u32                           thread_count;
 
     b32 exit_game;
     b32 restart_engine;

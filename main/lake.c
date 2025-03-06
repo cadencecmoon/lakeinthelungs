@@ -1,7 +1,7 @@
 #define A_MOONLIT_WALK_MAIN
 #include "lake.h"
 
-static_assert(AMW_MAX_FRAMES_IN_FLIGHT >= 3, "AMW_MAX_FRAMES_IN_FLIGHT must be 3 or more.");
+static_assert(MAX_FRAMES_IN_FLIGHT >= 3, "AMW_MAX_FRAMES_IN_FLIGHT must be 3 or more.");
 
 /* XXX delete later */
 #define DEBUG_CLOSE_COUNTER_MS 100
@@ -9,14 +9,10 @@ static_assert(AMW_MAX_FRAMES_IN_FLIGHT >= 3, "AMW_MAX_FRAMES_IN_FLIGHT must be 3
 #define FRAME_TIME_PRINT_INTERVAL_MS 1000
 
 struct engine_hints {
-    const struct string engine_name;
-    const struct string game_name;
-    u32                 build_version;
-
     u32                 frames_in_flight;
 
     u32                 window_width, window_height;
-    const struct string window_title;
+    const struct str    window_title;
 
     usize               riven_memory_budget_size;
     usize               riven_fiber_stack_size;
@@ -26,9 +22,15 @@ struct engine_hints {
     u32                 riven_log2_work_count;
     u32                 riven_log2_memory_count;
 
-    PFN_hadal_entry_point       hadal_entry;
-    PFN_pelagial_entry_point    pelagial_entry;
-    PFN_octavia_entry_point     octavia_entry;
+    struct {
+        const PFN_rivens_encore    *octavia;
+        const PFN_rivens_encore    *silvera;
+        const PFN_rivens_encore    *hadal;
+
+        u32                         octavia_count;
+        u32                         silvera_count;
+        u32                         hadal_count;
+    } encores;
 
     b32                 verbose;
     b32                 debug_utilities;
@@ -36,90 +38,91 @@ struct engine_hints {
 
 static void lake_fini(struct lake *lake)
 {
-    if (lake->octavia)
-        octavia_fini(lake->octavia);
-    if (lake->pelagial)
-        pelagial_fini(lake->pelagial);
-    if (lake->hadal)
-        hadal_fini(lake->hadal);
+    struct str name = str_init("lake_fini");
+    rivens_song_t finales[] = {
+        lake->octavia,
+        lake->silvera,
+        lake->hadal,
+    };
+    rivens_chain_t chain = NULL;
+    riven_equinox(lake->riven, riven_finale, &name, finales, arraysize(finales), &chain);
+    riven_unchain(lake->riven, chain);
 }
 
 static s32 lake_init(
     struct lake         *lake,
     struct engine_hints *hints)
 {
-    struct rivens   *riven = lake->riven;
-    const rivens_tag_t tag = rivens_tag_roots;
-    const b32      verbose = hints->verbose;
-    const b32        debug = hints->debug_utilities;
+    struct str           name = str_init("lake_init");
+    struct rivens      *riven = lake->riven;
+    const rivens_tag_t    tag = rivens_tag_roots;
+    const b32           debug = hints->debug_utilities;
+    {
+        /* the display backend */
+        struct hadal_overture hadal_info = {
+            .header = riven_write_overture_header(
+                riven, tag, lake->metadata, str_init("hadal"), 
+                (rivens_song_t *)&lake->hadal, 
+                hints->encores.hadal, 
+                hints->encores.hadal_count),
+            /* display properties */
+            .width = hints->window_width,
+            .height = hints->window_height,
+            .title = hints->window_title,
+        };
 
-    struct hadopelagic_create_info hadal_info = {
-        .riven = riven,
-        .tag = tag,
-        .window_width = hints->window_width,
-        .window_height = hints->window_height,
-        .window_title = &hints->window_title,
-    };
-    PFN_hadal_entry_point hadal_entries[] = {
-        hints->hadal_entry,
-        hadal_headless_entry_point,
-    };
+        /* the rendering backend */
+        struct silvera_overture silvera_info = {
+            .header = riven_write_overture_header(
+                riven, tag, lake->metadata, str_init("silvera"),
+                (rivens_song_t *)&lake->silvera,
+                hints->encores.silvera,
+                hints->encores.silvera_count),
+            /* renderer properties */
+            .debug_utilities = debug,
+        };
 
-    /* create the display backend */
-    lake->hadal = hadal_init(hadal_entries, arraysize(hadal_entries), &hadal_info, verbose);
-    if (lake->hadal == NULL) 
-        return result_error;
+        /* the audio backend */
+        struct octavia_overture octavia_info = {
+            .header = riven_write_overture_header(
+                riven, tag, lake->metadata, str_init("octavia"),
+                (rivens_song_t *)&lake->octavia,
+                hints->encores.octavia,
+                hints->encores.octavia_count),
+            /* audio engine properties */
+        };
 
-    /* TODO setup the window state */
+        rivens_song_t overtures[] = {
+            &hadal_info,
+            &silvera_info,
+            &octavia_info,
+        };
+        rivens_chain_t chain = NULL;
+        riven_equinox(riven, riven_encore, &name, overtures, arraysize(overtures), &chain);
+        riven_unchain(riven, chain);
 
-    struct pelagic_ocean_create_info pelagial_info = {
-        .hadal = lake->hadal,
-        .riven = riven,
-        .tag = tag,
-        .app_name = hints->game_name.ptr,
-        .app_version = hints->build_version,
-        .engine_name = hints->engine_name.ptr,
-        .engine_version = hints->build_version,
-        .enable_debug_utilities = debug,
-    };
-    PFN_pelagial_entry_point pelagial_entries[] = {
-        hints->pelagial_entry,
-        pelagial_jester_entry_point,
-    };
+        /* check the interfaces */
+        for (u32 i = 0; i < arraysize(overtures); i++) {
+            struct rivens_overture_header *header = (struct rivens_overture_header *)overtures[i];
+            if (header->interface) continue;
 
-    lake->pelagial = pelagial_init(pelagial_entries, arraysize(pelagial_entries), &pelagial_info, verbose);
-    if (lake->pelagial == NULL)
-        return result_error;
-
-    /* TODO setup rendering devices */
-
-    struct octavarium_create_info octavia_info = {
-        .riven = riven,
-        .tag = tag,
-    };
-    PFN_octavia_entry_point octavia_entries[] = {
-        hints->octavia_entry,
-        octavia_dummy_entry_point,
-    };
-
-    lake->octavia = octavia_init(octavia_entries, arraysize(octavia_entries), &octavia_info, verbose);
-    if (lake->octavia == NULL)
-        return result_error;
-
-#ifndef NDEBUG
-    /* we want to run a mock rendering backend to spec validate our interfaces */
-    if (debug) {
-        lake->render_jester = pelagial_init(pelagial_entries+1, 1, &pelagial_info, false);
-        lake->audio_dummy = octavia_init(octavia_entries+1, 1, &octavia_info, false);
+            log_fatal("Can't create a core interface '%s', aborting.", header->name.ptr);
+            lake->exit_game = true;
+        }
+        if (lake->exit_game) return result_error;
     }
-#endif
+
+    /* TODO create a rendering device, create a window, etc. */
 
     return result_success;
 }
 
 static s32 lake_in_the_lungs(
-    struct rivens       *riven, 
-    struct engine_hints *hints)
+    struct rivens                *riven,
+    const struct rivens_metadata *metadata,
+    thread_t                     *threads,
+    u32                           thread_count,
+    struct engine_hints          *hints)
 {
     s32 res = result_success;
     u64 frame_index = 0;
@@ -128,6 +131,9 @@ static s32 lake_in_the_lungs(
 
     struct lake lake = {0};
     lake.riven = riven;
+    lake.metadata = metadata;
+    lake.threads = threads;
+    lake.thread_count = thread_count;
 
     res = lake_init(&lake, hints);
     if (res != result_success) {
@@ -135,23 +141,22 @@ static s32 lake_in_the_lungs(
         return res;
     }
 
-    struct framedata frames[AMW_MAX_FRAMES_IN_FLIGHT];
+    struct framedata frames[MAX_FRAMES_IN_FLIGHT];
     zeroa(frames);
 
-    for (s32 i = 0; i < AMW_MAX_FRAMES_IN_FLIGHT; i++) {
+    for (s32 i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         frames[i].result = result_success;
-        frames[i].type = (i == 0) ? work_type_assembly : work_type_continue;
         frames[i].lake = &lake;
-        frames[i].last_frame = &frames[(i - 1 + AMW_MAX_FRAMES_IN_FLIGHT) % AMW_MAX_FRAMES_IN_FLIGHT];
-        frames[i].next_frame = &frames[(i + 1 + AMW_MAX_FRAMES_IN_FLIGHT) % AMW_MAX_FRAMES_IN_FLIGHT];
+        frames[i].last_frame = &frames[(i - 1 + MAX_FRAMES_IN_FLIGHT) % MAX_FRAMES_IN_FLIGHT];
+        frames[i].next_frame = &frames[(i + 1 + MAX_FRAMES_IN_FLIGHT) % MAX_FRAMES_IN_FLIGHT];
     }
     struct rivens_work work[3];
     work[LAKE_SIMULATION_WORK_IDX].procedure = (PFN_rivens_job)lake_in_the_lungs_simulation;
-    work[LAKE_SIMULATION_WORK_IDX].name = "lake_in_the_lungs:simulation";
+    work[LAKE_SIMULATION_WORK_IDX].name = str_init("lake_in_the_lungs:simulation");
     work[LAKE_RENDERING_WORK_IDX].procedure = (PFN_rivens_job)lake_in_the_lungs_rendering;
-    work[LAKE_RENDERING_WORK_IDX].name = "lake_in_the_lungs:rendering";
+    work[LAKE_RENDERING_WORK_IDX].name = str_init("lake_in_the_lungs:rendering");
     work[LAKE_GPUEXEC_WORK_IDX].procedure = (PFN_rivens_job)lake_in_the_lungs_gpuexec;
-    work[LAKE_GPUEXEC_WORK_IDX].name = "lake_in_the_lungs:gpuexec";
+    work[LAKE_GPUEXEC_WORK_IDX].name = str_init("lake_in_the_lungs:gpuexec");
 
     struct framedata *simulation = frames;
     struct framedata *rendering = NULL;
@@ -175,7 +180,7 @@ static s32 lake_in_the_lungs(
             /* check results of last stage (rendering) */
             if (gpuexec->result == result_error) {
                 log_error("Frame '%lu' for '%s' returned an error, the game will exit now.", 
-                          frame_index, work[LAKE_RENDERING_WORK_IDX].name);
+                          frame_index, work[LAKE_RENDERING_WORK_IDX].name.ptr);
                 lake.exit_game = true;
             }
 
@@ -193,7 +198,7 @@ static s32 lake_in_the_lungs(
             /* check results of last stage (simulation) */
             if (rendering->result == result_error) {
                 log_error("Frame '%lu' for '%s' returned an error, the game will exit now.", 
-                          frame_index, work[LAKE_SIMULATION_WORK_IDX].name);
+                          frame_index, work[LAKE_SIMULATION_WORK_IDX].name.ptr);
                 lake.exit_game = true;
             }
 
@@ -211,7 +216,7 @@ static s32 lake_in_the_lungs(
             /* check results of last stage (gpuexec) */
             if (simulation->result == result_error) {
                 log_error("Frame '%lu' for '%s' returned an error, the game will exit now.", 
-                          frame_index, work[LAKE_GPUEXEC_WORK_IDX].name);
+                          frame_index, work[LAKE_GPUEXEC_WORK_IDX].name.ptr);
                 lake.exit_game = true;
             }
 
@@ -222,33 +227,30 @@ static s32 lake_in_the_lungs(
             /* begin the next frame */
             work[LAKE_SIMULATION_WORK_IDX].argument = simulation;
             riven_split_work(riven, &work[LAKE_SIMULATION_WORK_IDX], 1, &simulation->chain);
-
-            if (simulation->type == work_type_disassembly)
-                lake.finalize_gameloop = true;
         }
+
+        /* XXX delete the close_counter later */
+        close_counter -= dt;
+        if ((lake.exit_game || close_counter <= 0))
+            lake.finalize_gameloop = true;
 
         /* rotate the framedata */
         gpuexec = rendering;
         rendering = simulation;
-        simulation = !lake.finalize_gameloop ? &frames[(frame_index++) % AMW_MAX_FRAMES_IN_FLIGHT] : NULL;
-
-        /* XXX delete the close_counter later */
-        close_counter -= dt;
-        if (simulation && (lake.exit_game || close_counter <= 0))
-            simulation->type = work_type_disassembly;
+        simulation = lake.finalize_gameloop ? NULL : &frames[(frame_index++) % MAX_FRAMES_IN_FLIGHT];
 
         print_frame_time(FRAME_TIME_PRINT_INTERVAL_MS);
     }
 
     /* wait for any existing work to finish */
-    for (u32 i = 0; i < AMW_MAX_FRAMES_IN_FLIGHT; i++)
+    for (u32 i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
         riven_unchain(riven, frames[i].chain);
 
     dt = median_frame_time();
     log_info("Last recorded frame time: %.3f ms (%.0f FPS)", dt, 1000/dt);
 
     if (lake.restart_engine && res == result_success)
-        res = result_reiterate;
+        res = result_continue;
     lake_fini(&lake);
     return res;
 }
@@ -257,13 +259,10 @@ s32 amw_main(s32 argc, char **argv)
 {
     s32 res = result_success;
     struct engine_hints hints = {
-        .engine_name = string_init("A Moonlit Walk Engine"),
-        .game_name = string_init("Lake in the Lungs"), /* XXX localize the name? */
-        .build_version = LAKE_VERSION,
-        .frames_in_flight = AMW_MAX_FRAMES_IN_FLIGHT,
+        .frames_in_flight = MAX_FRAMES_IN_FLIGHT,
         .window_width = 1200,
         .window_height = 900,
-        .window_title = hints.game_name,
+        .window_title = str_init("UwU miau mlem"),
         .riven_memory_budget_size = 0,
         .riven_fiber_stack_size = 96*1024,
         .riven_fiber_count = 0,
@@ -271,9 +270,12 @@ s32 amw_main(s32 argc, char **argv)
         .riven_tagged_heap_count = 0,
         .riven_log2_work_count = 11,
         .riven_log2_memory_count = 9,
-        .hadal_entry = hadal_entry_point,
-        .pelagial_entry = pelagial_entry_point,
-        .octavia_entry = octavia_pipewire_entry_point,
+
+        .encores = {
+            .octavia = octavia_acquire_native_encores(&hints.encores.octavia_count, true),
+            .silvera = silvera_acquire_native_encores(&hints.encores.silvera_count, true),
+            .hadal = hadal_acquire_native_encores(&hints.encores.hadal_count, true),
+        },
 #ifndef NDEBUG
         .verbose = true,
 #endif
@@ -287,7 +289,14 @@ s32 amw_main(s32 argc, char **argv)
     (void)argc;
     (void)argv;
 
-    assert_debug(hints.frames_in_flight <= AMW_MAX_FRAMES_IN_FLIGHT && hints.frames_in_flight > 0);
+    assert_debug(hints.frames_in_flight <= MAX_FRAMES_IN_FLIGHT && hints.frames_in_flight > 0);
+
+    struct rivens_metadata metadata = {
+        .engine_name = str_init("A Moonlit Walk Engine"),
+        .engine_build_version = LAKE_VERSION, /* XXX */
+        .game_name = str_init("Lake in the Lungs"),
+        .game_build_version = LAKE_VERSION,
+    };
 
     /* go for a walk */
     do {res = riven_moonlit_walk(
@@ -298,8 +307,9 @@ s32 amw_main(s32 argc, char **argv)
             hints.riven_tagged_heap_count,
             hints.riven_log2_work_count,
             hints.riven_log2_memory_count,
+            &metadata,
             (PFN_rivens_heart)lake_in_the_lungs,
-            (rivens_arg_t)&hints);
-    } while (res == result_reiterate);
+            (rivens_song_t)&hints);
+    } while (res == result_continue);
     return res;
 }

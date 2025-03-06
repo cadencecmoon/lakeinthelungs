@@ -11,7 +11,7 @@ if sys == 'windows'
     dep_dxcore = cc.find_library('dxcore', required : cc.get_id() == 'msvc')
     if dep_d3d12.found()
         #engine_sources += files('')
-        defs += '-DPELAGIAL_D3D12=1'
+        defs += '-DSILVERA_D3D12=1'
         deps += [ dep_d3d12, dep_dxcore ]
     endif
 

@@ -8,9 +8,10 @@
 #include <amw/input.h>
 #include <amw/log.h>
 #include <amw/octavia.h>
-#include <amw/pelagial.h>
 #include <amw/process.h>
 #include <amw/riven.h>
+#include <amw/silvera.h>
+#include <amw/string.h>
 #include <amw/threads.h>
 #include <amw/time.h>
 
