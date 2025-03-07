@@ -10,7 +10,7 @@ if dep_vulkan.found()
         'vk_device.c',
         'vk_swapchain.c',
     )
-    defs += '-DSILVERA_VULKAN=1'
+    defs += '-DPELAGIA_VULKAN=1'
 endif
 
 subdir('asm')
@@ -26,7 +26,7 @@ engine_sources += files(
     'hash_table.c',
     'log.c',
     'octavia.c',
+    'pelagia.c',
     'riven.c',
-    'silvera.c',
     'string.c',
 )

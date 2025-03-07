@@ -24,11 +24,11 @@ struct engine_hints {
 
     struct {
         const PFN_rivens_encore    *octavia;
-        const PFN_rivens_encore    *silvera;
+        const PFN_rivens_encore    *pelagia;
         const PFN_rivens_encore    *hadal;
 
         u32                         octavia_count;
-        u32                         silvera_count;
+        u32                         pelagia_count;
         u32                         hadal_count;
     } encores;
 
@@ -41,12 +41,10 @@ static void lake_fini(struct lake *lake)
     struct str name = str_init("lake_fini");
     rivens_song_t finales[] = {
         lake->octavia,
-        lake->silvera,
+        lake->pelagia,
         lake->hadal,
     };
-    rivens_chain_t chain = NULL;
-    riven_equinox(lake->riven, riven_finale, &name, finales, arraysize(finales), &chain);
-    riven_unchain(lake->riven, chain);
+    riven_equinox_prime_and_unchain(lake->riven, riven_finale, &name, finales, arraysize(finales));
 }
 
 static s32 lake_init(
@@ -55,13 +53,13 @@ static s32 lake_init(
 {
     struct str           name = str_init("lake_init");
     struct rivens      *riven = lake->riven;
-    const rivens_tag_t    tag = rivens_tag_roots;
-    const b32           debug = hints->debug_utilities;
+    const  rivens_tag_t   tag = rivens_tag_roots;
+    const  b32          debug = hints->debug_utilities;
     {
         /* the display backend */
         struct hadal_overture hadal_info = {
             .header = riven_write_overture_header(
-                riven, tag, lake->metadata, str_init("hadal"), 
+                riven, tag, str_init("hadal (display)"), 
                 (rivens_song_t *)&lake->hadal, 
                 hints->encores.hadal, 
                 hints->encores.hadal_count),
@@ -72,12 +70,12 @@ static s32 lake_init(
         };
 
         /* the rendering backend */
-        struct silvera_overture silvera_info = {
+        struct pelagia_overture pelagia_info = {
             .header = riven_write_overture_header(
-                riven, tag, lake->metadata, str_init("silvera"),
-                (rivens_song_t *)&lake->silvera,
-                hints->encores.silvera,
-                hints->encores.silvera_count),
+                riven, tag, str_init("pelagia (renderer)"),
+                (rivens_song_t *)&lake->pelagia,
+                hints->encores.pelagia,
+                hints->encores.pelagia_count),
             /* renderer properties */
             .debug_utilities = debug,
         };
@@ -85,7 +83,7 @@ static s32 lake_init(
         /* the audio backend */
         struct octavia_overture octavia_info = {
             .header = riven_write_overture_header(
-                riven, tag, lake->metadata, str_init("octavia"),
+                riven, tag, str_init("octavia (audio)"),
                 (rivens_song_t *)&lake->octavia,
                 hints->encores.octavia,
                 hints->encores.octavia_count),
@@ -94,19 +92,17 @@ static s32 lake_init(
 
         rivens_song_t overtures[] = {
             &hadal_info,
-            &silvera_info,
+            &pelagia_info,
             &octavia_info,
         };
-        rivens_chain_t chain = NULL;
-        riven_equinox(riven, riven_encore, &name, overtures, arraysize(overtures), &chain);
-        riven_unchain(riven, chain);
+        riven_equinox_prime_and_unchain(riven, riven_encore, &name, overtures, arraysize(overtures));
 
         /* check the interfaces */
         for (u32 i = 0; i < arraysize(overtures); i++) {
             struct rivens_overture_header *header = (struct rivens_overture_header *)overtures[i];
             if (header->interface) continue;
 
-            log_fatal("Can't create a core interface '%s', aborting.", header->name.ptr);
+            log_fatal("Can't create an interface '%s', aborting.", header->name.ptr);
             lake->exit_game = true;
         }
         if (lake->exit_game) return result_error;
@@ -118,11 +114,10 @@ static s32 lake_init(
 }
 
 static s32 lake_in_the_lungs(
-    struct rivens                *riven,
-    const struct rivens_metadata *metadata,
-    thread_t                     *threads,
-    u32                           thread_count,
-    struct engine_hints          *hints)
+    struct rivens       *riven,
+    thread_t            *threads,
+    u32                  thread_count,
+    struct engine_hints *hints)
 {
     s32 res = result_success;
     u64 frame_index = 0;
@@ -131,7 +126,6 @@ static s32 lake_in_the_lungs(
 
     struct lake lake = {0};
     lake.riven = riven;
-    lake.metadata = metadata;
     lake.threads = threads;
     lake.thread_count = thread_count;
 
@@ -273,7 +267,7 @@ s32 amw_main(s32 argc, char **argv)
 
         .encores = {
             .octavia = octavia_acquire_native_encores(&hints.encores.octavia_count, true),
-            .silvera = silvera_acquire_native_encores(&hints.encores.silvera_count, true),
+            .pelagia = pelagia_acquire_native_encores(&hints.encores.pelagia_count, true),
             .hadal = hadal_acquire_native_encores(&hints.encores.hadal_count, true),
         },
 #ifndef NDEBUG

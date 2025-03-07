@@ -776,7 +776,7 @@ void heart(void *raw_heart_data)
     struct rivens *riven = data->riven;
     const u32 thread_count = riven->thread_count;
 
-    data->result = data->procedure(riven, riven->metadata, riven->threads, riven->thread_count, data->argument);
+    data->result = data->procedure(riven, riven->threads, riven->thread_count, data->argument);
 
     /* returned from main, tell all threads to kys */
     for (u32 i = 0; i < thread_count; i++) {
@@ -1303,12 +1303,7 @@ void riven_free(
     }
 }
 
-const struct rivens_metadata *riven_acquire_metadata(struct rivens *riven)
-{
-    return riven->metadata;
-}
-
-void riven_str_format(
+void riven_format_string(
     struct rivens     *riven,
     rivens_tag_t       tag,
     struct str * const dest,
@@ -1331,7 +1326,7 @@ void riven_str_format(
     *dest = (struct str){ p, n };
 }
 
-void riven_str_cat(
+void riven_concatenate_strings(
     struct rivens     *riven,
     rivens_tag_t       tag,
     struct str * const dest,
@@ -1374,8 +1369,9 @@ void riven_encore(rivens_song_t overture)
     assert_debug(header->interface);
     assert_debug(header->encores);
 
+    header->metadata = header->riven->metadata;
+
     const char *fmt = "Interface '%s:%s' is missing header procedure - 'PFN_rivens_interface_%s'.";
-    b32 check;
 
     for (u32 i = 0; i < header->count; i++) {
         *header->interface = header->encores[i](overture);
@@ -1385,13 +1381,14 @@ void riven_encore(rivens_song_t overture)
 
         /* ensure the interface implementation is complete */
         struct rivens_interface_header *interface = (struct rivens_interface_header *)*header->interface;
-        check = true;
 
+        b32 check = true;
 #define CHECK(fn) \
         if (interface->fn == NULL) { log_warn(fmt, header->name.ptr, interface->name.ptr, #fn); check = false; }
         CHECK(fini)
         CHECK(validate)
 #undef CHECK
+        /* we can return if everything is fine */
         if (check && interface->validate(interface)) return; 
 
         /* destroy the interface */
@@ -1404,6 +1401,7 @@ void riven_encore(rivens_song_t overture)
 
 void riven_finale(rivens_song_t interface)
 {
+    /* don't continue if there is no work */
     if (!interface) return;
 
     struct rivens_interface_header *header = (struct rivens_interface_header *)interface;
@@ -1412,7 +1410,7 @@ void riven_finale(rivens_song_t interface)
     zerop(header);
 }
 
-void riven_equinox(
+void riven_equinox_prime(
     struct rivens    *riven, 
     PFN_rivens_job    procedure, 
     const struct str *name, 
@@ -1426,8 +1424,8 @@ void riven_equinox(
         riven_alloc(riven, rivens_tag_drifter, sizeof(struct rivens_work) * work_count, _Alignof(struct rivens_work));
     for (u32 i = 0; i < work_count; i++) {
         struct str s[3] = { str_init("riven_equinox:"), {name->ptr, name->length}, str_null };
-        riven_str_format(riven, rivens_tag_drifter, &s[2], "_%u", i); 
-        riven_str_cat(riven, rivens_tag_drifter, &work->name, s, 3);
+        riven_format_string(riven, rivens_tag_drifter, &s[2], "_%u", i); 
+        riven_concatenate_strings(riven, rivens_tag_drifter, &work->name, s, 3);
         work->argument = arguments[i];
         work->procedure = procedure;
     }

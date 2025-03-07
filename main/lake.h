@@ -8,21 +8,30 @@
 
 #define LAKE_VERSION (VERSION_NUM(LAKE_VERSION_MAJOR, LAKE_VERSION_MINOR, LAKE_VERSION_REVISION))
 
+/** Crafts a shared context of multiple engine subsystems. */
 struct lake {
+    /* audio engine */
     struct octavia *octavia;
-    struct silvera *silvera;
+
+    /* renderer */
+    struct pelagia *pelagia;
+
+    /* display */
     struct hadal   *hadal;
 
-    struct rivens                *riven;
-    const struct rivens_metadata *metadata;
-    thread_t                     *threads;
-    u32                           thread_count;
+    /* framework */
+    struct rivens *riven;
+    thread_t      *threads;
+    u32            thread_count;
 
+    /* gameloop flags */
     b32 exit_game;
     b32 restart_engine;
     b32 finalize_gameloop;
 };
 
+/** Describes data for a single frame-worth of work. A frame is the result of such work,
+ *  that we can show to the player in auditory and visual format. */
 struct framedata {
     WORK_STRUCTURE_HEADER
     /** A frame index incremented every frame. Can be cycled to access per-frame resources via an array index. */

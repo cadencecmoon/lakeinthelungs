@@ -158,7 +158,7 @@ void hash_table_for_each(
         if (ht->table[i] != 0) {
             struct hash_node *node = ht->table[i];
             while (node) {
-                if (fn(node->key, node->length, &node->value, data) != result_reiterate) return;
+                if (fn(node->key, node->length, &node->value, data) != result_continue) return;
                 node = node->next;
             }
         }

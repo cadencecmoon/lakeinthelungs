@@ -40,11 +40,10 @@ struct rivens_work {
 
 /** Applications entry point to the entire system. */
 typedef s32 (*PFN_rivens_heart)(
-    struct rivens                *riven, 
-    const struct rivens_metadata *metadata,
-    thread_t                     *threads,
-    u32                           thread_count,
-    rivens_song_t                 argument);
+    struct rivens *riven, 
+    thread_t      *threads,
+    u32            thread_count,
+    rivens_song_t  argument);
 
 /** Runs 'work_count' amount of jobs, passed in the flat array 'work'. This will return immediately, and the 
  *  provided jobs will be resolved in the background in parallel. If 'chain' is not NULL, it will be set to 
@@ -65,8 +64,8 @@ void riven_unchain(
     struct rivens *riven,
     rivens_chain_t chain);
 
-/** Combines the effects of 'rivens_split_work' and 'rivens_unchain', combined by a chain. This function does not 
- *  return until all submitted work has completed. */
+/** Combines the effects of 'rivens_split_work' and 'rivens_unchain', by providing a chain. 
+ *  This function does not return until all submitted work has completed. */
 attr_inline attr_nonnull(1,2)
 void riven_split_work_and_unchain(
     struct rivens      *riven,
@@ -174,7 +173,7 @@ void *riven_memdup(
 
 /** Duplicates a string under a given heap tag, the length of the string must be known. */
 attr_inline attr_nonnull_all
-struct str riven_str_dup(
+struct str riven_strdup(
     struct rivens    *riven,
     rivens_tag_t      tag,
     const struct str  s)
@@ -184,24 +183,25 @@ struct str riven_str_dup(
 
 /** Duplicates a C string literal under a given heap tag. */
 attr_inline attr_nonnull_all
-struct str riven_cstr_dup(
+struct str riven_cstrdup(
     struct rivens *riven,
     rivens_tag_t   tag,
     const char    *cstr)
 {
-    return riven_str_dup(riven, tag, (struct str){ cstr, strlen(cstr) });
+    return riven_strdup(riven, tag, (struct str){ cstr, strlen(cstr) });
 }
 
-/** Formats a string, allocates it under a given heap tag. */
+/** Format a string and save it under dest. The string will have a lifetime of tag. */
 AMWAPI attr_hot attr_nonnull(1,3) attr_printf(4,5)
-void riven_str_format(
+void riven_format_string(
     struct rivens     *riven,
     rivens_tag_t       tag,
     struct str * const dest,
     const char        *fmt, ...);
 
+/** Concatenate a list of strings and save it under dest. The string will have a lifetime of tag. */
 AMWAPI attr_hot attr_nonnull(1,3)
-void riven_str_cat(
+void riven_concatenate_strings(
     struct rivens     *riven,
     rivens_tag_t       tag,
     struct str * const dest,
@@ -220,15 +220,19 @@ typedef void (*PFN_rivens_interface_fini)(rivens_song_t interface);
 /** Check whether the interface implementation is complete. */
 typedef b32 (*PFN_rivens_interface_validate)(rivens_song_t interface);
 
-/** Information shared between all interfaces, may be used to abstract an unknown interface structure. */
+/** Information shared between all interfaces, may be used to cast from any defined interface structure.
+ *  An engine system may want to define an interface in the following cases:
+ *  
+ *  - The system may have multiple implementations, where one must be choosen at runtime - either 
+ *    by platform-specific backends, a layer of indirection, or extensibility by external means 
+ *    without touching and reprogramming the interface used by an application. */
 struct rivens_interface_header {
     at_u32                          flags;          /**< Bits taken from enum rivens_flags and a systems self defined flags. */
-    u32                             signature;      /**< An unique signature written by the backend. ?TODO */
+    u32                             signature;      /**< An unique signature written by the backend. ?TODO it works as a padding for now. */
     struct str                      name;           /**< The name of the display backend. */
 
     rivens_tag_t                    tag;
     struct rivens                  *riven;
-    const struct rivens_metadata   *metadata;
 
     /* every interface must implement these procedures */
     PFN_rivens_interface_fini       fini;
@@ -243,7 +247,6 @@ struct rivens_interface_header {
         .name = _name,                                                      \
         .tag = overture->header.tag,                                        \
         .riven = overture->header.riven,                                    \
-        .metadata = overture->header.metadata,                              \
         .fini = (PFN_rivens_interface_fini)_fini,                           \
         .validate = (PFN_rivens_interface_validate)_validate,               \
     }
@@ -282,7 +285,7 @@ struct rivens_overture_header {
 };
 
 /** Write the header within an overture initializer. */
-#define riven_write_overture_header(_riven, _tag, _metadata, _name, _interface, _encores, _count) \
+#define riven_write_overture_header(_riven, _tag, _name, _interface, _encores, _count) \
     {                               \
         .riven = _riven,            \
         .tag = _tag,                \
@@ -290,7 +293,6 @@ struct rivens_overture_header {
         .count = _count,            \
         .name = _name,              \
         .interface = _interface,    \
-        .metadata = _metadata,      \
     }
 
 /** Executes an encore, saving the returned interface in the arguments header.
@@ -305,13 +307,28 @@ void riven_finale(rivens_song_t interface);
 /** Executes multiple jobs of a common procedure all at once. The user can provide a chain 
  *  so they can later synchronize with the jobs to finish work, by calling 'riven_unchain'. */
 AMWAPI attr_nonnull_all
-void riven_equinox(
+void riven_equinox_prime(
     struct rivens    *riven, 
     PFN_rivens_job    procedure, 
     const struct str *name, 
     rivens_song_t    *arguments, 
     u32               work_count,
     rivens_chain_t   *chain);
+
+/** Combines the effects of 'riven_equinox_prime' and 'riven_unchain', by providing a chain. 
+ *  This function does not return until all submitted work has completed. */
+attr_inline attr_nonnull(1,2)
+void riven_equinox_prime_and_unchain(
+    struct rivens    *riven,
+    PFN_rivens_job    procedure, 
+    const struct str *name, 
+    rivens_song_t    *arguments, 
+    u32               work_count)
+{
+    rivens_chain_t chain;
+    riven_equinox_prime(riven, procedure, name, arguments, work_count, &chain);
+    riven_unchain(riven, chain);
+}
 
 /** Setups the job system and maps virtual memory to be used within the engine. The resource requirements of 
  *  internal systems depends on given argument hints and on the capabilities of the host system. Passing 0 as 

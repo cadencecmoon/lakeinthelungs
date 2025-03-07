@@ -62,8 +62,8 @@ AMWAPI RIVENS_ENCORE(octavia, oss);
  *  transforms on audio streams - can't record nor play them tho. */
 AMWAPI RIVENS_ENCORE(octavia, dummy);
 
-/** Writes a list of encores native to the host system. May write a dummy encore if requested,
- *  but it will be written if there is no other audio backend available.
+/** Writes a list of encores native to the host system. May write a fallback encore if 
+ *  requested, but it will be written anyways if there is no other audio backend available.
  *
  *  The following encores may be written:
  *  - coreaudio - Apple platforms (MacOS, iOS).
