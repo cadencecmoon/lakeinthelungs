@@ -6,8 +6,8 @@ dep_dl = cc.find_library('dl', required : false)
 dep_vulkan = dependency('vulkan', required : get_option('vulkan'))
 if dep_vulkan.found()
     engine_sources += files(
-        'vk_backend.c',
         'vk_device.c',
+        'vk_pelagia.c',
         'vk_swapchain.c',
     )
     defs += '-DPELAGIA_VULKAN=1'

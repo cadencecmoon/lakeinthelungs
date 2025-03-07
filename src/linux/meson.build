@@ -55,7 +55,7 @@ if sys == 'linux' or sys == 'bsd'
     wayland_scanner = find_program('wayland-scanner', required : get_option('wayland'))
     build_wayland = (dep_wayland_client.found() and wayland_scanner.found() and dep_xkbcommon.found())
     if build_wayland
-        engine_sources += files('wl_display.c')
+        engine_sources += files('wl_hadal.c')
         defs += [ '-DHADAL_WAYLAND=1', '-DVK_USE_PLATFORM_WAYLAND_KHR' ]
 
         wayland_protocols_dir = '../../wayland_protocols/'

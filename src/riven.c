@@ -834,7 +834,7 @@ void riven_unchain(
     if (counter) atomic_store_explicit(counter, RIVEN_FIBER_INVALID, memory_order_release);
 }
 
-void riven_acquire_exile(
+void riven_acquire_chained(
     struct rivens  *riven,
     rivens_chain_t *chain)
 {
@@ -1333,45 +1333,41 @@ void riven_concatenate_strings(
     const struct str  *src,
     usize              count)
 {
-    if (!src) {
-        str_clear(dest);
-        return;
-    }
+    str_clear(dest);
+
+    if (!src) return;
 
     /* calculate total length */
     usize sum = 0;
-    for (usize o = count; o > 0; --o)
-        sum += str_len(*src++);
-
-    if (sum == 0)
-        return;
+    for (usize o = 0; o < count; o++)
+        sum += src[o].length;
+    if (sum == 0) return;
 
     char * const buf = (char *)riven_alloc(riven, tag, sum + 1, 1);
 
     char *p = buf;
-    for (usize o = count; o > 0; --o) {
-        const struct str s = *src++;
-        p = (char *)(memcpy(p, str_ptr(s), str_len(s)) + str_len(s));
-    }
+    for (usize o = 0; o < count; o++)
+        p = (char *)(memcpy(p, src[o].ptr, src[o].length) + src[o].length);
 
     *p = '\0';
     dest->ptr = buf;
     dest->length = sum;
 }
 
+/* FIXME this crashes for some reason, a lot of debugging needed... */
 void riven_encore(rivens_song_t overture)
 {
     struct rivens_overture_header *header = (struct rivens_overture_header *)overture;
 
+    assert_debug(header);
     assert_debug(header->riven);
     assert_debug(header->tag != rivens_tag_invalid);
     assert_debug(header->name.ptr);
     assert_debug(header->interface);
     assert_debug(header->encores);
-
     header->metadata = header->riven->metadata;
 
-    const char *fmt = "Interface '%s:%s' is missing header procedure - 'PFN_rivens_interface_%s'.";
+    const char *fmt = "Interface '%s_%s' is missing header procedure - 'PFN_rivens_interface_%s'.";
 
     for (u32 i = 0; i < header->count; i++) {
         *header->interface = header->encores[i](overture);
@@ -1405,31 +1401,10 @@ void riven_finale(rivens_song_t interface)
     if (!interface) return;
 
     struct rivens_interface_header *header = (struct rivens_interface_header *)interface;
-    header->fini(interface);
+    if (header->fini)
+        header->fini(interface);
     /* the interface is no longer valid */
     zerop(header);
-}
-
-void riven_equinox_prime(
-    struct rivens    *riven, 
-    PFN_rivens_job    procedure, 
-    const struct str *name, 
-    rivens_song_t    *arguments, 
-    u32               work_count,
-    rivens_chain_t   *chain)
-{
-    if (!work_count) return;
-
-    struct rivens_work *work = (struct rivens_work *)
-        riven_alloc(riven, rivens_tag_drifter, sizeof(struct rivens_work) * work_count, _Alignof(struct rivens_work));
-    for (u32 i = 0; i < work_count; i++) {
-        struct str s[3] = { str_init("riven_equinox:"), {name->ptr, name->length}, str_null };
-        riven_format_string(riven, rivens_tag_drifter, &s[2], "_%u", i); 
-        riven_concatenate_strings(riven, rivens_tag_drifter, &work->name, s, 3);
-        work->argument = arguments[i];
-        work->procedure = procedure;
-    }
-    riven_split_work(riven, work, work_count, chain);
 }
 
 s32 riven_moonlit_walk(

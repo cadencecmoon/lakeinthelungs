@@ -32,7 +32,7 @@ const PFN_rivens_encore *hadal_acquire_native_encores(u32 *out_count, b32 fallba
     return g_native_encores;
 }
 
-static b32 _hadal_interface_validate(struct hadal *hadal)
+b32 hadal_interface_validate(struct hadal *hadal)
 {
     struct hadal_interface *interface = (struct hadal_interface *)hadal;
     const char *fmt = "Hadal '%s' is missing interface procedure - 'PFN_hadal_%s'.";
@@ -64,10 +64,36 @@ RIVENS_ENCORE(hadal, headless)
 
     *interface = (struct hadal_interface) {
         .header = riven_write_interface_header(
-            UINT32_MAX, str_init("headless"), 
+            str_init("headless"), 
             headless_interface_fini, 
-            _hadal_interface_validate),
+            hadal_interface_validate),
         .acquire_framebuffer_extent = headless_acquire_framebuffer_extent,
     };
     return (struct hadal *)interface;
 }
+
+/* XXX encore stubs, to be implemented */
+#define ENCORE_STUB(backend) \
+    RIVENS_ENCORE(hadal, backend) { log_error("Hadal encore '%s' is not yet implemented.", #backend); (void)overture; return NULL; }
+
+#ifdef PLATFORM_WINDOWS
+ENCORE_STUB(win32)
+#endif
+#ifdef PLATFORM_APPLE_MACOS
+ENCORE_STUB(cocoa)
+#endif
+#ifdef PLATFORM_APPLE_IOS
+ENCORE_STUB(ios)
+#endif
+#ifdef PLATFORM_ANDROID
+ENCORE_STUB(android)
+#endif
+#ifdef PLATFORM_EMSCRIPTEN
+ENCORE_STUB(html5)
+#endif
+#ifdef HADAL_XCB
+ENCORE_STUB(xcb)
+#endif
+#ifdef HADAL_DRMKMS
+ENCORE_STUB(drmkms)
+#endif

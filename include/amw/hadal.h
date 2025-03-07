@@ -71,14 +71,6 @@ const PFN_rivens_encore *hadal_acquire_native_encores(u32 *out_count, b32 fallba
 /** Acquires the framebuffer extent/resolution, may be different from the window size. */
 typedef void (*PFN_acquire_framebuffer_extent)(struct hadal *hadal, u32 *width, u32 *height);
 
-/** Flags describing the state or running configuration of the display backend. */
-enum hadal_flags {
-    /** Set whenever an event from external means (outside of the application, the user) 
-     *  has requested the display or system window to quit. We can assume that if such 
-     *  thing happens, the application should save the game, cleanup and exit. */
-    hadal_flag_window_should_close = (1u << 0),
-};
-
 /** Procedures to be provided by an implementation. The backend must implement the 'struct hadal' and 
  *  put the hadal_interface as the first member of this structure, to allow casting between the opaque 
  *  handle of the display backend and the public interface defined below. */
@@ -86,6 +78,10 @@ struct hadal_interface {
     struct rivens_interface_header  header;
     PFN_acquire_framebuffer_extent  acquire_framebuffer_extent;
 };
+
+/** Checks the correctness of an implementation. */
+AMWAPI attr_nonnull_all
+b32 hadal_interface_validate(struct hadal *hadal);
 
 /** Acquires the framebuffer extent/resolution, may be different from the window size. */
 attr_inline attr_nonnull(1)

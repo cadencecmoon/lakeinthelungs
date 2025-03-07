@@ -44,7 +44,12 @@ static void lake_fini(struct lake *lake)
         lake->pelagia,
         lake->hadal,
     };
-    riven_equinox_prime_and_unchain(lake->riven, riven_finale, &name, finales, arraysize(finales));
+    struct rivens_work init_work[3] = {
+        { .procedure = riven_finale, .argument = finales[0], .name = str_init("riven_finale:hadal") },
+        { .procedure = riven_finale, .argument = finales[1], .name = str_init("riven_finale:octavia") },
+        { .procedure = riven_finale, .argument = finales[2], .name = str_init("riven_finale:pelagia") }
+    };
+    riven_split_work_and_unchain(lake->riven, init_work, 3);
 }
 
 static s32 lake_init(
@@ -59,7 +64,7 @@ static s32 lake_init(
         /* the display backend */
         struct hadal_overture hadal_info = {
             .header = riven_write_overture_header(
-                riven, tag, str_init("hadal (display)"), 
+                riven, tag, str_init("hadal"), 
                 (rivens_song_t *)&lake->hadal, 
                 hints->encores.hadal, 
                 hints->encores.hadal_count),
@@ -72,7 +77,7 @@ static s32 lake_init(
         /* the rendering backend */
         struct pelagia_overture pelagia_info = {
             .header = riven_write_overture_header(
-                riven, tag, str_init("pelagia (renderer)"),
+                riven, tag, str_init("pelagia"),
                 (rivens_song_t *)&lake->pelagia,
                 hints->encores.pelagia,
                 hints->encores.pelagia_count),
@@ -83,7 +88,7 @@ static s32 lake_init(
         /* the audio backend */
         struct octavia_overture octavia_info = {
             .header = riven_write_overture_header(
-                riven, tag, str_init("octavia (audio)"),
+                riven, tag, str_init("octavia"),
                 (rivens_song_t *)&lake->octavia,
                 hints->encores.octavia,
                 hints->encores.octavia_count),
@@ -92,10 +97,15 @@ static s32 lake_init(
 
         rivens_song_t overtures[] = {
             &hadal_info,
-            &pelagia_info,
             &octavia_info,
+            &pelagia_info,
         };
-        riven_equinox_prime_and_unchain(riven, riven_encore, &name, overtures, arraysize(overtures));
+        struct rivens_work init_work[3] = {
+            { .procedure = riven_encore, .argument = overtures[0], .name = str_init("riven_encore:hadal") },
+            { .procedure = riven_encore, .argument = overtures[1], .name = str_init("riven_encore:octavia") },
+            { .procedure = riven_encore, .argument = overtures[2], .name = str_init("riven_encore:pelagia") }
+        };
+        riven_split_work_and_unchain(riven, init_work, 3);
 
         /* check the interfaces */
         for (u32 i = 0; i < arraysize(overtures); i++) {

@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-/** An opaque handle of the rendering backend. Can be safely cast into 
+/** An opaque handle of the rendering backend. Pointer can be safely cast into 
  *  (struct pelagia_interface *) if obtained from a valid renderer implementation. */
 struct pelagia;
 
@@ -61,6 +61,46 @@ const PFN_rivens_encore *pelagia_acquire_native_encores(u32 *out_count, b32 fall
 struct pelagia_interface {
     struct rivens_interface_header  header;
 };
+
+/** Checks the correctness of an implementation. */
+AMWAPI attr_nonnull_all
+b32 pelagia_interface_validate(struct pelagia *pelagia);
+
+/** An opaque handle of the rendering device. The device is our context of execution,
+ *  used to create resources and run commands on the GPU. It is implied, that a device 
+ *  pointer can be safely cast into (struct pelagia_interface **). */
+struct pelagia_device;
+
+/** The swapchain is a way to present rendered images into a window surface.
+ *  We must interface with Hadal to create a surface we can draw to. */
+struct pelagia_swapchain;
+
+/** TODO A buffer. */
+struct pelagia_buffer;
+
+/** TODO A texture. */
+struct pelagia_texture;
+
+/** TODO A sampler. */
+struct pelagia_sampler;
+
+/** TODO A command buffer. */
+struct pelagia_command_buffer;
+
+/** TODO A graphics pipeline. */
+struct pelagia_graphics_pipeline;
+
+/** TODO A compute pipeline. */
+struct pelagia_compute_pipeline;
+
+/** TODO A raytracing pipeline. */
+struct pelagia_raytracing_pipeline;
+
+/** TODO Bottom-level acceleration structure, raytracing mesh. */
+struct pelagia_bottom_level;
+
+/** TODO Top-level acceleration structure, raytracing scene. */
+struct pelagia_top_level;
 
 #ifdef __cplusplus
 }

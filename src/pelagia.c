@@ -24,7 +24,7 @@ const PFN_rivens_encore *pelagia_acquire_native_encores(u32 *out_count, b32 fall
     return g_native_encores;
 }
 
-static b32 _pelagia_interface_validate(struct pelagia *pelagia)
+b32 pelagia_interface_validate(struct pelagia *pelagia)
 {
     struct pelagia_interface *interface = (struct pelagia_interface *)pelagia;
     const char *fmt = "Pelagia '%s' is missing interface procedure - 'PFN_pelagia_%s'.";
@@ -52,9 +52,23 @@ RIVENS_ENCORE(pelagia, stub)
 
     *interface = (struct pelagia_interface){
         .header = riven_write_interface_header(
-            UINT32_MAX, str_init("stub"), 
+            str_init("stub"), 
             stub_interface_fini, 
-            _pelagia_interface_validate),
+            pelagia_interface_validate),
     };
     return (struct pelagia *)interface;
 }
+
+/* XXX encore stubs, to be implemented */
+#define ENCORE_STUB(backend) \
+    RIVENS_ENCORE(pelagia, backend) { log_error("Pelagia encore '%s' is not yet implemented.", #backend); (void)overture; return NULL; }
+
+#ifdef PELAGIA_D3D12
+ENCORE_STUB(d3d12)
+#endif
+#ifdef PELAGIA_METAL
+ENCORE_STUB(metal)
+#endif
+#ifdef PELAGIA_WEBGPU
+ENCORE_STUB(webgpu)
+#endif

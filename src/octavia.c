@@ -42,7 +42,7 @@ const PFN_rivens_encore *octavia_acquire_native_encores(u32 *out_count, b32 fall
     return g_native_encores;
 }
 
-static b32 _octavia_interface_validate(struct octavia *octavia)
+b32 octavia_interface_validate(struct octavia *octavia)
 {
     struct octavia_interface *interface = (struct octavia_interface *)octavia;
     const char *fmt = "Octavia '%s' is missing interface procedure - 'PFN_octavia_%s'.";
@@ -70,9 +70,44 @@ RIVENS_ENCORE(octavia, dummy)
 
     *interface = (struct octavia_interface){
         .header = riven_write_interface_header(
-            UINT32_MAX, str_init("dummy"), 
+            str_init("dummy"), 
             dummy_interface_fini, 
-            _octavia_interface_validate),
+            octavia_interface_validate),
     };
     return (struct octavia *)interface;
 }
+
+/* XXX encore stubs, to be implemented */
+#define ENCORE_STUB(backend) \
+    RIVENS_ENCORE(octavia, backend) { log_error("Octavia encore '%s' is not yet implemented.", #backend); (void)overture; return NULL; }
+
+#ifdef OCTAVIA_COREAUDIO
+ENCORE_STUB(coreaudio)
+#endif
+#ifdef OCTAVIA_WASAPI
+ENCORE_STUB(wasapi)
+#endif
+#ifdef OCTAVIA_XAUDIO2
+ENCORE_STUB(xaudio2)
+#endif
+#ifdef OCTAVIA_WEBAUDIO
+ENCORE_STUB(webaudio)
+#endif
+#ifdef OCTAVIA_AAUDIO
+ENCORE_STUB(aaudio)
+#endif
+#ifdef OCTAVIA_PIPEWIRE
+ENCORE_STUB(pipewire)
+#endif
+#ifdef OCTAVIA_PULSEAUDIO
+ENCORE_STUB(pulseaudio)
+#endif
+#ifdef OCTAVIA_JACK
+ENCORE_STUB(jack)
+#endif
+#ifdef OCTAVIA_ALSA
+ENCORE_STUB(alsa)
+#endif
+#ifdef OCTAVIA_OSS
+ENCORE_STUB(oss)
+#endif

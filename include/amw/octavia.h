@@ -89,6 +89,10 @@ struct octavia_interface {
     struct rivens_interface_header  header;
 };
 
+/** Checks the correctness of an implementation. */
+AMWAPI attr_nonnull_all
+b32 octavia_interface_validate(struct octavia *octavia);
+
 #ifdef __cplusplus
 }
 #endif

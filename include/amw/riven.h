@@ -208,12 +208,6 @@ void riven_concatenate_strings(
     const struct str  *src,
     usize              count);
 
-/** Bits describing a common state of an interface. */
-enum rivens_flags {
-    /** Always set on any interface structure with a valid implementation. */
-    rivens_flag_interface_is_valid = (1u << 31),
-};
-
 /** Used to cleanup a backend and destroy the interface. */
 typedef void (*PFN_rivens_interface_fini)(rivens_song_t interface);
 
@@ -223,32 +217,30 @@ typedef b32 (*PFN_rivens_interface_validate)(rivens_song_t interface);
 /** Information shared between all interfaces, may be used to cast from any defined interface structure.
  *  An engine system may want to define an interface in the following cases:
  *  
- *  - The system may have multiple implementations, where one must be choosen at runtime - either 
- *    by platform-specific backends, a layer of indirection, or extensibility by external means 
- *    without touching and reprogramming the interface used by an application. */
+ *  1) The system may have multiple implementations, where one must be choosen at runtime - either 
+ *     by platform-specific backends, a layer of indirection, or extensibility by external means 
+ *     without touching and reprogramming the interface used by an application.
+ *
+ *  2) The system may be implemented as a plugin/extension and be loaded at runtime at will,
+ *     or hot-reloaded without recompiling the engine itself. */
 struct rivens_interface_header {
-    at_u32                          flags;          /**< Bits taken from enum rivens_flags and a systems self defined flags. */
-    u32                             signature;      /**< An unique signature written by the backend. ?TODO it works as a padding for now. */
     struct str                      name;           /**< The name of the display backend. */
+    struct rivens                  *riven;          /**< The context of our framework. */
+    rivens_tag_t                    tag;            /**< The lifetime of this interface. */
 
-    rivens_tag_t                    tag;
-    struct rivens                  *riven;
-
-    /* every interface must implement these procedures */
+    /* every interface must implement these callbacks */
     PFN_rivens_interface_fini       fini;
     PFN_rivens_interface_validate   validate;
 };
 
 /** Write the header within an interface initializer. */
-#define riven_write_interface_header(_signature, _name, _fini, _validate)   \
-    {                                                                       \
-        .flags = rivens_flag_interface_is_valid,                            \
-        .signature = _signature,                                            \
-        .name = _name,                                                      \
-        .tag = overture->header.tag,                                        \
-        .riven = overture->header.riven,                                    \
-        .fini = (PFN_rivens_interface_fini)_fini,                           \
-        .validate = (PFN_rivens_interface_validate)_validate,               \
+#define riven_write_interface_header(_name, _fini, _validate)   \
+    {                                                           \
+        .name = _name,                                          \
+        .tag = overture->header.tag,                            \
+        .riven = overture->header.riven,                        \
+        .fini = (PFN_rivens_interface_fini)_fini,               \
+        .validate = (PFN_rivens_interface_validate)_validate,   \
     }
 
 /** We may define a framework for abstracting away interfaces of systems with hidden implementation details,
@@ -303,32 +295,6 @@ void riven_encore(rivens_song_t overture);
 /** Closes and cleans up the interface. Can be run as a job. */
 AMWAPI attr_nonnull_all
 void riven_finale(rivens_song_t interface);
-
-/** Executes multiple jobs of a common procedure all at once. The user can provide a chain 
- *  so they can later synchronize with the jobs to finish work, by calling 'riven_unchain'. */
-AMWAPI attr_nonnull_all
-void riven_equinox_prime(
-    struct rivens    *riven, 
-    PFN_rivens_job    procedure, 
-    const struct str *name, 
-    rivens_song_t    *arguments, 
-    u32               work_count,
-    rivens_chain_t   *chain);
-
-/** Combines the effects of 'riven_equinox_prime' and 'riven_unchain', by providing a chain. 
- *  This function does not return until all submitted work has completed. */
-attr_inline attr_nonnull(1,2)
-void riven_equinox_prime_and_unchain(
-    struct rivens    *riven,
-    PFN_rivens_job    procedure, 
-    const struct str *name, 
-    rivens_song_t    *arguments, 
-    u32               work_count)
-{
-    rivens_chain_t chain;
-    riven_equinox_prime(riven, procedure, name, arguments, work_count, &chain);
-    riven_unchain(riven, chain);
-}
 
 /** Setups the job system and maps virtual memory to be used within the engine. The resource requirements of 
  *  internal systems depends on given argument hints and on the capabilities of the host system. Passing 0 as 
