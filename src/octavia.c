@@ -1,113 +1,123 @@
 #include <amw/octavia.h>
 #include <amw/log.h>
 
-static const PFN_rivens_encore g_native_encores[] = {
+RIVEN_ENCORE(octavia, native)
+{
+    assert_debug(create_info->header.interface && *create_info->header.interface == NULL);
+
+    PFN_riven_work encores[] = {
 #ifdef OCTAVIA_COREAUDIO
-    (PFN_rivens_encore)octavia_coreaudio_encore,
+        (PFN_riven_work)octavia_encore_coreaudio,
 #endif
 #ifdef OCTAVIA_WASAPI
-    (PFN_rivens_encore)octavia_wasapi_encore,
+        (PFN_riven_work)octavia_encore_wasapi,
 #endif
 #ifdef OCTAVIA_XAUDIO2
-    (PFN_rivens_encore)octavia_xaudio2_encore,
+        (PFN_riven_work)octavia_encore_xaudio2,
 #endif
 #ifdef OCTAVIA_WEBAUDIO
-    (PFN_rivens_encore)octavia_webaudio_encore,
+        (PFN_riven_work)octavia_encore_webaudio,
 #endif
 #ifdef OCTAVIA_AAUDIO
-    (PFN_rivens_encore)octavia_aaudio_encore,
+        (PFN_riven_work)octavia_encore_aaudio,
 #endif
 #ifdef OCTAVIA_PIPEWIRE
-    (PFN_rivens_encore)octavia_pipewire_encore,
+        (PFN_riven_work)octavia_encore_pipewire,
 #endif
 #ifdef OCTAVIA_PULSEAUDIO
-    (PFN_rivens_encore)octavia_pulseaudio_encore,
+        (PFN_riven_work)octavia_encore_pulseaudio,
 #endif
 #ifdef OCTAVIA_JACK
-    (PFN_rivens_encore)octavia_jack_encore,
+        (PFN_riven_work)octavia_encore_jack,
 #endif
 #ifdef OCTAVIA_ALSA
-    (PFN_rivens_encore)octavia_alsa_encore,
+        (PFN_riven_work)octavia_encore_alsa,
 #endif
 #ifdef OCTAVIA_OSS
-    (PFN_rivens_encore)octavia_oss_encore,
+        (PFN_riven_work)octavia_encore_oss,
 #endif
-    (PFN_rivens_encore)octavia_dummy_encore,
-};
+#ifndef OCTAVIA_DISABLE_DUMMY_FALLBACK
+        (PFN_riven_work)octavia_encore_dummy,
+#endif
+    };
+    u32 encore_count = arraysize(encores);
 
-const PFN_rivens_encore *octavia_acquire_native_encores(u32 *out_count, b32 fallback)
-{
-    u32 count = arraysize(g_native_encores);
-    *out_count = fallback ? count : max(1, count-1);
-    return g_native_encores;
+    for (u32 i = 0; i < encore_count; i++) {
+        encores[i]((riven_argument_t)create_info);
+
+        if (*create_info->header.interface == NULL) 
+            continue;
+
+        const struct octavia_interface *interface = *create_info->header.interface;
+        const char *fmt = "'%s' is missing interface procedure - 'PFN_octavia_%s'.";
+        b32 valid = true;
+
+        /* just assert the header */
+        assert_debug(interface->header.fini);
+
+        /* check the interface procedures */
+#define VALIDATE(fn) \
+        if (interface->fn == NULL) { log_warn(fmt, interface->header.name.ptr, #fn); valid = false; }
+        (void)fmt;
+#undef VALIDATE
+        if (valid) return;
+
+        /* continue with the next encore */
+        if (interface->header.fini)
+            interface->header.fini((riven_argument_t)interface);
+        *create_info->header.interface = NULL;
+    }
 }
 
-b32 octavia_interface_validate(struct octavia *octavia)
+RIVEN_ENCORE(octavia, dummy)
 {
-    struct octavia_interface *interface = (struct octavia_interface *)octavia;
-    const char *fmt = "Octavia '%s' is missing interface procedure - 'PFN_octavia_%s'.";
-    b32 result = true;
+    assert_debug(create_info->header.interface && *create_info->header.interface == NULL);
 
-#define CHECK(fn) \
-    if (interface->fn == NULL) { log_warn(fmt, interface->header.name.ptr, #fn); result = false; }
+    struct riven *riven = create_info->header.riven;
+    riven_tag_t tag = create_info->header.tag;
 
-    (void)interface;
-    (void)fmt;
-
-#undef CHECK
-    return result;
-}
-
-static void dummy_interface_fini(struct octavia *octavia)
-{
-    (void)octavia;
-}
-
-RIVENS_ENCORE(octavia, dummy)
-{
     struct octavia_interface *interface = (struct octavia_interface *) 
-        riven_alloc(overture->header.riven, overture->header.tag, sizeof(struct octavia_interface), _Alignof(struct octavia_interface));
+        riven_alloc(riven, tag, sizeof(struct octavia_interface), _Alignof(struct octavia_interface));
 
     *interface = (struct octavia_interface){
-        .header = riven_write_interface_header(
-            str_init("dummy"), 
-            dummy_interface_fini, 
-            octavia_interface_validate),
+        .header = {
+            .name = str_init("octavia_dummy"),
+            .riven = riven,
+            .tag = tag,
+            .fini = riven_work_nop,
+        },
     };
-    return (struct octavia *)interface;
+    *create_info->header.interface = (riven_argument_t)(struct octavia *)interface;
+    log_verbose("'%s' interface write.", interface->header.name.ptr);
 }
 
-/* XXX encore stubs, to be implemented */
-#define ENCORE_STUB(backend) \
-    RIVENS_ENCORE(octavia, backend) { log_error("Octavia encore '%s' is not yet implemented.", #backend); (void)overture; return NULL; }
-
 #ifdef OCTAVIA_COREAUDIO
-ENCORE_STUB(coreaudio)
+RIVEN_ENCORE_STUB(octavia, coreaudio)
 #endif
 #ifdef OCTAVIA_WASAPI
-ENCORE_STUB(wasapi)
+RIVEN_ENCORE_STUB(octavia, wasapi)
 #endif
 #ifdef OCTAVIA_XAUDIO2
-ENCORE_STUB(xaudio2)
+RIVEN_ENCORE_STUB(octavia, xaudio2)
 #endif
 #ifdef OCTAVIA_WEBAUDIO
-ENCORE_STUB(webaudio)
+RIVEN_ENCORE_STUB(octavia, webaudio)
 #endif
 #ifdef OCTAVIA_AAUDIO
-ENCORE_STUB(aaudio)
+RIVEN_ENCORE_STUB(octavia, aaudio)
 #endif
 #ifdef OCTAVIA_PIPEWIRE
-ENCORE_STUB(pipewire)
+RIVEN_ENCORE_STUB(octavia, pipewire)
 #endif
 #ifdef OCTAVIA_PULSEAUDIO
-ENCORE_STUB(pulseaudio)
+RIVEN_ENCORE_STUB(octavia, pulseaudio)
 #endif
 #ifdef OCTAVIA_JACK
-ENCORE_STUB(jack)
+RIVEN_ENCORE_STUB(octavia, jack)
 #endif
 #ifdef OCTAVIA_ALSA
-ENCORE_STUB(alsa)
+RIVEN_ENCORE_STUB(octavia, alsa)
 #endif
 #ifdef OCTAVIA_OSS
-ENCORE_STUB(oss)
+RIVEN_ENCORE_STUB(octavia, oss)
 #endif

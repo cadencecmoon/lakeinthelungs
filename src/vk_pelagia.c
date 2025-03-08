@@ -174,19 +174,21 @@ static void vulkan_interface_fini(struct pelagia *pelagia)
     g_vk_pelagia = NULL;
 }
 
-RIVENS_ENCORE(pelagia, vulkan) {
-    const char *fmt = "Pelagia encore 'vulkan' %s";
+RIVEN_ENCORE(pelagia, vulkan) {
+    assert_debug(create_info->header.interface && *create_info->header.interface == NULL);
+
+    const char *fmt = "'pelagia_encore_vulkan' %s";
     void *module = NULL;
     u32 instance_version = 0, layer_count = 0;
     u32 extension_count = 0;
     u32 extension_bits = 0;
     const char **extensions = NULL;
 
-    log_debug("vulkan trace");
-
     /* we allow only one vulkan backend at a time, so the interface will be shared */
-    if (UNLIKELY(g_vk_pelagia != NULL))
-        return g_vk_pelagia;
+    if (UNLIKELY(g_vk_pelagia != NULL)) {
+        *create_info->header.interface = (riven_argument_t)g_vk_pelagia;
+        return;
+    }
 
 #if defined(PLATFORM_WINDOWS)
     module = process_load_dll("vulkan-1.dll");
@@ -214,14 +216,14 @@ RIVENS_ENCORE(pelagia, vulkan) {
 #endif
     if (!module) {
         log_error(fmt, "can't open the Vulkan drivers, ensure they are correclty installed and available via the system PATH");
-        return NULL;
+        return;
     }
 
     PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr)process_get_address(module, "vkGetInstanceProcAddr");
     if (vkGetInstanceProcAddr == NULL) {
         process_close_dll(module);
         log_error(fmt, "can't get the address of vkGetInstanceProcAddr from Vulkan drivers");
-        return NULL;
+        return;
     }
 
     PFN_vkCreateInstance vkCreateInstance = (PFN_vkCreateInstance)vkGetInstanceProcAddr(NULL, "vkCreateInstance");
@@ -232,7 +234,7 @@ RIVENS_ENCORE(pelagia, vulkan) {
     if (!vkCreateInstance || !vkEnumerateInstanceVersion || !vkEnumerateInstanceExtensionProperties || !vkEnumerateInstanceLayerProperties) {
         process_close_dll(module);
         log_error(fmt, "can't get addresses of global procedures from Vulkan drivers");
-        return NULL;
+        return;
     }
 
     /* check the API version */
@@ -242,7 +244,7 @@ RIVENS_ENCORE(pelagia, vulkan) {
         log_error(fmt, "outdated drivers");
         log_info("We target a minimum of Vulkan 1.2 core. Your drivers API version is %u.%u.%u, please update your drivers.",
             (instance_version >> 22u), (instance_version >> 12u) & 0x3ffu, (instance_version & 0xfffu));
-        return NULL;
+        return;
     }
     vkEnumerateInstanceLayerProperties(&layer_count, NULL);
 
@@ -250,25 +252,31 @@ RIVENS_ENCORE(pelagia, vulkan) {
     if (!extension_count) {
         process_close_dll(module);
         log_error(fmt, "no instance extensions available, we can't continue");
-        return NULL;
+        return;
     }
 
     /* allocate the interface */
     struct pelagia *pelagia = (struct pelagia *)
-        riven_alloc(overture->header.riven, overture->header.tag, sizeof(struct pelagia), _Alignof(struct pelagia));
+        riven_alloc(create_info->header.riven, create_info->header.tag, sizeof(struct pelagia), _Alignof(struct pelagia));
     zerop(pelagia);
 
     pelagia->module = module;
     pelagia->interface = (struct pelagia_interface){
-        .header = riven_write_interface_header(
-            str_init("vulkan"),
-                vulkan_interface_fini,
-                pelagia_interface_validate),
-        /* TODO */
+        .header = {
+            .name = str_init("pelagia_vulkan"),
+            .riven = create_info->header.riven,
+            .tag = create_info->header.tag,
+            .fini = (PFN_riven_work)vulkan_interface_fini,
+        },
     };
+    pelagia->vkCreateInstance = vkCreateInstance;
+    pelagia->vkGetInstanceProcAddr = vkGetInstanceProcAddr;
+    pelagia->vkEnumerateInstanceExtensionProperties = vkEnumerateInstanceExtensionProperties;
+    pelagia->vkEnumerateInstanceLayerProperties = vkEnumerateInstanceLayerProperties;
+    pelagia->vkEnumerateInstanceVersion = vkEnumerateInstanceVersion;
 
     VkExtensionProperties *extension_properties = (VkExtensionProperties *)
-        riven_alloc(overture->header.riven, rivens_tag_drifter, sizeof(VkExtensionProperties) * extension_count, _Alignof(VkExtensionProperties));
+        riven_alloc(create_info->header.riven, riven_tag_drifter, sizeof(VkExtensionProperties) * extension_count, _Alignof(VkExtensionProperties));
     VERIFY_VK(vkEnumerateInstanceExtensionProperties(NULL, &extension_count, extension_properties));
 
     /* query instance extensions */
@@ -304,7 +312,7 @@ RIVENS_ENCORE(pelagia, vulkan) {
     u32 o = 0;
     extension_count = bits_popcnt_lookup((const u8 *)&extension_bits, sizeof(extension_bits));
     extensions = (const char **)
-        riven_alloc(overture->header.riven, rivens_tag_drifter, sizeof(const char *) * extension_count, _Alignof(const char *));
+        riven_alloc(create_info->header.riven, riven_tag_drifter, sizeof(const char *) * extension_count, _Alignof(const char *));
     if (extension_bits & vulkan_ext_surface_bit)
         extensions[o++] = VK_KHR_SURFACE_EXTENSION_NAME;
 #if defined(PLATFORM_WINDOWS)
@@ -337,10 +345,10 @@ RIVENS_ENCORE(pelagia, vulkan) {
     VkApplicationInfo app_info = {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
         .pNext = NULL,
-        .pApplicationName = overture->header.metadata->game_name.ptr,
-        .applicationVersion = overture->header.metadata->game_build_version,
-        .pEngineName = overture->header.metadata->engine_name.ptr,
-        .engineVersion = overture->header.metadata->engine_build_version,
+        .pApplicationName = create_info->header.metadata->game_name.ptr,
+        .applicationVersion = create_info->header.metadata->game_build_version,
+        .pEngineName = create_info->header.metadata->engine_name.ptr,
+        .engineVersion = create_info->header.metadata->engine_build_version,
         .apiVersion = instance_version,
     };
 
@@ -467,5 +475,6 @@ RIVENS_ENCORE(pelagia, vulkan) {
         create_validation_layers(pelagia);
 
     /* write the interface ;3 */
-    return pelagia;
+    *create_info->header.interface = (riven_argument_t)pelagia;
+    log_verbose("Pelagia '%s' interface write.", pelagia->interface.header.name.ptr);
 }

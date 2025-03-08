@@ -18,8 +18,8 @@ struct hash_table {
     struct hash_node  **table;
     usize               size;
     at_usize            count;
-    struct rivens      *riven;
-    rivens_tag_t        tag;
+    struct riven       *riven;
+    riven_tag_t         tag;
 };
 
 /** Initializes the hash table with given parameters. When the lifetime of the hash table ends,
@@ -29,8 +29,8 @@ struct hash_table {
 AMWAPI attr_nonnull(1,2)
 void hash_table_init(
     struct hash_table *ht,
-    struct rivens     *riven,
-    rivens_tag_t       tag,
+    struct riven      *riven,
+    riven_tag_t        tag,
     u32                log2_size);
 
 /** Inserts a key into the table and associates it with an integer value. Returns true if the key 

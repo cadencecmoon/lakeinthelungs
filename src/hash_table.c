@@ -20,11 +20,11 @@ attr_hot attr_pure u32 meiyan(const void *key, usize length)
 }
 
 static struct hash_node *hash_node_new(
-    const void    *key,
-    usize          length,
-    s32            value,
-    struct rivens *riven,
-    rivens_tag_t   tag)
+    const void   *key,
+    usize         length,
+    s32           value,
+    struct riven *riven,
+    riven_tag_t   tag)
 {
     u8 *raw = (u8 *)riven_alloc(riven, tag, sizeof(struct hash_node) + length, alignof(struct hash_node *));
 
@@ -38,10 +38,10 @@ static struct hash_node *hash_node_new(
 }
 
 void hash_table_init(
-    struct hash_table  *ht,
-    struct rivens      *riven,
-    rivens_tag_t        tag,
-    u32                 log2_size)
+    struct hash_table *ht,
+    struct riven      *riven,
+    riven_tag_t        tag,
+    u32                log2_size)
 {
     assert_debug(log2_size < 64);
 

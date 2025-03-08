@@ -1,74 +1,84 @@
 #include <amw/pelagia.h>
 #include <amw/log.h>
 
-static const PFN_rivens_encore g_native_encores[] = {
+RIVEN_ENCORE(pelagia, native)
+{
+    assert_debug(create_info->header.interface && *create_info->header.interface == NULL);
+
+    PFN_riven_work encores[] = {
 #ifdef PELAGIA_D3D12
-    (PFN_rivens_encore)pelagia_d3d12_encore,
+        (PFN_riven_work)pelagia_encore_d3d12,
 #endif
 #ifdef PELAGIA_METAL
-    (PFN_rivens_encore)pelagia_metal_encore,
+        (PFN_riven_work)pelagia_encore_metal,
 #endif
 #ifdef PELAGIA_VULKAN
-    (PFN_rivens_encore)pelagia_vulkan_encore,
+        (PFN_riven_work)pelagia_encore_vulkan,
 #endif
 #ifdef PELAGIA_WEBGPU
-    (PFN_rivens_encore)pelagia_webgpu_encore,
+        (PFN_riven_work)pelagia_encore_webgpu,
 #endif
-    (PFN_rivens_encore)pelagia_stub_encore,
-};
+#ifndef PELAGIA_DISABLE_STUB_FALLBACK
+        (PFN_riven_work)pelagia_encore_stub,
+#endif
+    };
+    u32 encore_count = arraysize(encores);
 
-const PFN_rivens_encore *pelagia_acquire_native_encores(u32 *out_count, b32 fallback)
-{
-    u32 count = arraysize(g_native_encores);
-    *out_count = fallback ? count : max(1, count-1);
-    return g_native_encores;
+    for (u32 i = 0; i < encore_count; i++) {
+        encores[i]((riven_argument_t)create_info);
+
+        if (*create_info->header.interface == NULL) 
+            continue;
+
+        const struct pelagia_interface *interface = *create_info->header.interface;
+        const char *fmt = "'%s' is missing interface procedure - 'PFN_pelagia_%s'.";
+        b32 valid = true;
+
+        /* just assert the header */
+        assert_debug(interface->header.fini);
+
+        /* check the interface procedures */
+#define VALIDATE(fn) \
+        if (interface->fn == NULL) { log_warn(fmt, interface->header.name.ptr, #fn); valid = false; }
+        (void)fmt;
+#undef VALIDATE
+        if (valid) return;
+
+        /* continue with the next encore */
+        if (interface->header.fini)
+            interface->header.fini((riven_argument_t)interface);
+        *create_info->header.interface = NULL;
+    }
 }
 
-b32 pelagia_interface_validate(struct pelagia *pelagia)
+RIVEN_ENCORE(pelagia, stub)
 {
-    struct pelagia_interface *interface = (struct pelagia_interface *)pelagia;
-    const char *fmt = "Pelagia '%s' is missing interface procedure - 'PFN_pelagia_%s'.";
-    b32 result = true;
+    assert_debug(create_info->header.interface && *create_info->header.interface == NULL);
 
-#define CHECK(fn) \
-    if (interface->fn == NULL) { if (verbose) log_warn(fmt, interface->header.name.ptr, #fn); result = false; }
+    struct riven *riven = create_info->header.riven;
+    riven_tag_t tag = create_info->header.tag;
 
-    (void)interface;
-    (void)fmt;
-
-#undef CHECK
-    return result;
-}
-
-static void stub_interface_fini(struct pelagia *pelagia)
-{
-    (void)pelagia;
-}
-
-RIVENS_ENCORE(pelagia, stub)
-{
     struct pelagia_interface *interface = (struct pelagia_interface *) 
-        riven_alloc(overture->header.riven, overture->header.tag, sizeof(struct pelagia_interface), _Alignof(struct pelagia_interface));
+        riven_alloc(riven, tag, sizeof(struct pelagia_interface), _Alignof(struct pelagia_interface));
 
     *interface = (struct pelagia_interface){
-        .header = riven_write_interface_header(
-            str_init("stub"), 
-            stub_interface_fini, 
-            pelagia_interface_validate),
+        .header = {
+            .name = str_init("pelagia_stub"),
+            .riven = riven,
+            .tag = tag,
+            .fini = riven_work_nop,
+        },
     };
-    return (struct pelagia *)interface;
+    *create_info->header.interface = (riven_argument_t)(struct pelagia *)interface;
+    log_verbose("'%s' interface write.", interface->header.name.ptr);
 }
 
-/* XXX encore stubs, to be implemented */
-#define ENCORE_STUB(backend) \
-    RIVENS_ENCORE(pelagia, backend) { log_error("Pelagia encore '%s' is not yet implemented.", #backend); (void)overture; return NULL; }
-
 #ifdef PELAGIA_D3D12
-ENCORE_STUB(d3d12)
+RIVEN_ENCORE_STUB(pelagia, d3d12)
 #endif
 #ifdef PELAGIA_METAL
-ENCORE_STUB(metal)
+RIVEN_ENCORE_STUB(pelagia, metal)
 #endif
 #ifdef PELAGIA_WEBGPU
-ENCORE_STUB(webgpu)
+RIVEN_ENCORE_STUB(pelagia, webgpu)
 #endif

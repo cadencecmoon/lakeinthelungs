@@ -337,8 +337,13 @@ attr_inline void make_fiber_context(
     *context = make_fcontext(stack, stack_bytes, procedure);
 }
 
+void riven_work_nop(riven_argument_t argument)
+{
+    (void)argument;
+}
+
 struct job {
-    struct rivens_work  work;
+    struct riven_work   work;
     at_usize           *work_left;
 };
 
@@ -477,33 +482,33 @@ enum tls_flags {
 };
 
 struct tls {
-    struct rivens          *riven;
-    fcontext_t              home_context;
-    u32                     fiber_in_use;
-    u32                     fiber_old;
+    struct riven       *riven;
+    fcontext_t          home_context;
+    u32                 fiber_in_use;
+    u32                 fiber_old;
 };
 
 struct fiber {
-    struct job              job;
-    fcontext_t              context;
-    at_usize               *wait_counter;
+    struct job          job;
+    fcontext_t          context;
+    at_usize           *wait_counter;
 };
 
 struct tagged_heap {
-    _Atomic rivens_tag_t    tag;
-    struct allocation      *head;
-    struct allocation      *tail;
-    rivens_chain_t          chain;
+    _Atomic riven_tag_t tag;
+    struct allocation  *head;
+    struct allocation  *tail;
+    riven_chain_t       chain;
 };
 
 struct heart_data {
-    struct rivens          *riven;
-    PFN_rivens_heart        procedure;
-    rivens_song_t           argument;
-    s32                     result;
+    struct riven       *riven;
+    PFN_riven_heart     procedure;
+    riven_argument_t    argument;
+    s32                 result;
 };
 
-struct rivens {
+struct riven {
     struct mpmc_ring        job_ring;
     struct mpmc_ring        allocation_ring;
 
@@ -512,15 +517,15 @@ struct rivens {
 
     struct hash_table       table;
     thread_t               *threads;
-    struct rivens_work     *ends;
+    struct riven_work      *ends;
 
     struct fiber           *fibers;
     at_usize               *waiting;
     at_usize               *free;
     at_usize               *locks;
 
-    struct tagged_heap      reserved_heaps[rivens_tag_reserved_count];
-    struct tagged_heap     *drifter_heaps[rivens_tag_true_count - rivens_tag_reserved_count];
+    struct tagged_heap      reserved_heaps[riven_tag_reserved_count];
+    struct tagged_heap     *drifter_heaps[riven_tag_true_count - riven_tag_reserved_count];
     struct tagged_heap    **tagged_heaps;
     at_usize                tagged_heap_tail;
 
@@ -537,17 +542,17 @@ struct rivens {
     u32                     thread_count;
     u32                     fiber_count;
 
-    const struct rivens_metadata *metadata;
+    struct riven_metadata  *metadata;
 };
 
 attr_inline
-struct tls *get_thread_local_storage(struct rivens *riven)
+struct tls *get_thread_local_storage(struct riven *riven)
 {
     u32 index = riven_thread_index(riven);
     return &riven->tls[index];
 }
 
-static usize get_free_fiber(struct rivens *riven)
+static usize get_free_fiber(struct riven *riven)
 {
     for (usize i = 0; i < riven->fiber_count; i++) {
         usize fiber_index = atomic_load_explicit(&riven->free[i], memory_order_relaxed);
@@ -571,7 +576,7 @@ static usize get_free_fiber(struct rivens *riven)
 
 static void update_free_and_waiting(struct tls *tls)
 {
-    struct rivens *riven = tls->riven;
+    struct riven *riven = tls->riven;
     if (tls->fiber_old == (u32)RIVEN_FIBER_INVALID)
         return;
 
@@ -591,7 +596,7 @@ static void update_free_and_waiting(struct tls *tls)
 static attr_noreturn 
 void the_work(sptr raw_tls);
 
-static usize seek_next_fiber(struct rivens *riven)
+static usize seek_next_fiber(struct riven *riven)
 {
     usize fiber_index = RIVEN_FIBER_INVALID;
 
@@ -644,9 +649,9 @@ static usize seek_next_fiber(struct rivens *riven)
 }
 
 struct tls *next_fiber(
-    struct rivens *riven,
-    struct tls    *tls,
-    fcontext_t    *context)
+    struct riven *riven,
+    struct tls   *tls,
+    fcontext_t   *context)
 {
     at_usize *wait_counter = NULL;
 
@@ -688,7 +693,7 @@ static attr_noreturn
 void the_work(sptr raw_tls)
 {
     struct tls *tls = (struct tls *)raw_tls;
-    struct rivens *riven = tls->riven;
+    struct riven *riven = tls->riven;
 
     update_free_and_waiting(tls);
     struct fiber *fiber = &riven->fibers[tls->fiber_in_use];
@@ -717,8 +722,8 @@ void the_work(sptr raw_tls)
 }
 
 static at_usize *get_lock(
-    struct rivens *riven,
-    usize initial_value)
+    struct riven *riven,
+    usize         initial_value)
 {
     for (;;) {
         for (usize i = 0; i < riven->fiber_count; i++) {
@@ -739,7 +744,7 @@ static at_usize *get_lock(
 static void *dirty_deeds_done_dirt_cheap(void *raw_tls)
 {
     struct tls *tls = (struct tls *)raw_tls;
-    struct rivens *riven = tls->riven;
+    struct riven *riven = tls->riven;
 
     while (!atomic_load_explicit(&riven->tls_sync, memory_order_acquire)) { /* spin :3 */ }
 
@@ -751,9 +756,9 @@ static void *dirty_deeds_done_dirt_cheap(void *raw_tls)
 }
 
 static attr_noreturn
-void d4c_love_train(rivens_song_t raw_riven)
+void d4c_love_train(riven_argument_t raw_riven)
 {
-    struct rivens *riven = (struct rivens *)raw_riven;
+    struct riven *riven = (struct riven *)raw_riven;
     struct tls *tls = get_thread_local_storage(riven);
     struct fiber *old_fiber = &riven->fibers[tls->fiber_in_use];
 
@@ -773,15 +778,15 @@ static attr_noreturn
 void heart(void *raw_heart_data)
 {
     struct heart_data *data = (struct heart_data *)raw_heart_data;
-    struct rivens *riven = data->riven;
+    struct riven *riven = data->riven;
     const u32 thread_count = riven->thread_count;
 
-    data->result = data->procedure(riven, riven->threads, riven->thread_count, data->argument);
+    data->result = data->procedure(riven, riven->metadata, riven->threads, riven->thread_count, data->argument);
 
     /* returned from main, tell all threads to kys */
     for (u32 i = 0; i < thread_count; i++) {
         riven->ends[i].procedure = d4c_love_train;
-        riven->ends[i].argument = (rivens_song_t)riven;
+        riven->ends[i].argument = (riven_argument_t)riven;
         riven->ends[i].name = str_init("riven:d4c_love_train");
     }
     riven_split_work_and_unchain(riven, riven->ends, thread_count);
@@ -789,10 +794,10 @@ void heart(void *raw_heart_data)
 }
 
 void riven_split_work(
-    struct rivens      *riven,
-    struct rivens_work *work,
-    u32                 work_count,
-    rivens_chain_t     *chain)
+    struct riven      *riven,
+    struct riven_work *work,
+    u32                work_count,
+    riven_chain_t     *chain)
 {
     at_usize **counters = chain;
     at_usize *to_use = NULL;
@@ -811,8 +816,8 @@ void riven_split_work(
 }
 
 void riven_unchain(
-    struct rivens *riven,
-    rivens_chain_t chain)
+    struct riven *riven,
+    riven_chain_t chain)
 {
     at_usize *counter = chain;
     usize wait_value = 0;
@@ -835,14 +840,14 @@ void riven_unchain(
 }
 
 void riven_acquire_chained(
-    struct rivens  *riven,
-    rivens_chain_t *chain)
+    struct riven  *riven,
+    riven_chain_t *chain)
 {
     at_usize **counters = chain;
     if (counters) *counters = get_lock(riven, 1);
 }
 
-u32 riven_thread_index(struct rivens *riven)
+u32 riven_thread_index(struct riven *riven)
 {
     s32 *index = NULL;
     thread_t current = thread_current();
@@ -1007,14 +1012,14 @@ usize best_fit_growth(
 }
 
 usize riven_advise(
-    struct rivens *riven,
-    usize          size,
-    b32            release)
+    struct riven *riven,
+    usize         size,
+    b32           release)
 {
     if (!size) return 0lu;
 
     const usize page_aligned = (size + riven->page_size-1) & ~(riven->page_size-1);
-    const usize roots = position_from_offset2mb(riven->reserved_heaps[rivens_tag_roots].head->size);
+    const usize roots = position_from_offset2mb(riven->reserved_heaps[riven_tag_roots].head->size);
 
     for (;;) {
         usize expected = 0lu;
@@ -1068,8 +1073,8 @@ usize riven_advise(
 
 static attr_nonnull(1)
 struct allocation *reserve_allocation(
-    struct rivens *riven,
-    usize          size)
+    struct riven *riven,
+    usize         size)
 {
     struct allocation *write;
     union mpmc_data    data;
@@ -1081,7 +1086,7 @@ struct allocation *reserve_allocation(
     write->count = 0;
 
     const usize page_aligned = A2MB(size);
-    const usize roots = riven->reserved_heaps[rivens_tag_roots].head->size;
+    const usize roots = riven->reserved_heaps[riven_tag_roots].head->size;
     usize commited = atomic_load_explicit(&riven->commited_size, memory_order_relaxed);
 
     for (;;) {
@@ -1145,7 +1150,7 @@ struct allocation *reserve_allocation(
 
 static attr_nonnull(1,2)
 void *acquire_tagged_resources(
-    struct rivens      *riven,
+    struct riven       *riven,
     struct tagged_heap *heap,
     usize               size,
     usize               alignment)
@@ -1190,7 +1195,7 @@ void *acquire_tagged_resources(
 
 attr_inline attr_nonnull(1,2)
 void *chained_allocation(
-    struct rivens      *riven,
+    struct riven       *riven,
     struct tagged_heap *heap,
     usize               size,
     usize               alignment)
@@ -1203,29 +1208,29 @@ void *chained_allocation(
 }
 
 void *riven_alloc(
-    struct rivens *riven,
-    rivens_tag_t   tag,
-    usize          size,
-    usize          alignment)
+    struct riven *riven,
+    riven_tag_t   tag,
+    usize         size,
+    usize         alignment)
 {
     assume(!(alignment & (alignment - 1)));
     alignment = min(alignment, RIVEN_BLOCK_SIZE);
 
-    assert_debug(tag != rivens_tag_invalid);
+    assert_debug(tag != riven_tag_invalid);
 
-    if (tag < rivens_tag_reserved_count) {
+    if (tag < riven_tag_reserved_count) {
         struct tagged_heap *heap = &riven->reserved_heaps[tag];
         return chained_allocation(riven, heap, size, alignment);
-    } else if (tag < rivens_tag_true_count) {
+    } else if (tag < riven_tag_true_count) {
         u32 index = riven_thread_index(riven);
-        struct tagged_heap *heap = &riven->drifter_heaps[tag - rivens_tag_reserved_count][index];
+        struct tagged_heap *heap = &riven->drifter_heaps[tag - riven_tag_reserved_count][index];
         return acquire_tagged_resources(riven, heap, size, alignment);
     }
 
     usize tail = atomic_load_explicit(&riven->tagged_heap_tail, memory_order_acquire);
     for (u32 i = 0; i < tail; i++) {
         struct tagged_heap *heap = riven->tagged_heaps[i];
-        rivens_tag_t owner = atomic_load_explicit(&heap->tag, memory_order_relaxed);
+        riven_tag_t owner = atomic_load_explicit(&heap->tag, memory_order_relaxed);
         if (owner == tag)
             return chained_allocation(riven, heap, size, alignment);
     }
@@ -1237,7 +1242,7 @@ void *riven_alloc(
             return NULL;
         }
 
-        rivens_tag_t expected = rivens_tag_invalid;
+        riven_tag_t expected = riven_tag_invalid;
         struct tagged_heap *heap = riven->tagged_heaps[tail];
         if (atomic_compare_exchange_weak_explicit(&heap->tag, &expected, tag,
             memory_order_acquire, memory_order_relaxed))
@@ -1252,7 +1257,7 @@ void *riven_alloc(
 
 static attr_nonnull(1,2)
 void release_tagged_resources(
-    struct rivens      *riven,
+    struct riven       *riven,
     struct tagged_heap *heap)
 {
     struct allocation *prev = NULL;
@@ -1270,29 +1275,29 @@ void release_tagged_resources(
 }
 
 void riven_free(
-    struct rivens *riven,
-    rivens_tag_t   tag)
+    struct riven *riven,
+    riven_tag_t   tag)
 {
-    assert_debug(tag != rivens_tag_invalid && tag != rivens_tag_roots);
+    assert_debug(tag != riven_tag_invalid && tag != riven_tag_roots);
 
-    if (tag < rivens_tag_reserved_count) {
+    if (tag < riven_tag_reserved_count) {
         struct tagged_heap *heap = &riven->reserved_heaps[tag];
         if (heap->head) release_tagged_resources(riven, heap);
         return;
-    } else if (tag < rivens_tag_true_count) {
+    } else if (tag < riven_tag_true_count) {
         for (usize i = 0; i < riven->thread_count; i++) {
-            struct tagged_heap *heap = &riven->drifter_heaps[tag - rivens_tag_reserved_count][i];
+            struct tagged_heap *heap = &riven->drifter_heaps[tag - riven_tag_reserved_count][i];
             if (heap->head) release_tagged_resources(riven, heap);
         }
         return;
     }
 
     for (usize i = 0; i < atomic_load_explicit(&riven->tagged_heap_tail, memory_order_relaxed); i++) {
-        rivens_tag_t expected = tag;
+        riven_tag_t expected = tag;
         struct tagged_heap *heap = riven->tagged_heaps[i];
 
         if (atomic_compare_exchange_weak_explicit(&heap->tag, &expected, 
-            rivens_tag_invalid, memory_order_release, memory_order_relaxed))
+            riven_tag_invalid, memory_order_release, memory_order_relaxed))
         {
             usize tail = atomic_fetch_sub_explicit(&riven->tagged_heap_tail, 1lu, memory_order_acquire);
             riven->tagged_heaps[i] = riven->tagged_heaps[tail];
@@ -1304,8 +1309,8 @@ void riven_free(
 }
 
 void riven_format_string(
-    struct rivens     *riven,
-    rivens_tag_t       tag,
+    struct riven      *riven,
+    riven_tag_t        tag,
     struct str * const dest,
     const char        *fmt, ...)
 {
@@ -1327,8 +1332,8 @@ void riven_format_string(
 }
 
 void riven_concatenate_strings(
-    struct rivens     *riven,
-    rivens_tag_t       tag,
+    struct riven      *riven,
+    riven_tag_t        tag,
     struct str * const dest,
     const struct str  *src,
     usize              count)
@@ -1354,70 +1359,17 @@ void riven_concatenate_strings(
     dest->length = sum;
 }
 
-/* FIXME this crashes for some reason, a lot of debugging needed... */
-void riven_encore(rivens_song_t overture)
-{
-    struct rivens_overture_header *header = (struct rivens_overture_header *)overture;
-
-    assert_debug(header);
-    assert_debug(header->riven);
-    assert_debug(header->tag != rivens_tag_invalid);
-    assert_debug(header->name.ptr);
-    assert_debug(header->interface);
-    assert_debug(header->encores);
-    header->metadata = header->riven->metadata;
-
-    const char *fmt = "Interface '%s_%s' is missing header procedure - 'PFN_rivens_interface_%s'.";
-
-    for (u32 i = 0; i < header->count; i++) {
-        *header->interface = header->encores[i](overture);
-        
-        if (!*header->interface)
-            continue;
-
-        /* ensure the interface implementation is complete */
-        struct rivens_interface_header *interface = (struct rivens_interface_header *)*header->interface;
-
-        b32 check = true;
-#define CHECK(fn) \
-        if (interface->fn == NULL) { log_warn(fmt, header->name.ptr, interface->name.ptr, #fn); check = false; }
-        CHECK(fini)
-        CHECK(validate)
-#undef CHECK
-        /* we can return if everything is fine */
-        if (check && interface->validate(interface)) return; 
-
-        /* destroy the interface */
-        if (interface->fini)
-            interface->fini(interface);
-        zerop(interface);
-        *header->interface = NULL;
-    }
-}
-
-void riven_finale(rivens_song_t interface)
-{
-    /* don't continue if there is no work */
-    if (!interface) return;
-
-    struct rivens_interface_header *header = (struct rivens_interface_header *)interface;
-    if (header->fini)
-        header->fini(interface);
-    /* the interface is no longer valid */
-    zerop(header);
-}
-
 s32 riven_moonlit_walk(
-    usize                         memory_budget_size,
-    usize                         fiber_stack_size,
-    u32                           fiber_count,
-    u32                           thread_count,
-    u32                           tagged_heap_count,
-    u32                           log2_work_count,
-    u32                           log2_memory_count,
-    const struct rivens_metadata *metadata,
-    PFN_rivens_heart              main_procedure,
-    rivens_song_t                 main_argument)
+    usize                   memory_budget_size,
+    usize                   fiber_stack_size,
+    u32                     fiber_count,
+    u32                     thread_count,
+    u32                     tagged_heap_count,
+    u32                     log2_work_count,
+    u32                     log2_memory_count,
+    struct riven_metadata  *metadata,
+    PFN_riven_heart         main_procedure,
+    riven_argument_t        main_argument)
 {
     usize ram_size, page_size, huge_page_size = 0;
     process_meminfo(&ram_size, &page_size);
@@ -1443,13 +1395,13 @@ s32 riven_moonlit_walk(
         memory_budget_size = ((ram_size) & ~(RIVEN_BLOCK_SIZE-1));
     memory_budget_size = A2MB(memory_budget_size);
 
-    struct rivens *riven = NULL;
+    struct riven *riven = NULL;
 
     struct mpmc_cell  *work_cells = NULL;
     struct mpmc_cell  *allocation_cells = NULL;
     struct allocation *allocations = NULL;
 
-    usize riven_bytes               = A16(sizeof(struct rivens));
+    usize riven_bytes               = A16(sizeof(struct riven));
     usize work_count                = 1ull << log2_work_count;
     usize work_cells_bytes          = A16(sizeof(struct mpmc_cell) * work_count);
     usize allocation_count          = 1ull << log2_memory_count;
@@ -1458,14 +1410,14 @@ s32 riven_moonlit_walk(
 
     usize tls_bytes                 = A16(sizeof(struct tls)) * thread_count;
     usize thread_bytes              = A16(sizeof(thread_t) * thread_count);
-    usize ends_bytes                = A16(sizeof(struct rivens_work) * thread_count);
+    usize ends_bytes                = A16(sizeof(struct riven_work) * thread_count);
     usize fibers_bytes              = A16(sizeof(struct fiber) * fiber_count);
     usize waiting_bytes             = A16(sizeof(at_usize) * fiber_count);
     usize free_bytes                = A16(sizeof(at_usize) * fiber_count);
     usize locks_bytes               = A16(sizeof(at_usize) * fiber_count);
 
     usize drifter_bytes             = A16(sizeof(struct tagged_heap) * thread_count);
-    usize drifter_heap_bytes        = A16(drifter_bytes * (rivens_tag_true_count - rivens_tag_reserved_count));
+    usize drifter_heap_bytes        = A16(drifter_bytes * (riven_tag_true_count - riven_tag_reserved_count));
     usize tagged_array_bytes        = A16(sizeof(struct tagged_heap *) * tagged_heap_count);
     usize tagged_heap_bytes         = A16(sizeof(struct tagged_heap) * tagged_heap_count);
     usize pages_count               = position_from_offset2mb(memory_budget_size);
@@ -1495,7 +1447,7 @@ s32 riven_moonlit_walk(
     usize init_commit_size = min(A16MB(roots_allocation_size<<1), memory_budget_size);
 
     /* address to riven is offset == 0 */
-    riven = (struct rivens *)map_virtual_memory(memory_budget_size, huge_page_size);
+    riven = (struct riven *)map_virtual_memory(memory_budget_size, huge_page_size);
     if (!riven || !commit_physical_memory(riven, 0, init_commit_size)) return result_error;
     memset(riven, 0u, init_commit_size);
 
@@ -1507,23 +1459,23 @@ s32 riven_moonlit_walk(
     allocations         = (struct allocation *)         &raw[o]; o += allocations_bytes;
     riven->tls          = (struct tls *)                &raw[o]; o += tls_bytes;
     riven->threads      = (thread_t *)                  &raw[o]; o += thread_bytes;
-    riven->ends         = (struct rivens_work *)        &raw[o]; o += ends_bytes;
+    riven->ends         = (struct riven_work *)         &raw[o]; o += ends_bytes;
     riven->fibers       = (struct fiber *)              &raw[o]; o += fibers_bytes;
     riven->waiting      = (at_usize *)                  &raw[o]; o += waiting_bytes;
     riven->free         = (at_usize *)                  &raw[o]; o += free_bytes;
     riven->locks        = (at_usize *)                  &raw[o]; o += locks_bytes;
-    for (u32 i = 0; i < rivens_tag_reserved_count; i++) {
+    for (u32 i = 0; i < riven_tag_reserved_count; i++) {
         atomic_store_explicit(&riven->reserved_heaps[i].tag, i, memory_order_relaxed);
     }
-    for (u32 i = 0; i < rivens_tag_true_count-rivens_tag_reserved_count; i++) {
+    for (u32 i = 0; i < riven_tag_true_count-riven_tag_reserved_count; i++) {
         riven->drifter_heaps[i] = (struct tagged_heap *)&raw[o]; o += drifter_bytes;
         for (u32 j = 0; j < thread_count; j++)
-            atomic_store_explicit(&riven->drifter_heaps[i][j].tag, rivens_tag_reserved_count+i, memory_order_relaxed);
+            atomic_store_explicit(&riven->drifter_heaps[i][j].tag, riven_tag_reserved_count+i, memory_order_relaxed);
     }
     riven->tagged_heaps = (struct tagged_heap **)       &raw[o]; o += tagged_array_bytes;
     for (u32 i = 0; i < tagged_heap_count; i++) {
         riven->tagged_heaps[i] = (struct tagged_heap *) &raw[o]; o += sizeof(struct tagged_heap);
-        atomic_store_explicit(&riven->tagged_heaps[i]->tag, rivens_tag_invalid, memory_order_relaxed);
+        atomic_store_explicit(&riven->tagged_heaps[i]->tag, riven_tag_invalid, memory_order_relaxed);
     }
     riven->bitmap       = (at_u8 *)                     &raw[o]; o += bitmap_bytes;
     riven->stack        = (u8 *)                        &raw[o];
@@ -1573,11 +1525,11 @@ s32 riven_moonlit_walk(
     /* setup the roots allocation */
     union mpmc_data roots = {0};
     mpmc_ring_dequeue(&riven->allocation_ring, &roots);
-    riven->reserved_heaps[rivens_tag_roots].tail = riven->reserved_heaps[rivens_tag_roots].head = roots.allocation;
-    riven->reserved_heaps[rivens_tag_roots].head->size = roots_allocation_size;
-    riven->reserved_heaps[rivens_tag_roots].head->count = total_bytes;
+    riven->reserved_heaps[riven_tag_roots].tail = riven->reserved_heaps[riven_tag_roots].head = roots.allocation;
+    riven->reserved_heaps[riven_tag_roots].head->size = roots_allocation_size;
+    riven->reserved_heaps[riven_tag_roots].head->count = total_bytes;
     /* now we can safely call riven_alloc() with rivens_tag_roots */
-    hash_table_init(&riven->table, riven, rivens_tag_roots, bits_log2_next_pow2(thread_count));
+    hash_table_init(&riven->table, riven, riven_tag_roots, bits_log2_next_pow2(thread_count));
 
     riven->tls[0].riven = riven;
     riven->tls[0].fiber_in_use = (u32)get_free_fiber(riven);
@@ -1605,9 +1557,9 @@ s32 riven_moonlit_walk(
         .argument = main_argument,
         .result = result_success,
     };
-    struct rivens_work main_work = {
+    struct riven_work main_work = {
         .procedure = heart,
-        .argument = (rivens_song_t)&main_data,
+        .argument = (riven_argument_t)&main_data,
         .name = str_init("riven:heart"),
     };
 

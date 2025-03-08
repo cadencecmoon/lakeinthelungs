@@ -146,14 +146,16 @@ static const struct wl_surface_listener surface_listener = {
     .leave = handle_surface_leave,
 };
 
-RIVENS_ENCORE(hadal, wayland) {
-    const char *fmt = "Hadal encore 'wayland' %s.";
+RIVEN_ENCORE(hadal, wayland) {
+    assert_debug(create_info->header.interface && *create_info->header.interface == NULL);
 
-    log_debug("wayland trace");
+    const char *fmt = "'hadal_encore_wayland' %s.";
 
     /* we allow only one wayland backend at a time, so the interface will be shared */
-    if (UNLIKELY(g_wl_hadal != NULL))
-        return g_wl_hadal;
+    if (UNLIKELY(g_wl_hadal != NULL)) {
+        *create_info->header.interface = (riven_argument_t)g_wl_hadal;
+        return;
+    }
 
     /* check all required libraries upfront */
     void *module_client = process_load_dll("libwayland-client.so.0");
@@ -173,7 +175,7 @@ RIVENS_ENCORE(hadal, wayland) {
             log_error(fmt, "missing libxkbcommon.so.0 library");
         else process_close_dll(module_xkb);
 
-        return NULL;
+        return;
     }
     
     PFN_wl_display_connect display_connect = (PFN_wl_display_connect)process_get_address(module_client, "wl_display_connect");
@@ -190,7 +192,7 @@ RIVENS_ENCORE(hadal, wayland) {
 
     /* okay lets build the interface ;3 */
     struct hadal *hadal = (struct hadal *)
-        riven_alloc(overture->header.riven, overture->header.tag, sizeof(struct hadal), _Alignof(struct hadal));
+        riven_alloc(create_info->header.riven, create_info->header.tag, sizeof(struct hadal), _Alignof(struct hadal));
     zerop(hadal);
 
     hadal->api.module_core = module_client;
@@ -379,23 +381,26 @@ RIVENS_ENCORE(hadal, wayland) {
     }
     wl_proxy_set_tag((struct wl_proxy *)hadal->surface, &hadal->tag);
     wl_surface_add_listener(hadal->surface, &surface_listener, hadal);
-    atomic_store_explicit(&hadal->fb_width, overture->width, memory_order_release);
-    atomic_store_explicit(&hadal->fb_height, overture->height, memory_order_release);
+    atomic_store_explicit(&hadal->fb_width, create_info->width, memory_order_release);
+    atomic_store_explicit(&hadal->fb_height, create_info->height, memory_order_release);
     
     hadal->interface = (struct hadal_interface){
-        .header = riven_write_interface_header(
-            str_init("wayland"),
-            wayland_interface_fini,
-            hadal_interface_validate),
+        .header = {
+            .name = str_init("hadal_wayland"), 
+            .riven = create_info->header.riven,
+            .tag = create_info->header.tag,
+            .fini = (PFN_riven_work)wayland_interface_fini,
+        },
         .acquire_framebuffer_extent = wayland_acquire_framebuffer_extent,
     };
-    return hadal;
+    *create_info->header.interface = (riven_argument_t)hadal;
+    log_verbose("Hadal '%s' interface write.", hadal->interface.header.name.ptr);
+    return;
 
 leave:
     process_close_dll(module_client);
     process_close_dll(module_cursor);
     process_close_dll(module_xkb);
-    return NULL;
 }
 
 #include <wayland-protocol-code.h>

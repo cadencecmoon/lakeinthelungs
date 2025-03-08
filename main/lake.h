@@ -10,19 +10,15 @@
 
 /** Crafts a shared context of multiple engine subsystems. */
 struct lake {
-    /* audio engine */
-    struct octavia *octavia;
-
-    /* renderer */
-    struct pelagia *pelagia;
-
-    /* display */
-    struct hadal   *hadal;
+    struct octavia *octavia;    /**< audio engine */
+    struct pelagia *pelagia;    /**< renderer */
+    struct hadal   *hadal;      /**< display */
 
     /* framework */
-    struct rivens *riven;
-    thread_t      *threads;
-    u32            thread_count;
+    struct riven           *riven;
+    struct riven_metadata  *metadata;
+    thread_t               *threads;
+    u32                     thread_count;
 
     /* gameloop flags */
     b32 exit_game;
@@ -48,7 +44,7 @@ struct framedata {
      *  only for touching long-lived data of the same gameloop stage, none other. */
     struct framedata       *next_frame;
     /** A synchronization primitive, only one stage can work on a framedata at a time. */
-    rivens_chain_t          chain;
+    riven_chain_t           chain;
 };
 
 #define LAKE_SIMULATION_WORK_IDX 0
