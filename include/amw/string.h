@@ -58,14 +58,13 @@ struct str str_move(struct str * const ps) {
 }
 
 /** Swap two string objects. */
-AMWAPI attr_hot
-void str_swap(struct str * const s1, struct str * const s2);
+AMWAPI attr_hot void AMWCALL str_swap(struct str * const s1, struct str * const s2);
 
 /** Compare two strings lexicographically. */
-AMWAPI s32 str_cmp(const struct str s1, const struct str s2);
+AMWAPI s32 AMWCALL str_cmp(const struct str s1, const struct str s2);
 
 /** Case-insensitive comparison. */
-AMWAPI s32 str_cmp_ci(const struct str s1, const struct str s2);
+AMWAPI s32 AMWCALL str_cmp_ci(const struct str s1, const struct str s2);
 
 /** Test if two strings are equal. */
 attr_inline
@@ -80,10 +79,10 @@ b32 str_eq_ci(const struct str s1, const struct str s2) {
 }
 
 /** Test for prefix. */
-AMWAPI b32 str_has_prefix(const struct str s, const struct str prefix);
+AMWAPI b32 AMWCALL str_has_prefix(const struct str s, const struct str prefix);
 
 /** Test for suffix. */
-AMWAPI b32 str_has_suffix(const struct str s, const struct str suffix);
+AMWAPI b32 AMWCALL str_has_suffix(const struct str s, const struct str suffix);
 
 #ifdef __cplusplus
 }

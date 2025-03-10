@@ -5,7 +5,7 @@ RIVEN_ENCORE(octavia, native)
 {
     assert_debug(create_info->header.interface && *create_info->header.interface == NULL);
 
-    PFN_riven_work encores[] = {
+    static const PFN_riven_work encores[] = {
 #ifdef OCTAVIA_COREAUDIO
         (PFN_riven_work)octavia_encore_coreaudio,
 #endif

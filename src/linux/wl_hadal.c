@@ -394,7 +394,7 @@ RIVEN_ENCORE(hadal, wayland) {
         .acquire_framebuffer_extent = wayland_acquire_framebuffer_extent,
     };
     *create_info->header.interface = (riven_argument_t)hadal;
-    log_verbose("Hadal '%s' interface write.", hadal->interface.header.name.ptr);
+    log_verbose("'%s' interface write.", hadal->interface.header.name.ptr);
     return;
 
 leave:
@@ -402,6 +402,11 @@ leave:
     process_close_dll(module_cursor);
     process_close_dll(module_xkb);
 }
+
+#if 0 && defined(VK_KHR_wayland_surface)
+    pelagia->vkCreateWaylandSurfaceKHR = (PFN_vkCreateWaylandSurfaceKHR)instance_proc_address(pelagia, "vkCreateWaylandSurfaceKHR");
+    pelagia->vkGetPhysicalDeviceWaylandPresentationSupportKHR = (PFN_vkGetPhysicalDeviceWaylandPresentationSupportKHR)instance_proc_address(pelagia, "vkGetPhysicalDeviceWaylandPresentationSupportKHR");
+#endif /* VK_KHR_wayland_surface */
 
 #include <wayland-protocol-code.h>
 #include <xdg-shell-protocol-code.h>

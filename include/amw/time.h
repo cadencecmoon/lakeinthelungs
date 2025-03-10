@@ -19,22 +19,22 @@ extern "C" {
 #define ns_to_us(ns)    ((NS) / const_ns_per_us)
 
 /** Returns the counter of the real-time clock. */
-AMWAPI u64 rtc_counter(void);
+AMWAPI u64 AMWCALL rtc_counter(void);
 
 /** Returns the frequency of the real-time clock. */
-AMWAPI u64 rtc_frequency(void);
+AMWAPI u64 AMWCALL rtc_frequency(void);
 
 /** Invoke this function exactly once per frame to record the current frame time.
  *  Only when the other functions defined in this header will be available. */
-AMWAPI void record_frame_time(u64 time_now, f64 dt_frequency);
+AMWAPI void AMWCALL record_frame_time(u64 time_now, f64 dt_frequency);
 
 /** Retrieves the current estimate of the frame time in seconds. It is the median 
  *  of a certain number of previously recorded frame times. */
-AMWAPI f32 median_frame_time(void);
+AMWAPI f32 AMWCALL median_frame_time(void);
 
 /** Prints the current estimate of the total frame time periodically, namely once 
  *  per given time interval, assuming this function is called once per frame. */
-AMWAPI void print_frame_time(f32 interval_ms);
+AMWAPI void AMWCALL print_frame_time(f32 interval_ms);
 
 #ifdef __cplusplus
 }

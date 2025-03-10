@@ -5,7 +5,7 @@ RIVEN_ENCORE(pelagia, native)
 {
     assert_debug(create_info->header.interface && *create_info->header.interface == NULL);
 
-    PFN_riven_work encores[] = {
+    static const PFN_riven_work encores[] = {
 #ifdef PELAGIA_D3D12
         (PFN_riven_work)pelagia_encore_d3d12,
 #endif
@@ -40,7 +40,27 @@ RIVEN_ENCORE(pelagia, native)
         /* check the interface procedures */
 #define VALIDATE(fn) \
         if (interface->fn == NULL) { log_warn(fmt, interface->header.name.ptr, #fn); valid = false; }
-        (void)fmt;
+        VALIDATE(query_physical_devices)
+        VALIDATE(create_device)
+        VALIDATE(destroy_device)
+        VALIDATE(allocate_device_memory)
+        VALIDATE(free_device_memory)
+        VALIDATE(create_buffers)
+        VALIDATE(create_textures)
+        VALIDATE(create_samplers)
+        VALIDATE(create_shaders)
+        VALIDATE(create_pipeline_layouts)
+        VALIDATE(create_graphics_pipelines)
+        VALIDATE(create_compute_pipelines)
+        VALIDATE(create_raytracing_pipelines)
+        VALIDATE(create_shader_binding_tables)
+        VALIDATE(create_command_buffers)
+        VALIDATE(create_descriptor_sets)
+        VALIDATE(create_query_pools)
+        VALIDATE(create_swapchains)
+        VALIDATE(create_bottom_levels)
+        VALIDATE(create_top_levels)
+        VALIDATE(destroy_resources)
 #undef VALIDATE
         if (valid) return;
 

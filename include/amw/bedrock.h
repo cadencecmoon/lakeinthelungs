@@ -224,6 +224,7 @@ extern "C" {
     #endif
 #endif
 
+/** Declares API function visibility for DLL builds. */
 #if !defined(AMWAPI)
     #ifdef AMW_BUILD_DLL_EXPORT
         #if defined(PLATFORM_WINDOWS) || defined(__CYGWIN__)
@@ -235,6 +236,17 @@ extern "C" {
         #endif
     #else
         #define AMWAPI extern
+    #endif
+#endif
+
+/** Declares the calling convention. */
+#if !defined(AMWCALL)
+    #ifdef PLATFORM_WINDOWS
+        /* on windows use the stdcall convention */
+        #define AMWCALL __stdcall
+    #else
+        /* on other platforms use the default calling convention */
+        #define AMWCALL
     #endif
 #endif
 
@@ -983,18 +995,24 @@ typedef attr_aligned(32) vec4   mat4[4];    /* 4x4 matrix */
 typedef vec2                    mat4x2[4];
 typedef vec3                    mat4x3[4];
 
-#define WORK_STRUCTURE_HEADER \
-    s32 result;
-
 enum result {
+    /** Work was successful. */
     result_success = 0,
+    /** A hint for the caller side to run a job again, or iterate through a loop. */
     result_continue,
+    /** A hint that an allocation query was performed, and the procedure expects to receive an allocated 
+     *  buffer in the next call. A query will write this code, and assert it whenever there is no 
+     *  allocation it can work with on the subsequent calls. */
+    result_allocation_query,
     result_warn,    /* TODO expand */
     result_error,   /* TODO expand */
 };
 
+/** A way for jobs to return a result code. The index is there for padding and logging, 
+ *  for when multiple jobs are writing to riven_work array in a loop anyways. */
 struct work_header {
-    WORK_STRUCTURE_HEADER
+    s32 result; /**< enum result */
+    u32 index;  /**< argument index */
 };
 
 #ifndef MAX_FRAMES_IN_FLIGHT

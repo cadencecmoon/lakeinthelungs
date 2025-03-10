@@ -5,7 +5,7 @@ RIVEN_ENCORE(hadal, native)
 {
     assert_debug(create_info->header.interface && *create_info->header.interface == NULL);
 
-    PFN_riven_work encores[] = {
+    static const PFN_riven_work encores[] = {
 #if defined(PLATFORM_WINDOWS)
         (PFN_riven_work)hadal_encore_win32,
 #elif defined(PLATFORM_APPLE_MACOS)

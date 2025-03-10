@@ -27,7 +27,7 @@ struct hash_table {
  *  size of the table must be a power of 2. If the table is overfilled while inserting a key,
  *  it will grow by doubling its capacity. */
 AMWAPI attr_nonnull(1,2)
-void hash_table_init(
+void AMWCALL hash_table_init(
     struct hash_table *ht,
     struct riven      *riven,
     riven_tag_t        tag,
@@ -36,7 +36,7 @@ void hash_table_init(
 /** Inserts a key into the table and associates it with an integer value. Returns true if the key 
  *  already exists in the table, and if so, the existing value is updated. */
 AMWAPI attr_nonnull(1,2)
-b32 hash_table_insert(
+b32 AMWCALL hash_table_insert(
     struct hash_table *ht,
     const void        *key,
     usize              length,
@@ -45,7 +45,7 @@ b32 hash_table_insert(
 /** Searches for a key inside the table, returns true if found or false otherwise. Writes this 
  *  value to out_value, or writes 0 if the key does not exist in the table. */
 AMWAPI attr_hot attr_nonnull(1,2,4)
-b32 hash_table_find(
+b32 AMWCALL hash_table_find(
     struct hash_table *ht,
     const void        *key,
     usize              length,
@@ -55,7 +55,7 @@ b32 hash_table_find(
 typedef enum result (*PFN_hash_for_each)(const void *key, usize length, s32 *value, void *data);
 
 /** Runs the custom procedure for every key in the hash table. */
-AMWAPI void hash_table_for_each(
+AMWAPI void AMWCALL hash_table_for_each(
     struct hash_table *ht,
     PFN_hash_for_each  proc,
     void              *data);

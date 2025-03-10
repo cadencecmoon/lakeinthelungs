@@ -41,33 +41,33 @@ typedef u64 thread_t;
 
 /** Creates and runs a worker thread at a given handle. */
 AMWAPI attr_nonnull(1,2)
-void thread_create(
+void AMWCALL thread_create(
     thread_t *thread, 
     void *(*procedure)(void *), 
     void *argument); 
 
 /** Destroys and joins a given thread. Shouldn't really be called 
  *  unless a dynamic thread was ever spawned outside of riven. */
-AMWAPI void thread_destroy(thread_t thread);
+AMWAPI void AMWCALL thread_destroy(thread_t thread);
 
 /** Just joins a thread, without destroying it. It will wait for the 
  *  thread to finish its work before continuing. */
-AMWAPI void thread_join(thread_t thread);
+AMWAPI void AMWCALL thread_join(thread_t thread);
 
 /** A primitive way of acquiring a thread index of the current thread. */
 AMWAPI attr_nonnull(1)
-u32 thread_array_index(const thread_t *threads, u32 thread_count);
+u32 AMWCALL thread_array_index(const thread_t *threads, u32 thread_count);
 
 /** Retrieve the handle of the current worker thread. */
 AMWAPI attr_const attr_hot
-thread_t thread_current(void);
+thread_t AMWCALL thread_current(void);
 
 /** Set thread affinity for an array of threads. Thread count per core should 
  *  be equal to on how many hardware threads has one physical CPU core. The core 
  *  start index should be 0 or less than core_count-1, the thread_count_per_core
  *  should accomodate for how many CPU cores is the affinity created for. */
 AMWAPI attr_nonnull(1,2)
-void thread_affinity(
+void AMWCALL thread_affinity(
     u8       *stack_memory, 
     thread_t *threads, 
     u32       thread_count, 

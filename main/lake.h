@@ -10,9 +10,16 @@
 
 /** Crafts a shared context of multiple engine subsystems. */
 struct lake {
-    struct octavia *octavia;    /**< audio engine */
-    struct pelagia *pelagia;    /**< renderer */
-    struct hadal   *hadal;      /**< display */
+    /* audio engine */
+    struct octavia         *octavia;
+
+    /* renderer */
+    struct pelagia         *pelagia;
+    struct pelagia_device **devices;
+    u32                     device_count;
+
+    /* display */
+    struct hadal           *hadal;
 
     /* framework */
     struct riven           *riven;
@@ -29,7 +36,7 @@ struct lake {
 /** Describes data for a single frame-worth of work. A frame is the result of such work,
  *  that we can show to the player in auditory and visual format. */
 struct framedata {
-    WORK_STRUCTURE_HEADER
+    struct work_header work_header;
     /** A frame index incremented every frame. Can be cycled to access per-frame resources via an array index. */
     u64 index;
     /** Delta time of the last frame, whatever it is. */

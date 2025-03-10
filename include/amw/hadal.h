@@ -69,7 +69,44 @@ AMWAPI RIVEN_ENCORE(hadal, headless);
 AMWAPI RIVEN_ENCORE(hadal, native);
 
 /** Acquires the framebuffer extent/resolution, may be different from the window size. */
-typedef void (*PFN_acquire_framebuffer_extent)(struct hadal *hadal, u32 *width, u32 *height);
+typedef void (AMWCALL *PFN_acquire_framebuffer_extent)(struct hadal *hadal, u32 *width, u32 *height);
+
+#ifdef PELAGIA_VULKAN
+/* to avoid including the Vulkan header */
+struct VkInstance_T;
+struct VkSurface_T;
+struct VkPhysicalDevice_T;
+struct VkAllocationCallbacks;
+typedef void (*(*PFN_vkGetInstanceProcAddr)(struct VkInstance_T *, const char *))(void);
+
+/** Creates a Vulkan surface from a given window. The display backend must support 
+ *  interfacing with Vulkan (then for example, an Emscripten/HTML5 backend can't).
+ *  The caller must pass a valid Vulkan instance, a PFN_vkGetInstanceProcAddr and 
+ *  a pointer to the surface handle, where the Vulkan surface will be created.
+ *  An optional pointer to the allocation callbacks can be given too.
+ *
+ *  Returns a non-zero value on errors, or if the display does not support Vulkan. */
+typedef s32 (AMWCALL *PFN_vulkan_create_surface)(
+    const struct hadal                 *hadal,
+    struct VkInstance_T                *instance,
+    struct VkSurface_T                **out_surface,
+    const struct VkAllocationCallbacks *callbacks,
+    void *(*vkGetInstanceProcAddr)(struct VkInstance_T *, const char *),
+    void                               *vulkan_module);
+
+/** Checks whether the physical device supports presentation for a given display backend.
+ *  If a display backend has no dedicated vkGetPhysicalDevice*PresentationSupport procedure,
+ *  then a queue family's presentation support is checked via the Vulkan surface instead.
+ *
+ *  Returns true if presentation is supported, otherwise (or on errors) returns false. */
+typedef b32 (AMWCALL *PFN_vulkan_physical_device_presentation_support)(
+    const struct hadal                 *hadal,
+    struct VkInstance_T                *instance,
+    struct VkSurface_T                 *surface,
+    u32                                 queue_family,
+    void *(*vkGetInstanceProcAddr)(struct VkInstance_T *, const char *),
+    void                               *vulkan_module);
+#endif
 
 /** Procedures to be provided by an implementation. The backend must implement the 'struct hadal' and 
  *  put the hadal_interface as the first member of this structure, to allow casting between the opaque 
@@ -78,6 +115,12 @@ struct hadal_interface {
     struct riven_interface_header   header;
 
     PFN_acquire_framebuffer_extent  acquire_framebuffer_extent;
+
+    /* swapchain stuff */
+#ifdef PELAGIA_VULKAN
+    PFN_vulkan_create_surface                       vulkan_create_surface;
+    PFN_vulkan_physical_device_presentation_support vulkan_physical_device_presentation_support;
+#endif
 };
 
 /** Acquires the framebuffer extent/resolution, may be different from the window size. */

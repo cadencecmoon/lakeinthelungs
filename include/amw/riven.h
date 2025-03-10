@@ -18,6 +18,9 @@ struct riven_metadata {
     u32              engine_build_version;
 };
 
+#define A16(x)   (((x) + 15lu) & ~15lu)
+#define A4KB(x)  (((x) + 4095lu) & ~4095lu)
+
 /** A chain represents an atomic counter that is bound to a job queue. If used within a 
  *  call to Riven's job system, it will block until all jobs associated with the chain finish. 
  *  In the meantime, the caller does not 'wait', instead an implicit context switch is made so
@@ -29,7 +32,7 @@ typedef at_usize *riven_chain_t;
 typedef void *riven_argument_t;
 
 /** Defines a job function, that can be run in parallel. */
-typedef void (*PFN_riven_work)(riven_argument_t argument);
+typedef void (AMWCALL *PFN_riven_work)(riven_argument_t argument);
 
 /** No operation, as a stub for NULL'ed out callback procedures. */
 AMWAPI void riven_work_nop(riven_argument_t argument);
@@ -42,7 +45,7 @@ struct riven_work {
 };
 
 /** Applications entry point to the entire system. */
-typedef s32 (*PFN_riven_heart)(
+typedef s32 (AMWCALL *PFN_riven_heart)(
     struct riven          *riven, 
     struct riven_metadata *metadata,
     thread_t              *threads,
@@ -53,7 +56,7 @@ typedef s32 (*PFN_riven_heart)(
  *  provided jobs will be resolved in the background in parallel. If 'chain' is not NULL, it will be set to 
  *  a value that can be used to wait for the work to finish in the meantime. */
 AMWAPI attr_hot attr_nonnull(1,2) attr_acquire_shared_capability(4)
-void riven_split_work(
+void AMWCALL riven_split_work(
     struct riven      *riven,
     struct riven_work *work,
     u32                work_count,
@@ -63,15 +66,15 @@ void riven_split_work(
  *  was associated with the chain to be finished. If the chain is NULL, then this call may or may not be yield
  *  to the job system before returning. Chains can be acquired outside of a job queue, to be used as 'locks' 
  *  that continue work with a context switch instead of busy-waiting for the work to finish. */
-AMWAPI attr_hot attr_nonnull(1) attr_release_shared_capability(2)
-void riven_unchain(
+AMWAPI attr_hot attr_nonnull(1) attr_release_shared_capability(2) 
+void AMWCALL riven_unchain(
     struct riven *riven,
     riven_chain_t chain);
 
 /** Combines the effects of 'rivens_split_work' and 'rivens_unchain', by providing a chain. 
  *  This function does not return until all submitted work has completed. */
-attr_inline attr_nonnull(1,2)
-void riven_split_work_and_unchain(
+attr_inline attr_nonnull(1,2) 
+void AMWCALL riven_split_work_and_unchain(
     struct riven      *riven,
     struct riven_work *work,
     u32                work_count)
@@ -85,13 +88,13 @@ void riven_split_work_and_unchain(
  *  be released by external means by another thread by calling 'rivens_release_chained'. Any calls 
  *  to 'rivens_unchain' will result in a context switch, until the chain has been released. */
 AMWAPI attr_hot attr_nonnull(1) attr_acquire_shared_capability(2)
-void riven_acquire_chained(
+void AMWCALL riven_acquire_chained(
     struct riven  *riven,
     riven_chain_t *chain);
 
 /** Releases a chain previously acquired by 'rivens_acquire_chained'. */
 attr_inline attr_release_shared_capability(1)
-void riven_release_chained(riven_chain_t chain)
+void AMWCALL riven_release_chained(riven_chain_t chain)
 {
     at_usize *counter = chain;
     if (counter) atomic_store_explicit(counter, 0lu, memory_order_release);
@@ -99,7 +102,7 @@ void riven_release_chained(riven_chain_t chain)
 
 /** Returns the thread index of the current thread. The index is acquired by a hash lookup of the thread id. */
 AMWAPI attr_hot attr_nonnull(1)
-u32 riven_thread_index(struct riven *riven);
+u32 AMWCALL riven_thread_index(struct riven *riven);
 
 /** An unique tag groups resources of a shared lifetime, to be freed all at once. */
 typedef u64 riven_tag_t;
@@ -112,10 +115,14 @@ typedef u64 riven_tag_t;
 /** Predefined tags for expected lifetime frequencies of game resources. Tags of other values can be 
  *  used for other uses, like allocating memory for assets: scenes, textures, meshes, audio, etc. */
 enum riven_tag {
-    /** Not a valid lifetime, for internal use. */
-    riven_tag_invalid = UINT64_MAX,
     /** Resources under this tag cannot be freed, they will share the lifetime of Riven. */
     riven_tag_roots = 0llu,
+    /** Scratch memory for the GPU execution stage. */
+    riven_tag_gpuexec,
+    /** Scratch memory for the rendering stage. */
+    riven_tag_rendering,
+    /** Scratch memory for the simulation stage. */
+    riven_tag_simulation,
     /** For resources to live through to the next frame (cycled by frame index modulo 2). */
     riven_tag_simulation_forward,
     /** Simulation to rendering stage, e.g. object instance arrays (cycled by frame index modulo 3). */
@@ -126,23 +133,32 @@ enum riven_tag {
     riven_tag_rendering_to_gpuexec = riven_tag_simulation_to_gpuexec + riven_tag_simulation_to_gpuexec_cycle,
     /** A minimum count of tagged heaps that will be in use. */
     riven_tag_reserved_count = riven_tag_rendering_to_gpuexec + riven_tag_rendering_to_gpuexec_cycle,
-    /** Scratch memory for the simulation stage. */
-    riven_tag_simulation = riven_tag_reserved_count,
-    /** Scratch memory for the rendering stage. */
-    riven_tag_rendering,
-    /** Scratch memory for the GPU execution stage. */
-    riven_tag_gpuexec,
-    /** The last reserved tag, doesn't correspond to the internal tagged heaps. */
-    riven_tag_true_count,
 };
 /** For scratch allocations outside of the parallel gameloop. */
-#define riven_tag_drifter riven_tag_simulation
+#define riven_tag_deferred UINT64_MAX
+
+/** Holds allocation rules, either defined by the caller side or from a query in the backend system.
+ *  I assert that interfaces are not responsible for allocations of a different lifetime frequency 
+ *  than the tag it was given at creation - and so the application will hold responsibility for 
+ *  performing the host allocation of different resources that may be created.
+ *
+ *  A rule of thumb is, functions that accept this structure in a *create_info type of argument, or directly
+ *  in the function argument list, then they expect a host allocation for resources that don't have an lifetime 
+ *  that is expected by the system. The application can either pass a tag, so the allocation can be done 
+ *  internally on a tagged heap, or the backend may query it's memory requirements, write this information 
+ *  here, and expect a second call with the allocation done by the caller. */
+struct riven_allocation {
+    usize       size;       /**< Size requirements for the allocation, written to from a query. */
+    usize       alignment;  /**< Alignment requirements for the allocation, written to from a query. */
+    void       *memory;     /**< The allocated memory must be written here by the caller, after receiving the results of a query. */
+    riven_tag_t tag;        /**< Optionally, a valid tag can be given for the backend to allocate his memory from riven. */
+};
 
 /** Advises on commitment of host memory resources. Returns non-zero value if changes were made.
  *  On growth request, the heap will only commit if there is not enough contiguous space. On freeing
  *  resources, changes will be made only if the heap can be safely trimmed. */
 AMWAPI attr_nonnull_all
-usize riven_advise(
+usize AMWCALL riven_advise(
     struct riven *riven,
     usize         size,
     b32           release);
@@ -150,7 +166,7 @@ usize riven_advise(
 /** Allocates memory of any size under a given heap tag. Different allocation strategies are used 
  *  depending on internal parameters of Riven, on the tag, and on the requested size. */
 AMWAPI attr_hot attr_nonnull(1) attr_malloc
-void *riven_alloc(
+void *AMWCALL riven_alloc(
     struct riven *riven,
     riven_tag_t   tag,
     usize         size,
@@ -158,14 +174,18 @@ void *riven_alloc(
 
 /** Frees resources that were allocated under a given tagged heap. */
 AMWAPI attr_hot attr_nonnull_all
-void riven_free(
+void AMWCALL riven_free(
     struct riven *riven,
     riven_tag_t   tag);
+
+/** Rotate the deffered thread-local heaps and free the resources. */
+AMWAPI attr_hot attr_nonnull_all
+void AMWCALL riven_rotate_deferred(struct riven *riven);
 
 /** Duplicates some data under a given heap tag. The newly allocated data will comply with 
  *  the alignment rule provided, set alignment as 1 to ignore it. */
 attr_inline attr_nonnull_all
-void *riven_memdup(
+void *AMWCALL riven_memdup(
     struct riven        *riven,
     riven_tag_t          tag,
     const void *restrict data,
@@ -197,7 +217,7 @@ struct str riven_cstrdup(
 
 /** Format a string and save it under dest. The string will have a lifetime of tag. */
 AMWAPI attr_hot attr_nonnull(1,3) attr_printf(4,5)
-void riven_format_string(
+void AMWCALL riven_format_string(
     struct riven      *riven,
     riven_tag_t        tag,
     struct str * const dest,
@@ -205,7 +225,7 @@ void riven_format_string(
 
 /** Concatenate a list of strings and save it under dest. The string will have a lifetime of tag. */
 AMWAPI attr_hot attr_nonnull(1,3)
-void riven_concatenate_strings(
+void AMWCALL riven_concatenate_strings(
     struct riven      *riven,
     riven_tag_t        tag,
     struct str * const dest,
@@ -214,7 +234,7 @@ void riven_concatenate_strings(
 
 /** Implements an interface. */
 #define RIVEN_ENCORE(interface, variant) \
-    void interface##_encore_##variant(struct interface##_create_info *create_info)
+    void AMWCALL interface##_encore_##variant(struct interface##_create_info *create_info)
 
 /** Definitions of reserved encores, when there is no valid implementation yet. */
 #define RIVEN_ENCORE_STUB(interface, variant) \
@@ -241,8 +261,8 @@ struct riven_interface_header {
 };
 
 /** Obtain the 'fini' procedure to close the interface implementation. */
-attr_inline attr_nonnull_all
-PFN_riven_work riven_interface_fini(const riven_argument_t interface) {
+attr_inline attr_pure attr_nonnull_all
+PFN_riven_work AMWCALL riven_interface_fini(const riven_argument_t interface) {
     if (interface) {
         const struct riven_interface_header *header = (const struct riven_interface_header *)interface;
         return header->fini;
@@ -266,7 +286,7 @@ PFN_riven_work riven_interface_fini(const riven_argument_t interface) {
  *
  *  Returns the value given by the main procedure, the application can do whatever it wants with this information. */
 AMWAPI attr_nonnull(8,9)
-s32 riven_moonlit_walk(
+s32 AMWCALL riven_moonlit_walk(
     usize                   memory_budget_size,
     usize                   fiber_stack_size,
     u32                     fiber_count,

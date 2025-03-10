@@ -13,27 +13,27 @@
  *  The paper listed below, by Wojciech Muła, Nathan Kurz and Daniel Lemire was a great 
  *  deal in understanding the different algorithms that could be implemented here:
  *
- *  https://www.google.com/url?q=https://arxiv.org/pdf/1611.07612&sa=U&ved=2ahUKEwiz2pCwxZaLAxVpwjgGHSvfNpoQFnoECAoQAg&usg=AOvVaw3WMSV89LThBSsU2_fZApCR
+ *  https://www.google.com/url?q=https://arxiv.org/pdf/1611.07612&sa=U&ved=2ahUKEwiz2pCwxZaLAxVpwjgGHSvfNpoQFnoECAoQAg&usg=AOvVaw3WMSV89LThBSsU2_fZApCR 
  */
 
 #ifdef ARCH_X86_AVX2
-AMWAPI usize bits_ffs_avx2(const u8 *data, usize n);
-AMWAPI u64 bits_popcnt_avx2(const u8 *data, usize n);
+AMWAPI usize AMWCALL bits_ffs_avx2(const u8 *data, usize n);
+AMWAPI u64   AMWCALL bits_popcnt_avx2(const u8 *data, usize n);
 #endif
 
 #ifdef ARCH_X86_SSE2
-AMWAPI usize bits_ffs_sse2(const u8 *data, usize n);
-AMWAPI u64 bits_popcnt_sse2(const u8 *data, usize n);
+AMWAPI usize AMWCALL bits_ffs_sse2(const u8 *data, usize n);
+AMWAPI u64   AMWCALL bits_popcnt_sse2(const u8 *data, usize n);
 #endif
 
 #ifdef ARCH_ARM_NEON
-AMWAPI usize bits_ffs_neon(const u8 *data, usize n);
-AMWAPI u64 bits_popcnt_neon(const u8 *data, usize n);
+AMWAPI usize AMWCALL bits_ffs_neon(const u8 *data, usize n);
+AMWAPI u64   AMWCALL bits_popcnt_neon(const u8 *data, usize n);
 #endif
 
 #ifdef ARCH_RISCV_V
-AMWAPI usize bits_ffs_rvv(const u8 *data, usize n);
-AMWAPI u64 bits_popcnt_rvv(const u8 *data, usize n);
+AMWAPI usize AMWCALL bits_ffs_rvv(const u8 *data, usize n);
+AMWAPI u64   AMWCALL bits_popcnt_rvv(const u8 *data, usize n);
 #endif
 
 attr_inline attr_const
@@ -57,7 +57,7 @@ s32 bits_ctz(u32 x)
 }
 
 /** Find first set. */
-AMWAPI usize bits_ffs_lookup(const u8 *data, usize n); 
+AMWAPI usize AMWCALL bits_ffs_lookup(const u8 *data, usize n); 
 
 attr_inline attr_nonnull(1) attr_pure
 usize bits_ffs(const u8 *data, usize n)
@@ -76,7 +76,7 @@ usize bits_ffs(const u8 *data, usize n)
 }
 
 /** Population count. */
-AMWAPI u64 bits_popcnt_lookup(const u8 *data, usize n);
+AMWAPI u64 AMWCALL bits_popcnt_lookup(const u8 *data, usize n);
 
 attr_inline attr_nonnull(1) attr_pure
 u64 bits_popcnt(const u8 *data, usize n)

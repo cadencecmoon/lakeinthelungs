@@ -98,6 +98,10 @@ struct vulkan_physical_device {
     /** A handle of the physical device this structure holds information for. */
     VkPhysicalDevice            device;
 
+    u32                         score;
+    u64                         extension_bits;
+    usize                       total_vram;
+
     u32                         graphics_queue_family_index;
     u32                         compute_queue_family_index;
     u32                         transfer_queue_family_index;
@@ -117,24 +121,26 @@ struct vulkan_physical_device {
 
     /** Information about hardware properties of the physical device. */
     VkPhysicalDeviceProperties2                                 properties2;
-    VkPhysicalDeviceVulkan11Properties                          properties_11;
-    VkPhysicalDeviceVulkan12Properties                          properties_12;
-    VkPhysicalDeviceVulkan13Properties                          properties_13;
     VkPhysicalDeviceVulkan14Properties                          properties_14;
+    VkPhysicalDeviceVulkan13Properties                          properties_13;
+    VkPhysicalDeviceVulkan12Properties                          properties_12;
+    VkPhysicalDeviceVulkan11Properties                          properties_11;
     VkPhysicalDeviceAccelerationStructurePropertiesKHR          acceleration_structure_properties;
     VkPhysicalDeviceRayTracingPipelinePropertiesKHR             raytracing_pipeline_properties;
     VkPhysicalDeviceDescriptorIndexingProperties                descriptor_indexing_properties;
     VkPhysicalDeviceFragmentShadingRatePropertiesKHR            fragment_shading_rate_properties;
     VkPhysicalDeviceMeshShaderPropertiesEXT                     mesh_shader_properties;
+
+    /* Information about device memory properties. */
     VkPhysicalDeviceMemoryProperties2                           memory_properties2;
     VkPhysicalDeviceMemoryBudgetPropertiesEXT                   memory_budget;
 
     /** Information about features supported by the physical device. */
     VkPhysicalDeviceFeatures2                                   features2;
-    VkPhysicalDeviceVulkan11Features                            features_11;
-    VkPhysicalDeviceVulkan12Features                            features_12;
-    VkPhysicalDeviceVulkan13Features                            features_13;
     VkPhysicalDeviceVulkan14Features                            features_14;
+    VkPhysicalDeviceVulkan13Features                            features_13;
+    VkPhysicalDeviceVulkan12Features                            features_12;
+    VkPhysicalDeviceVulkan11Features                            features_11;
     VkPhysicalDeviceAccelerationStructureFeaturesKHR            acceleration_structure_features;
     VkPhysicalDeviceRayTracingPipelineFeaturesKHR               raytracing_pipeline_features;
     VkPhysicalDeviceRayQueryFeaturesKHR                         ray_query_features;
@@ -144,6 +150,13 @@ struct vulkan_physical_device {
     VkPhysicalDeviceSynchronization2Features                    synchronization2_features;
     VkPhysicalDeviceFragmentShadingRateFeaturesKHR              fragment_shading_rate_features;
     VkPhysicalDeviceMeshShaderFeaturesEXT                       mesh_shader_features;
+
+    /** Information about surface capabilities for the swapchain. */
+    VkBool32                                                    presentation_support;
+    VkFormat                                                    swapchain_image_format;
+    VkSurfaceCapabilitiesKHR                                    surface_capabilities;
+    VkSurfaceFormatKHR                                          surface_format;
+    VkPresentModeKHR                                            present_mode;
 
     /** Information about capabilities of accelerated H.264 video coding. */
     VkVideoDecodeH264ProfileInfoKHR                             decode_h264_profile;
@@ -218,43 +231,6 @@ struct pelagia {
     PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR               vkGetPhysicalDeviceSurfaceCapabilitiesKHR;
     PFN_vkGetPhysicalDeviceSurfaceFormatsKHR                    vkGetPhysicalDeviceSurfaceFormatsKHR;
     PFN_vkGetPhysicalDeviceSurfacePresentModesKHR               vkGetPhysicalDeviceSurfacePresentModesKHR;
-
-#if defined(VK_KHR_win32_surface)
-    PFN_vkCreateWin32SurfaceKHR                                 vkCreateWin32SurfaceKHR;
-    PFN_vkGetPhysicalDeviceWin32PresentationSupportKHR          vkGetPhysicalDeviceWin32PresentationSupportKHR;
-#endif /* VK_KHR_win32_surface */
-
-#if defined(VK_EXT_metal_surface)
-    PFN_vkCreateMetalSurfaceEXT                                 vkCreateMetalSurfaceEXT;
-#endif /* VK_EXT_metal_surface */
-
-#if defined(VK_KHR_wayland_surface)
-    PFN_vkCreateWaylandSurfaceKHR                               vkCreateWaylandSurfaceKHR;
-    PFN_vkGetPhysicalDeviceWaylandPresentationSupportKHR        vkGetPhysicalDeviceWaylandPresentationSupportKHR;
-#endif /* VK_KHR_wayland_surface */
-
-#if defined(VK_KHR_xcb_surface)
-    PFN_vkCreateXcbSurfaceKHR                                   vkCreateXcbSurfaceKHR;
-    PFN_vkGetPhysicalDeviceXcbPresentationSupportKHR            vkGetPhysicalDeviceXcbPresentationSupportKHR;
-#endif /* VK_KHR_xcb_surface */
-
-#if defined(VK_KHR_android_surface)
-    PFN_vkCreateAndroidSurfaceKHR                               vkCreateAndroidSurfaceKHR;
-#endif /* VK_KHR_android_surface */
-
-#if defined(VK_EXT_headless_surface)
-    PFN_vkCreateHeadlessSurfaceEXT                              vkCreateHeadlessSurfaceEXT;
-#endif /* VK_EXT_headless_surface */
-
-#if defined(VK_KHR_display)
-    PFN_vkCreateDisplayModeKHR                                  vkCreateDisplayModeKHR;
-    PFN_vkCreateDisplayPlaneSurfaceKHR                          vkCreateDisplayPlaneSurfaceKHR;
-    PFN_vkGetDisplayModePropertiesKHR                           vkGetDisplayModePropertiesKHR;
-    PFN_vkGetDisplayPlaneCapabilitiesKHR                        vkGetDisplayPlaneCapabilitiesKHR;
-    PFN_vkGetDisplayPlaneSupportedDisplaysKHR                   vkGetDisplayPlaneSupportedDisplaysKHR;
-    PFN_vkGetPhysicalDeviceDisplayPlanePropertiesKHR            vkGetPhysicalDeviceDisplayPlanePropertiesKHR;
-    PFN_vkGetPhysicalDeviceDisplayPropertiesKHR                 vkGetPhysicalDeviceDisplayPropertiesKHR;
-#endif /* VK_KHR_display */
 
     /* debug utils */
     PFN_vkSetDebugUtilsObjectNameEXT                            vkSetDebugUtilsObjectNameEXT;
@@ -518,6 +494,7 @@ struct pelagia_device {
     PFN_vkCmdBeginVideoCodingKHR                                vkCmdBeginVideoCodingKHR;
     PFN_vkCmdControlVideoCodingKHR                              vkCmdControlVideoCodingKHR;
     PFN_vkCmdDecodeVideoKHR                                     vkCmdDecodeVideoKHR;
+    PFN_vkCmdEncodeVideoKHR                                     vkCmdEncodeVideoKHR;
     PFN_vkCmdEndVideoCodingKHR                                  vkCmdEndVideoCodingKHR;
     PFN_vkCreateVideoSessionKHR                                 vkCreateVideoSessionKHR;
     PFN_vkCreateVideoSessionParametersKHR                       vkCreateVideoSessionParametersKHR;
@@ -527,58 +504,116 @@ struct pelagia_device {
     PFN_vkUpdateVideoSessionParametersKHR                       vkUpdateVideoSessionParametersKHR;
 };
 
-struct pelagia_swapchain {
-    /** The Vulkan object for a swapchain, created using the surface below. */
-    VkSwapchainKHR      swapchain;
-    /** A surface created by interfacing with a display backend. */
-    VkSurfaceKHR        surface;
-    /** The format of held images, in pixels. */
-    VkFormat            format;
-    /** Selected mode of image presentation. */
-    VkPresentModeKHR    present_mode;
-    /** An array of images held in the swapchain. */
-    VkImage            *images;
-    /** An image view for each image in the swapchain. */
-    VkImageView        *image_views;
-    /** Synchronization semaphores used for presentation. */
-    VkSemaphore        *image_available_sem;
-    /** Number of images in the swapchain. */
-    u32                 image_count;
+struct pelagia_device_memory {
+    /** pelagia_resource_type_device_memory */
+    struct pelagia_resource_header  header;
+    /* TODO */
 };
 
 struct pelagia_buffer {
+    /** pelagia_resource_type_buffer */
+    struct pelagia_resource_header  header;
     /* TODO */
 };
 
 struct pelagia_texture {
+    /** pelagia_resource_type_texture */
+    struct pelagia_resource_header  header;
     /* TODO */
 };
 
 struct pelagia_sampler {
+    /** pelagia_resource_type_sampler */
+    struct pelagia_resource_header  header;
     /* TODO */
 };
 
-struct pelagia_command_buffer {
+struct pelagia_shader {
+    /** pelagia_resource_type_shader */
+    struct pelagia_resource_header  header;
+    /* TODO */
+};
+
+struct pelagia_pipeline_layout {
+    /** pelagia_resource_type_pipeline_layout */
+    struct pelagia_resource_header  header;
     /* TODO */
 };
 
 struct pelagia_graphics_pipeline {
+    /** pelagia_resource_type_graphics_pipeline */
+    struct pelagia_resource_header  header;
     /* TODO */
 };
 
 struct pelagia_compute_pipeline {
+    /** pelagia_resource_type_compute_pipeline */
+    struct pelagia_resource_header  header;
     /* TODO */
 };
 
 struct pelagia_raytracing_pipeline {
+    /** pelagia_resource_type_raytracing_pipeline */
+    struct pelagia_resource_header  header;
     /* TODO */
 };
 
+struct pelagia_shader_binding_table {
+    /** pelagia_resource_type_shader_binding_table */
+    struct pelagia_resource_header  header;
+    /* TODO */
+};
+
+struct pelagia_command_buffer {
+    /** pelagia_resource_type_command_buffer */
+    struct pelagia_resource_header  header;
+    /* TODO */
+};
+
+struct pelagia_descriptor_set {
+    /** pelagia_resource_type_descriptor_set */
+    struct pelagia_resource_header  header;
+    /* TODO */
+};
+
+struct pelagia_query_pool {
+    /** pelagia_resource_type_query_pool */
+    struct pelagia_resource_header  header;
+    /* TODO */
+};
+
+struct pelagia_swapchain {
+    /** pelagia_resource_type_swapchain */
+    struct pelagia_resource_header  header;
+    /** The display used to create a surface. */
+    struct hadal                   *hadal;
+    /** The Vulkan object for a swapchain, created using the surface below. */
+    VkSwapchainKHR                  swapchain;
+    /** A surface created by interfacing with a display backend. */
+    VkSurfaceKHR                    surface;
+    /** The format of held images, in pixels. */
+    VkFormat                        format;
+    /** Selected mode of image presentation. */
+    VkPresentModeKHR                present_mode;
+    /** An array of images held in the swapchain. */
+    VkImage                        *images;
+    /** An image view for each image in the swapchain. */
+    VkImageView                    *image_views;
+    /** Synchronization semaphores used for presentation. */
+    VkSemaphore                    *image_available_sem;
+    /** Number of images in the swapchain. */
+    u32                             image_count;
+};
+
 struct pelagia_bottom_level {
+    /** pelagia_resource_type_bottom_level */
+    struct pelagia_resource_header  header;
     /* TODO */
 };
 
 struct pelagia_top_level {
+    /** pelagia_resource_type_top_level */
+    struct pelagia_resource_header  header;
     /* TODO */
 };
 
@@ -626,3 +661,33 @@ attr_inline u32 vulkan_get_mipmap_count_3d(VkExtent3D *extent) {
 	result = (result < counts[2]) ? counts[2] : result;
 	return result;
 }
+
+/* pelagia interface implementation */
+
+extern s32 AMWCALL _pelagia_vulkan_query_physical_devices(
+    struct pelagia                      *pelagia, 
+    const struct hadal                  *hadal,
+    u32                                 *out_device_count, 
+    struct pelagia_physical_device_info *out_devices);
+
+extern void AMWCALL _pelagia_vulkan_create_device(struct pelagia_device_create_info *create_info);
+extern void AMWCALL _pelagia_vulkan_destroy_device(struct pelagia_device *device);
+extern void AMWCALL _pelagia_vulkan_allocate_device_memory(struct pelagia_device_memory_create_info *create_info);
+extern void AMWCALL _pelagia_vulkan_free_device_memory(struct pelagia_device_memory *memory);
+
+extern void AMWCALL _pelagia_vulkan_create_buffers(struct pelagia_buffers_create_info *create_info);
+extern void AMWCALL _pelagia_vulkan_create_textures(struct pelagia_textures_create_info *create_info);
+extern void AMWCALL _pelagia_vulkan_create_samplers(struct pelagia_samplers_create_info *create_info);
+extern void AMWCALL _pelagia_vulkan_create_shaders(struct pelagia_shaders_create_info *create_info);
+extern void AMWCALL _pelagia_vulkan_create_pipeline_layouts(struct pelagia_pipeline_layouts_create_info *create_info);
+extern void AMWCALL _pelagia_vulkan_create_graphics_pipelines(struct pelagia_graphics_pipelines_create_info *create_info);
+extern void AMWCALL _pelagia_vulkan_create_compute_pipelines(struct pelagia_compute_pipelines_create_info *create_info);
+extern void AMWCALL _pelagia_vulkan_create_raytracing_pipelines(struct pelagia_raytracing_pipelines_create_info *create_info);
+extern void AMWCALL _pelagia_vulkan_create_shader_binding_tables(struct pelagia_shader_binding_tables_create_info *create_info);
+extern void AMWCALL _pelagia_vulkan_create_command_buffers(struct pelagia_command_buffers_create_info *create_info);
+extern void AMWCALL _pelagia_vulkan_create_descriptor_sets(struct pelagia_descriptor_sets_create_info *create_info);
+extern void AMWCALL _pelagia_vulkan_create_query_pools(struct pelagia_query_pools_create_info *create_info);
+extern void AMWCALL _pelagia_vulkan_create_swapchains(struct pelagia_swapchains_create_info *create_info);
+extern void AMWCALL _pelagia_vulkan_create_bottom_levels(struct pelagia_bottom_levels_create_info *create_info);
+extern void AMWCALL _pelagia_vulkan_create_top_levels(struct pelagia_top_levels_create_info *create_info);
+extern void AMWCALL _pelagia_vulkan_destroy_resources(struct pelagia_destroy_resources_work *work);

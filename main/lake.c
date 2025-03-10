@@ -14,6 +14,10 @@ struct engine_hints {
     u32                 window_width, window_height;
     const struct str    window_title;
 
+    s32                 pelagia_force_primary_device_index;
+    u32                 pelagia_device_max_count;
+    u32                 pelagia_virtual_device_count;
+
     usize               riven_memory_budget_size;
     usize               riven_fiber_stack_size;
     u32                 riven_fiber_count;
@@ -59,6 +63,7 @@ static s32 lake_init(
     struct lake         *lake,
     struct engine_hints *hints)
 {
+    s32 res = result_success;
     const riven_tag_t tag = riven_tag_roots;
     const b32 debug = hints->debug_utilities;
     {
@@ -123,11 +128,70 @@ static s32 lake_init(
             if (*header->interface == NULL)
                 lake->exit_game = true;
         }
-
         if (lake->exit_game) return result_error;
     }
+    u32 physical_device_count = 0;
+    res = pelagia_query_physical_devices(lake->pelagia, lake->hadal, &physical_device_count, NULL);
+    if (res != result_success) {
+        log_error("Failed to query physical rendering devices.");
+        return res;
+    }
 
-    /* TODO create a rendering device, create a window, etc. */
+    struct pelagia_physical_device_info *physical_devices = (struct pelagia_physical_device_info *)
+        riven_alloc(lake->riven, riven_tag_deferred, sizeof(struct pelagia_physical_device_info) * physical_device_count, _Alignof(struct pelagia_physical_device_info));
+    res = pelagia_query_physical_devices(lake->pelagia, lake->hadal, &physical_device_count, physical_devices);
+    assert_debug(res == result_success);
+
+    /* select devices from quered information */
+    u32 *indices = (u32 *)riven_alloc(lake->riven, riven_tag_deferred, sizeof(u32) * physical_device_count, _Alignof(u32));
+    {
+        for (u32 i = 0, o = 0; i < physical_device_count; i++) {
+            if (!physical_devices[i].valid) continue;
+            indices[o++] = i;
+            lake->device_count = o;
+        }
+        lake->device_count += hints->pelagia_virtual_device_count;
+        if (hints->pelagia_device_max_count)
+            lake->device_count = min(lake->device_count, hints->pelagia_device_max_count);
+        assert_debug(lake->device_count);
+
+        u32 best_score = 0;
+        u32 best_index;
+        /* save the index of the best device, this will be our 'primary' */
+        for (u32 i = 0; i < lake->device_count; i++) {
+            if ((s32)i == hints->pelagia_force_primary_device_index) {
+                best_score = UINT32_MAX;
+                best_index = (u32)hints->pelagia_force_primary_device_index;
+            } else if (physical_devices[indices[i % physical_device_count]].score > best_score) {
+                best_score = physical_devices[indices[i % physical_device_count]].score;
+                best_index = i;
+            }
+        }
+        /* ensure our selected primary device is first in the array */
+        xorswap(&indices[0], &indices[best_index]);
+    }
+    /* create rendering devices */
+    lake->devices = (struct pelagia_device **)
+        riven_alloc(lake->riven, tag, sizeof(struct pelagia_device *) * lake->device_count, _Alignof(struct pelagia_device *));
+
+    struct pelagia_device_create_info *device_infos = (struct pelagia_device_create_info *) 
+        riven_alloc(lake->riven, riven_tag_deferred, sizeof(struct pelagia_device_create_info) * lake->device_count, _Alignof(struct pelagia_device_create_info));
+
+    struct pelagia_interface *pelagia = (struct pelagia_interface *)lake->pelagia;
+    struct riven_work *device_work = (struct riven_work *)
+        riven_alloc(lake->riven, riven_tag_deferred, sizeof(struct riven_work) * lake->device_count, _Alignof(struct riven_work));
+    for (u32 i = 0; i < lake->device_count; i++) {
+        lake->devices[i] = NULL;
+        device_infos[i].work_header = (struct work_header){ .index = i, };
+        device_infos[i].pelagia = lake->pelagia;
+        device_infos[i].write_device = lake->devices;
+        device_infos[i].physical_device = &physical_devices[indices[i % physical_device_count]];
+        device_infos[i].allocation = (struct riven_allocation){ .tag = tag, };
+        riven_format_string(lake->riven, riven_tag_deferred, &device_work[i].name, "%s:create_device:%u", pelagia->header.name.ptr, i);
+        device_work[i].argument = &device_infos[i];
+        device_work[i].procedure = (PFN_riven_work)pelagia->create_device;
+    }
+    riven_split_work_and_unchain(lake->riven, device_work, lake->device_count);
 
     return result_success;
 }
@@ -155,12 +219,15 @@ static s32 lake_in_the_lungs(
         lake_fini(&lake);
         return res;
     }
+    riven_free(riven, riven_tag_deferred);
 
     struct framedata frames[MAX_FRAMES_IN_FLIGHT];
     zeroa(frames);
 
     for (s32 i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        frames[i].result = result_success;
+        frames[i].work_header = (struct work_header){
+            .result = result_success,
+        };
         frames[i].lake = &lake;
         frames[i].last_frame = &frames[(i - 1 + MAX_FRAMES_IN_FLIGHT) % MAX_FRAMES_IN_FLIGHT];
         frames[i].next_frame = &frames[(i + 1 + MAX_FRAMES_IN_FLIGHT) % MAX_FRAMES_IN_FLIGHT];
@@ -193,11 +260,14 @@ static s32 lake_in_the_lungs(
             gpuexec->chain = NULL;
 
             /* check results of last stage (rendering) */
-            if (gpuexec->result == result_error) {
+            if (gpuexec->work_header.result == result_error) {
                 log_error("Frame '%lu' for '%s' returned an error, the game will exit now.", 
                           frame_index, work[LAKE_RENDERING_WORK_IDX].name.ptr);
                 lake.exit_game = true;
             }
+
+            /* wait for last GPU execution to complete */
+            riven_unchain(riven, gpuexec->last_frame->chain);
 
             /* feed forward to GPU execution */
             work[LAKE_GPUEXEC_WORK_IDX].argument = gpuexec;
@@ -211,11 +281,14 @@ static s32 lake_in_the_lungs(
             rendering->chain = NULL;
 
             /* check results of last stage (simulation) */
-            if (rendering->result == result_error) {
+            if (rendering->work_header.result == result_error) {
                 log_error("Frame '%lu' for '%s' returned an error, the game will exit now.", 
                           frame_index, work[LAKE_SIMULATION_WORK_IDX].name.ptr);
                 lake.exit_game = true;
             }
+
+            /* wait for last rendering to complete */
+            riven_unchain(riven, rendering->last_frame->chain);
 
             /* feed forward to rendering */
             work[LAKE_RENDERING_WORK_IDX].argument = rendering;
@@ -229,7 +302,7 @@ static s32 lake_in_the_lungs(
             simulation->chain = NULL;
 
             /* check results of last stage (gpuexec) */
-            if (simulation->result == result_error) {
+            if (simulation->work_header.result == result_error) {
                 log_error("Frame '%lu' for '%s' returned an error, the game will exit now.", 
                           frame_index, work[LAKE_GPUEXEC_WORK_IDX].name.ptr);
                 lake.exit_game = true;
@@ -238,6 +311,9 @@ static s32 lake_in_the_lungs(
             /* prepare the next framedata */
             simulation->index = frame_index;
             simulation->dt = dt;
+
+            /* wait for last simulation to complete */
+            riven_unchain(riven, simulation->last_frame->chain);
             
             /* begin the next frame */
             work[LAKE_SIMULATION_WORK_IDX].argument = simulation;
@@ -255,6 +331,7 @@ static s32 lake_in_the_lungs(
         simulation = lake.finalize_gameloop ? NULL : &frames[(frame_index++) % MAX_FRAMES_IN_FLIGHT];
 
         print_frame_time(FRAME_TIME_PRINT_INTERVAL_MS);
+        riven_rotate_deferred(riven);
     }
 
     /* wait for any existing work to finish */
@@ -278,10 +355,12 @@ s32 amw_main(s32 argc, char **argv)
         .window_width = 1200,
         .window_height = 900,
         .window_title = str_init("UwU miau mlem"),
+        .pelagia_force_primary_device_index = -1,
+        .pelagia_device_max_count = 0,
         .riven_memory_budget_size = 0,
         .riven_fiber_stack_size = 96*1024,
         .riven_fiber_count = 0,
-        .riven_thread_count = 1,
+        .riven_thread_count = 0,
         .riven_tagged_heap_count = 0,
         .riven_log2_work_count = 11,
         .riven_log2_memory_count = 9,
@@ -291,11 +370,9 @@ s32 amw_main(s32 argc, char **argv)
             .pelagia = (PFN_riven_work)pelagia_encore_native,
             .hadal = (PFN_riven_work)hadal_encore_native,
         },
-#ifndef NDEBUG
-        .verbose = true,
-#endif
 #ifdef DEBUG
         .debug_utilities = true,
+        .pelagia_virtual_device_count = 0, // XXX
 #endif
     };
     log_set_verbose(argc-1);
@@ -326,5 +403,7 @@ s32 amw_main(s32 argc, char **argv)
             (PFN_riven_heart)lake_in_the_lungs,
             (riven_argument_t)&hints);
     } while (res == result_continue);
+
+    log_verbose("%s exit.", metadata.game_name.ptr);
     return res;
 }

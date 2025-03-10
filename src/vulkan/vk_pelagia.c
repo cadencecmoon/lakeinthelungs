@@ -261,14 +261,6 @@ RIVEN_ENCORE(pelagia, vulkan) {
     zerop(pelagia);
 
     pelagia->module = module;
-    pelagia->interface = (struct pelagia_interface){
-        .header = {
-            .name = str_init("pelagia_vulkan"),
-            .riven = create_info->header.riven,
-            .tag = create_info->header.tag,
-            .fini = (PFN_riven_work)vulkan_interface_fini,
-        },
-    };
     pelagia->vkCreateInstance = vkCreateInstance;
     pelagia->vkGetInstanceProcAddr = vkGetInstanceProcAddr;
     pelagia->vkEnumerateInstanceExtensionProperties = vkEnumerateInstanceExtensionProperties;
@@ -276,7 +268,7 @@ RIVEN_ENCORE(pelagia, vulkan) {
     pelagia->vkEnumerateInstanceVersion = vkEnumerateInstanceVersion;
 
     VkExtensionProperties *extension_properties = (VkExtensionProperties *)
-        riven_alloc(create_info->header.riven, riven_tag_drifter, sizeof(VkExtensionProperties) * extension_count, _Alignof(VkExtensionProperties));
+        riven_alloc(create_info->header.riven, riven_tag_deferred, sizeof(VkExtensionProperties) * extension_count, _Alignof(VkExtensionProperties));
     VERIFY_VK(vkEnumerateInstanceExtensionProperties(NULL, &extension_count, extension_properties));
 
     /* query instance extensions */
@@ -312,7 +304,7 @@ RIVEN_ENCORE(pelagia, vulkan) {
     u32 o = 0;
     extension_count = bits_popcnt_lookup((const u8 *)&extension_bits, sizeof(extension_bits));
     extensions = (const char **)
-        riven_alloc(create_info->header.riven, riven_tag_drifter, sizeof(const char *) * extension_count, _Alignof(const char *));
+        riven_alloc(create_info->header.riven, riven_tag_deferred, sizeof(const char *) * extension_count, _Alignof(const char *));
     if (extension_bits & vulkan_ext_surface_bit)
         extensions[o++] = VK_KHR_SURFACE_EXTENSION_NAME;
 #if defined(PLATFORM_WINDOWS)
@@ -410,49 +402,20 @@ RIVEN_ENCORE(pelagia, vulkan) {
     pelagia->vkGetPhysicalDeviceQueueFamilyProperties = (PFN_vkGetPhysicalDeviceQueueFamilyProperties)instance_proc_address(pelagia, "vkGetPhysicalDeviceQueueFamilyProperties");
     pelagia->vkGetPhysicalDeviceQueueFamilyProperties2 = (PFN_vkGetPhysicalDeviceQueueFamilyProperties2)instance_proc_address(pelagia, "vkGetPhysicalDeviceQueueFamilyProperties2");
 
+    /* ensure there are any physical devices available */
+    u32 physical_device_count = 0;
+    VERIFY_VK(pelagia->vkEnumeratePhysicalDevices(pelagia->instance, &physical_device_count, NULL));
+    if (physical_device_count == 0) {
+        log_error(fmt, "no physical devices are available to Vulkan");
+        return;
+    }
+
     /* surface */
     pelagia->vkDestroySurfaceKHR = (PFN_vkDestroySurfaceKHR)instance_proc_address(pelagia, "vkDestroySurfaceKHR");
     pelagia->vkGetPhysicalDeviceSurfaceSupportKHR = (PFN_vkGetPhysicalDeviceSurfaceSupportKHR)instance_proc_address(pelagia, "vkGetPhysicalDeviceSurfaceSupportKHR");
     pelagia->vkGetPhysicalDeviceSurfaceCapabilitiesKHR = (PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR)instance_proc_address(pelagia, "vkGetPhysicalDeviceSurfaceCapabilitiesKHR");
     pelagia->vkGetPhysicalDeviceSurfaceFormatsKHR = (PFN_vkGetPhysicalDeviceSurfaceFormatsKHR)instance_proc_address(pelagia, "vkGetPhysicalDeviceSurfaceFormatsKHR");
     pelagia->vkGetPhysicalDeviceSurfacePresentModesKHR = (PFN_vkGetPhysicalDeviceSurfacePresentModesKHR)instance_proc_address(pelagia, "vkGetPhysicalDeviceSurfacePresentModesKHR");
-
-#if defined(VK_KHR_win32_surface)
-    pelagia->vkCreateWin32SurfaceKHR = (PFN_vkCreateWin32SurfaceKHR)instance_proc_address(pelagia, "vkCreateWin32SurfaceKHR");
-    pelagia->vkGetPhysicalDeviceWin32PresentationSupportKHR = (PFN_vkGetPhysicalDeviceWin32PresentationSupportKHR)instance_proc_address(pelagia, "vkGetPhysicalDeviceWin32PresentationSupportKHR");
-#endif /* VK_KHR_win32_surface */
-
-#if defined(VK_EXT_metal_surface)
-    pelagia->vkCreateMetalSurfaceEXT = (PFN_vkCreateMetalSurfaceEXT)instance_proc_address(pelagia, "vkCreateMetalSurfaceEXT");
-#endif /* VK_EXT_metal_surface */
-
-#if defined(VK_KHR_wayland_surface)
-    pelagia->vkCreateWaylandSurfaceKHR = (PFN_vkCreateWaylandSurfaceKHR)instance_proc_address(pelagia, "vkCreateWaylandSurfaceKHR");
-    pelagia->vkGetPhysicalDeviceWaylandPresentationSupportKHR = (PFN_vkGetPhysicalDeviceWaylandPresentationSupportKHR)instance_proc_address(pelagia, "vkGetPhysicalDeviceWaylandPresentationSupportKHR");
-#endif /* VK_KHR_wayland_surface */
-
-#if defined(VK_KHR_xcb_surface)
-    pelagia->vkCreateXcbSurfaceKHR = (PFN_vkCreateXcbSurfaceKHR)instance_proc_address(pelagia, "vkCreateXcbSurfaceKHR");
-    pelagia->vkGetPhysicalDeviceXcbPresentationSupportKHR = (PFN_vkGetPhysicalDeviceXcbPresentationSupportKHR)instance_proc_address(pelagia, "vkGetPhysicalDeviceXcbPresentationSupportKHR");
-#endif /* VK_KHR_xcb_surface */
-
-#if defined(VK_KHR_android_surface)
-    pelagia->vkCreateAndroidSurfaceKHR = (PFN_vkCreateAndroidSurfaceKHR)instance_proc_address(pelagia, "vkCreateAndroidSurfaceKHR");
-#endif /* VK_KHR_android_surface */
-
-#if defined(VK_EXT_headless_surface)
-    pelagia->vkCreateHeadlessSurfaceEXT = (PFN_vkCreateHeadlessSurfaceEXT)instance_proc_address(pelagia, "vkCreateHeadlessSurfaceEXT");
-#endif /* VK_EXT_headless_surface */
-
-#if defined(VK_KHR_display)
-    pelagia->vkCreateDisplayModeKHR = (PFN_vkCreateDisplayModeKHR)instance_proc_address(pelagia, "vkCreateDisplayModeKHR");
-    pelagia->vkCreateDisplayPlaneSurfaceKHR = (PFN_vkCreateDisplayPlaneSurfaceKHR)instance_proc_address(pelagia, "vkCreateDisplayPlaneSurfaceKHR");
-    pelagia->vkGetDisplayModePropertiesKHR = (PFN_vkGetDisplayModePropertiesKHR)instance_proc_address(pelagia, "vkGetDisplayModePropertiesKHR");
-    pelagia->vkGetDisplayPlaneCapabilitiesKHR = (PFN_vkGetDisplayPlaneCapabilitiesKHR)instance_proc_address(pelagia, "vkGetDisplayPlaneCapabilitiesKHR");
-    pelagia->vkGetDisplayPlaneSupportedDisplaysKHR = (PFN_vkGetDisplayPlaneSupportedDisplaysKHR)instance_proc_address(pelagia, "vkGetDisplayPlaneSupportedDisplaysKHR");
-    pelagia->vkGetPhysicalDeviceDisplayPlanePropertiesKHR= (PFN_vkGetPhysicalDeviceDisplayPlanePropertiesKHR)instance_proc_address(pelagia, "vkGetPhysicalDeviceDisplayPlanePropertiesKHR");
-    pelagia->vkGetPhysicalDeviceDisplayPropertiesKHR = (PFN_vkGetPhysicalDeviceDisplayPropertiesKHR)instance_proc_address(pelagia, "vkGetPhysicalDeviceDisplayPropertiesKHR");
-#endif /* VK_KHR_display */
 
     /* debug utils */
     pelagia->vkSetDebugUtilsObjectNameEXT = (PFN_vkSetDebugUtilsObjectNameEXT)instance_proc_address(pelagia, "vkSetDebugUtilsObjectNameEXT");
@@ -475,6 +438,60 @@ RIVEN_ENCORE(pelagia, vulkan) {
         create_validation_layers(pelagia);
 
     /* write the interface ;3 */
+    pelagia->interface = (struct pelagia_interface){
+        .header = {
+            .name = str_init("pelagia_vulkan"),
+            .riven = create_info->header.riven,
+            .tag = create_info->header.tag,
+            .fini = (PFN_riven_work)vulkan_interface_fini,
+        },
+#define WRITE_PFN(fn) \
+        .fn = _pelagia_vulkan_##fn,
+        WRITE_PFN(query_physical_devices)
+        WRITE_PFN(create_device)
+        WRITE_PFN(destroy_device)
+        WRITE_PFN(allocate_device_memory)
+        WRITE_PFN(free_device_memory)
+        WRITE_PFN(create_buffers)
+        WRITE_PFN(create_textures)
+        WRITE_PFN(create_samplers)
+        WRITE_PFN(create_shaders)
+        WRITE_PFN(create_pipeline_layouts)
+        WRITE_PFN(create_graphics_pipelines)
+        WRITE_PFN(create_compute_pipelines)
+        WRITE_PFN(create_raytracing_pipelines)
+        WRITE_PFN(create_shader_binding_tables)
+        WRITE_PFN(create_command_buffers)
+        WRITE_PFN(create_descriptor_sets)
+        WRITE_PFN(create_query_pools)
+        WRITE_PFN(create_swapchains)
+        WRITE_PFN(create_bottom_levels)
+        WRITE_PFN(create_top_levels)
+        WRITE_PFN(destroy_resources)
+#undef WRITE_PFN
+    };
     *create_info->header.interface = (riven_argument_t)pelagia;
-    log_verbose("Pelagia '%s' interface write.", pelagia->interface.header.name.ptr);
+    log_verbose("'%s' interface write.", pelagia->interface.header.name.ptr);
 }
+
+/* TODO move them into a gpu_allocator source file or some shit */
+void _pelagia_vulkan_allocate_device_memory(struct pelagia_device_memory_create_info *create_info) { (void)create_info; }
+void _pelagia_vulkan_free_device_memory(struct pelagia_device_memory *memory) { (void)memory; }
+
+/* TODO i'll handle the resources later */
+void _pelagia_vulkan_create_buffers(struct pelagia_buffers_create_info *create_info) { (void)create_info; }
+void _pelagia_vulkan_create_textures(struct pelagia_textures_create_info *create_info) { (void)create_info; }
+void _pelagia_vulkan_create_samplers(struct pelagia_samplers_create_info *create_info) { (void)create_info; }
+void _pelagia_vulkan_create_shaders(struct pelagia_shaders_create_info *create_info) { (void)create_info; }
+void _pelagia_vulkan_create_pipeline_layouts(struct pelagia_pipeline_layouts_create_info *create_info) { (void)create_info; }
+void _pelagia_vulkan_create_graphics_pipelines(struct pelagia_graphics_pipelines_create_info *create_info) { (void)create_info; }
+void _pelagia_vulkan_create_compute_pipelines(struct pelagia_compute_pipelines_create_info *create_info) { (void)create_info; }
+void _pelagia_vulkan_create_raytracing_pipelines(struct pelagia_raytracing_pipelines_create_info *create_info) { (void)create_info; }
+void _pelagia_vulkan_create_shader_binding_tables(struct pelagia_shader_binding_tables_create_info *create_info) { (void)create_info; }
+void _pelagia_vulkan_create_command_buffers(struct pelagia_command_buffers_create_info *create_info) { (void)create_info; }
+void _pelagia_vulkan_create_descriptor_sets(struct pelagia_descriptor_sets_create_info *create_info) { (void)create_info; }
+void _pelagia_vulkan_create_query_pools(struct pelagia_query_pools_create_info *create_info) { (void)create_info; }
+void _pelagia_vulkan_create_swapchains(struct pelagia_swapchains_create_info *create_info) { (void)create_info; }
+void _pelagia_vulkan_create_bottom_levels(struct pelagia_bottom_levels_create_info *create_info) { (void)create_info; }
+void _pelagia_vulkan_create_top_levels(struct pelagia_top_levels_create_info *create_info) { (void)create_info; }
+void _pelagia_vulkan_destroy_resources(struct pelagia_destroy_resources_work *work) { (void)work; }

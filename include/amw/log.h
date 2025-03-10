@@ -87,7 +87,7 @@ enum log_level {
 
 /** Logs a message to console. For now no other output sink is available. */
 AMWAPI attr_printf(5,6)
-void log_message(
+void AMWCALL log_message(
     s32         log_level,
     const char *func,
     const char *filename,
@@ -95,13 +95,13 @@ void log_message(
     const char *fmt, ...);
 
 /** Overwrite log severity level. */
-AMWAPI void log_set_level(s32 set_log_level);
+AMWAPI void AMWCALL log_set_level(s32 set_log_level);
 
 /** Overwrite details in the log message. */
-AMWAPI void log_set_verbose(b32 set_verbose);
+AMWAPI void AMWCALL log_set_verbose(b32 set_verbose);
 
 /** Disable or enable log output. */
-AMWAPI void log_set_quiet(b32 set_quiet);
+AMWAPI void AMWCALL log_set_quiet(b32 set_quiet);
 
 #define log_verbose(fmt, ...)   log_message(log_level_verbose, __func__, SOURCE_FILENAME, __LINE__, fmt, ##__VA_ARGS__)
 #define log_debug(fmt, ...)     log_message(log_level_debug,   __func__, SOURCE_FILENAME, __LINE__, fmt, ##__VA_ARGS__)

@@ -126,6 +126,9 @@
 #ifndef RIVEN_BLOCK_SIZE
 #define RIVEN_BLOCK_SIZE (2lu*1024lu*1024lu)
 #endif
+#ifndef RIVEN_DEFERRED_HEAPS
+#define RIVEN_DEFERRED_HEAPS 3
+#endif
 #ifndef RIVEN_USE_HUGEPAGES
 #define RIVEN_USE_HUGEPAGES 1
 #endif
@@ -136,8 +139,6 @@ static_assert(sizeof(sptr) == sizeof(struct riven *), "intptr_t can't hold point
 static_assert(sizeof(usize) >= sizeof(void *), "size_t can't hold pointers");
 static_assert(((RIVEN_BLOCK_SIZE != 0) && ((RIVEN_BLOCK_SIZE & (RIVEN_BLOCK_SIZE-1)) == 0)), "block size must be a power of 2");
 
-#define A16(x)   (((x) + 15lu) & ~15lu)
-#define A4KB(x)  (((x) + 4095lu) & ~4095lu)
 #define A2MB(x)  (((x) + RIVEN_BLOCK_SIZE-1lu) & ~(RIVEN_BLOCK_SIZE-1lu))
 #define A16MB(x) (((x) + 8*RIVEN_BLOCK_SIZE-1lu) & ~(8lu*RIVEN_BLOCK_SIZE-1lu))
 
@@ -474,6 +475,11 @@ b32 mpmc_ring_dequeue(
     return false;
 }
 
+struct tagged_heap_arena {
+    struct allocation  *head;
+    struct allocation  *tail;
+};
+
 enum tls_flags {
     tls_in_use  = 0,
     tls_to_free = 0x40000000,
@@ -482,75 +488,68 @@ enum tls_flags {
 };
 
 struct tls {
-    struct riven       *riven;
-    fcontext_t          home_context;
-    u32                 fiber_in_use;
-    u32                 fiber_old;
+    struct riven               *riven;
+    fcontext_t                  home_context;
+    u32                         fiber_in_use;
+    u32                         fiber_old;
+    struct tagged_heap_arena    deferred[RIVEN_DEFERRED_HEAPS];
 };
 
 struct fiber {
-    struct job          job;
-    fcontext_t          context;
-    at_usize           *wait_counter;
+    struct job                  job;
+    fcontext_t                  context;
+    at_usize                   *wait_counter;
 };
 
 struct tagged_heap {
-    _Atomic riven_tag_t tag;
-    struct allocation  *head;
-    struct allocation  *tail;
-    riven_chain_t       chain;
+    _Atomic riven_tag_t         tag;
+    riven_chain_t               chain;
+    struct tagged_heap_arena    arena;
 };
 
 struct heart_data {
-    struct riven       *riven;
-    PFN_riven_heart     procedure;
-    riven_argument_t    argument;
-    s32                 result;
+    struct riven               *riven;
+    PFN_riven_heart             procedure;
+    riven_argument_t            argument;
+    s32                         result;
 };
 
 struct riven {
-    struct mpmc_ring        job_ring;
-    struct mpmc_ring        allocation_ring;
+    struct mpmc_ring            job_ring;
+    struct mpmc_ring            allocation_ring;
 
-    struct tls             *tls;
-    at_usize                tls_sync;
+    struct tls                 *tls;
+    at_usize                    tls_sync;
 
-    struct hash_table       table;
-    thread_t               *threads;
-    struct riven_work      *ends;
+    struct hash_table           table;
+    thread_t                   *threads;
+    struct riven_work          *ends;
 
-    struct fiber           *fibers;
-    at_usize               *waiting;
-    at_usize               *free;
-    at_usize               *locks;
+    struct fiber               *fibers;
+    at_usize                   *waiting;
+    at_usize                   *free;
+    at_usize                   *locks;
 
-    struct tagged_heap      reserved_heaps[riven_tag_reserved_count];
-    struct tagged_heap     *drifter_heaps[riven_tag_true_count - riven_tag_reserved_count];
-    struct tagged_heap    **tagged_heaps;
-    at_usize                tagged_heap_tail;
+    struct tagged_heap          reserved_heaps[riven_tag_reserved_count];
+    struct tagged_heap        **tagged_heaps;
+    at_u32                      tagged_heap_tail;
+    u32                         deferred_index;
 
-    at_u8                  *bitmap;
-    at_usize                growth_sync;
-    u8                     *stack;
-    usize                   stack_size;
+    at_u8                      *bitmap;
+    at_usize                    growth_sync;
+    u8                         *stack;
+    usize                       stack_size;
 
-    usize                   memory_budget;
-    usize                   page_size;
-    at_usize                commited_size;
+    usize                       memory_budget;
+    usize                       page_size;
+    at_usize                    commited_size;
 
-    u32                     tagged_heap_count;
-    u32                     thread_count;
-    u32                     fiber_count;
+    u32                         tagged_heap_count;
+    u32                         thread_count;
+    u32                         fiber_count;
 
-    struct riven_metadata  *metadata;
+    struct riven_metadata      *metadata;
 };
-
-attr_inline
-struct tls *get_thread_local_storage(struct riven *riven)
-{
-    u32 index = riven_thread_index(riven);
-    return &riven->tls[index];
-}
 
 static usize get_free_fiber(struct riven *riven)
 {
@@ -687,6 +686,10 @@ struct tls *next_fiber(
             }
         }
     }
+}
+
+attr_inline struct tls *get_thread_local_storage(struct riven *riven) {
+    return &riven->tls[riven_thread_index(riven)];
 }
 
 static attr_noreturn 
@@ -927,26 +930,34 @@ usize find_first_set(
     if (position >= ceiling) return 0lu;
 
     const usize index = index_from_position(position);
-    const usize count = index_from_offset16mb(ceiling) - index;
-    const u8 *raw = (const u8 *)bitmap + index;
+    const usize count = 1 + index_from_offset16mb(ceiling) - index;
+    const u8 *raw = (const u8 *)bitmap;
 
+    u32 o = 0;
     for (;;) {
-        usize bits = bits_ffs(raw, count);
+        usize bits = bits_ffs(&raw[index], count);
 
-        /* offset zero is riven's address, safe to consider this an invalid return value */
-        if (!bits) return 0lu;
-        bits += position;
+        /* bits_ffs returns a 1-based value, or 0 if no bits are set
+         * this is also why we must decrement the bits value by one */
+        if (!bits) 
+            return 0lu;
+        /* the position_from_index will align the position from argument to a byte boundary */
+        bits += position_from_index(index) - 1;
 
         /* we may have overshot on edging (!!) bytes */
         if (UNLIKELY(bits >= position_from_offset2mb(ceiling)))
             return 0lu;
 
+        /* acquire the bit representing our block */
         const u8 bitmask = (1 << (bits & 0x07));
-        const u8 byte = atomic_fetch_and_explicit(&bitmap[index_from_position(bits)], ~bitmask, memory_order_release);
+        const u8 prev = atomic_fetch_and_explicit(&bitmap[index_from_position(bits)], ~bitmask, memory_order_acquire);
 
         /* double check to avoid a possibility of data races */
-        if ((byte & bitmask) == bitmask) 
+        if ((prev & bitmask) == bitmask) 
             return offset2mb_from_position(bits);
+
+        o++;
+        assert_debug(o < 5);
     }
     UNREACHABLE;
 }
@@ -1019,7 +1030,7 @@ usize riven_advise(
     if (!size) return 0lu;
 
     const usize page_aligned = (size + riven->page_size-1) & ~(riven->page_size-1);
-    const usize roots = position_from_offset2mb(riven->reserved_heaps[riven_tag_roots].head->size);
+    const usize roots = position_from_offset2mb(riven->reserved_heaps[riven_tag_roots].arena.head->size);
 
     for (;;) {
         usize expected = 0lu;
@@ -1086,7 +1097,7 @@ struct allocation *reserve_allocation(
     write->count = 0;
 
     const usize page_aligned = A2MB(size);
-    const usize roots = riven->reserved_heaps[riven_tag_roots].head->size;
+    const usize roots = riven->reserved_heaps[riven_tag_roots].arena.head->size;
     usize commited = atomic_load_explicit(&riven->commited_size, memory_order_relaxed);
 
     for (;;) {
@@ -1136,6 +1147,7 @@ struct allocation *reserve_allocation(
         if (new_ceiling + commited > riven->memory_budget || !commit_physical_memory((void *)riven, commited, new_ceiling)) {
             /* we couldn't reserve resources, so yield the allocation */
             mpmc_ring_dequeue(&riven->allocation_ring, &data);
+            atomic_store_explicit(&riven->growth_sync, 0lu, memory_order_release);
             return NULL;
         }
         acquire_bitmap(riven->bitmap, position_from_offset2mb(offset), page_aligned);
@@ -1150,29 +1162,29 @@ struct allocation *reserve_allocation(
 
 static attr_nonnull(1,2)
 void *acquire_tagged_resources(
-    struct riven       *riven,
-    struct tagged_heap *heap,
-    usize               size,
-    usize               alignment)
+    struct riven               *riven,
+    struct tagged_heap_arena   *arena,
+    usize                       size,
+    usize                       alignment)
 {
     u8 *raw = (u8 *)riven;
 
     if (size == 0) {
         return NULL;
-    } else if (!heap->head) {
-        heap->tail = heap->head = reserve_allocation(riven, size);
-        if (!heap->head) {
+    } else if (!arena->head) {
+        arena->tail = arena->head = reserve_allocation(riven, size);
+        if (!arena->head) {
             log_error("Host memory failure, not enough resources to reserve %lu bytes (%lu MB) of memory.", A2MB(size), A2MB(size)>>20);
             return NULL;
         }
-        heap->head->count = size;
-        return (void *)(sptr)(raw + heap->head->offset);
+        arena->head->count = size;
+        return (void *)(sptr)(raw + arena->head->offset);
     }
-    assert_debug(heap->tail);
+    assert_debug(arena->tail);
 
     /* we can assume that there is no more free space than a single block within an existing allocation */
     if (size <= RIVEN_BLOCK_SIZE) {
-        for (struct allocation *write = heap->tail; write; write = write->prev) {
+        for (struct allocation *write = arena->tail; write; write = write->prev) {
             usize aligned = (write->count + (alignment - 1)) & ~(alignment - 1);
             if (aligned + size <= write->size) {
                 write->count = aligned + size;
@@ -1184,12 +1196,12 @@ void *acquire_tagged_resources(
     /* we'll end up here if we still couldn't satisfy the allocation */
     struct allocation *next = reserve_allocation(riven, size);
     if (!next) {
-            log_error("Host memory failure, not enough resources to reserve %lu bytes (%lu MB) of memory.", A2MB(size), A2MB(size)>>20);
+        log_error("Host memory failure, not enough resources to reserve %lu bytes (%lu MB) of memory.", A2MB(size), A2MB(size)>>20);
         return NULL;
     }
-    next->prev = heap->tail;
+    next->prev = arena->tail;
     next->count = size;
-    heap->tail = next;
+    arena->tail = next;
     return (void *)(sptr)(raw + next->offset);
 }
 
@@ -1202,7 +1214,7 @@ void *chained_allocation(
 {
     riven_unchain(riven, heap->chain);
     riven_acquire_chained(riven, &heap->chain);
-    void *result = acquire_tagged_resources(riven, heap, size, alignment);
+    void *result = acquire_tagged_resources(riven, &heap->arena, size, alignment);
     riven_release_chained(heap->chain);
     return result;
 }
@@ -1216,15 +1228,13 @@ void *riven_alloc(
     assume(!(alignment & (alignment - 1)));
     alignment = min(alignment, RIVEN_BLOCK_SIZE);
 
-    assert_debug(tag != riven_tag_invalid);
-
     if (tag < riven_tag_reserved_count) {
         struct tagged_heap *heap = &riven->reserved_heaps[tag];
         return chained_allocation(riven, heap, size, alignment);
-    } else if (tag < riven_tag_true_count) {
-        u32 index = riven_thread_index(riven);
-        struct tagged_heap *heap = &riven->drifter_heaps[tag - riven_tag_reserved_count][index];
-        return acquire_tagged_resources(riven, heap, size, alignment);
+    } else if (tag == riven_tag_deferred) {
+        struct tls *tls = get_thread_local_storage(riven);
+        struct tagged_heap_arena *arena = &tls->deferred[riven->deferred_index];
+        return acquire_tagged_resources(riven, arena, size, alignment);
     }
 
     usize tail = atomic_load_explicit(&riven->tagged_heap_tail, memory_order_acquire);
@@ -1242,7 +1252,7 @@ void *riven_alloc(
             return NULL;
         }
 
-        riven_tag_t expected = riven_tag_invalid;
+        riven_tag_t expected = riven_tag_deferred;
         struct tagged_heap *heap = riven->tagged_heaps[tail];
         if (atomic_compare_exchange_weak_explicit(&heap->tag, &expected, tag,
             memory_order_acquire, memory_order_relaxed))
@@ -1257,11 +1267,11 @@ void *riven_alloc(
 
 static attr_nonnull(1,2)
 void release_tagged_resources(
-    struct riven       *riven,
-    struct tagged_heap *heap)
+    struct riven             *riven,
+    struct tagged_heap_arena *arena)
 {
     struct allocation *prev = NULL;
-    for (struct allocation *release = heap->tail; release != NULL; release = prev) {
+    for (struct allocation *release = arena->tail; release != NULL; release = prev) {
         prev = release->prev;
 
         release_bitmap(riven->bitmap, position_from_offset2mb(release->offset), release->size);
@@ -1270,24 +1280,28 @@ void release_tagged_resources(
         union mpmc_data data = { .allocation = release };
         mpmc_ring_enqueue(&riven->allocation_ring, &data);
     }
-    heap->chain = NULL;
-    heap->tail = heap->head = NULL;
+    arena->tail = arena->head = NULL;
 }
 
 void riven_free(
     struct riven *riven,
     riven_tag_t   tag)
 {
-    assert_debug(tag != riven_tag_invalid && tag != riven_tag_roots);
+    assert_debug(tag != riven_tag_roots);
 
     if (tag < riven_tag_reserved_count) {
         struct tagged_heap *heap = &riven->reserved_heaps[tag];
-        if (heap->head) release_tagged_resources(riven, heap);
+        if (heap->arena.head) 
+            release_tagged_resources(riven, &heap->arena);
+        heap->chain = NULL;
         return;
-    } else if (tag < riven_tag_true_count) {
-        for (usize i = 0; i < riven->thread_count; i++) {
-            struct tagged_heap *heap = &riven->drifter_heaps[tag - riven_tag_reserved_count][i];
-            if (heap->head) release_tagged_resources(riven, heap);
+    } else if (tag == riven_tag_deferred) {
+        /* For free, we want to clean the current deferred_index of tagged heaps, 
+         * without incrementing and cycling the index. */
+        for (u32 i = 0; i < riven->thread_count; i++) {
+            struct tls *tls = get_thread_local_storage(riven);
+            struct tagged_heap_arena *arena = &tls->deferred[riven->deferred_index];
+            if (arena->head) release_tagged_resources(riven, arena);
         }
         return;
     }
@@ -1297,14 +1311,25 @@ void riven_free(
         struct tagged_heap *heap = riven->tagged_heaps[i];
 
         if (atomic_compare_exchange_weak_explicit(&heap->tag, &expected, 
-            riven_tag_invalid, memory_order_release, memory_order_relaxed))
+            riven_tag_deferred, memory_order_release, memory_order_relaxed))
         {
             usize tail = atomic_fetch_sub_explicit(&riven->tagged_heap_tail, 1lu, memory_order_acquire);
             riven->tagged_heaps[i] = riven->tagged_heaps[tail];
             riven->tagged_heaps[tail] = heap;
-            release_tagged_resources(riven, heap);
+            release_tagged_resources(riven, &heap->arena);
+            heap->chain = NULL;
             return;
         }
+    }
+}
+
+void riven_rotate_deferred(struct riven *riven)
+{
+    riven->deferred_index = (riven->deferred_index + 1) % RIVEN_DEFERRED_HEAPS;
+    for (u32 i = 0; i < riven->thread_count; i++) {
+        /* we release resources of the current deferred index */
+        struct tagged_heap_arena *arena = &riven->tls[i].deferred[riven->deferred_index];
+        if (arena->head) release_tagged_resources(riven, arena);
     }
 }
 
@@ -1416,8 +1441,6 @@ s32 riven_moonlit_walk(
     usize free_bytes                = A16(sizeof(at_usize) * fiber_count);
     usize locks_bytes               = A16(sizeof(at_usize) * fiber_count);
 
-    usize drifter_bytes             = A16(sizeof(struct tagged_heap) * thread_count);
-    usize drifter_heap_bytes        = A16(drifter_bytes * (riven_tag_true_count - riven_tag_reserved_count));
     usize tagged_array_bytes        = A16(sizeof(struct tagged_heap *) * tagged_heap_count);
     usize tagged_heap_bytes         = A16(sizeof(struct tagged_heap) * tagged_heap_count);
     usize pages_count               = position_from_offset2mb(memory_budget_size);
@@ -1437,7 +1460,6 @@ s32 riven_moonlit_walk(
         waiting_bytes +
         free_bytes +
         locks_bytes +
-        drifter_heap_bytes +
         tagged_array_bytes +
         tagged_heap_bytes +
         bitmap_bytes +
@@ -1464,18 +1486,12 @@ s32 riven_moonlit_walk(
     riven->waiting      = (at_usize *)                  &raw[o]; o += waiting_bytes;
     riven->free         = (at_usize *)                  &raw[o]; o += free_bytes;
     riven->locks        = (at_usize *)                  &raw[o]; o += locks_bytes;
-    for (u32 i = 0; i < riven_tag_reserved_count; i++) {
+    for (u32 i = 0; i < riven_tag_reserved_count; i++)
         atomic_store_explicit(&riven->reserved_heaps[i].tag, i, memory_order_relaxed);
-    }
-    for (u32 i = 0; i < riven_tag_true_count-riven_tag_reserved_count; i++) {
-        riven->drifter_heaps[i] = (struct tagged_heap *)&raw[o]; o += drifter_bytes;
-        for (u32 j = 0; j < thread_count; j++)
-            atomic_store_explicit(&riven->drifter_heaps[i][j].tag, riven_tag_reserved_count+i, memory_order_relaxed);
-    }
     riven->tagged_heaps = (struct tagged_heap **)       &raw[o]; o += tagged_array_bytes;
     for (u32 i = 0; i < tagged_heap_count; i++) {
         riven->tagged_heaps[i] = (struct tagged_heap *) &raw[o]; o += sizeof(struct tagged_heap);
-        atomic_store_explicit(&riven->tagged_heaps[i]->tag, riven_tag_invalid, memory_order_relaxed);
+        atomic_store_explicit(&riven->tagged_heaps[i]->tag, riven_tag_deferred, memory_order_relaxed);
     }
     riven->bitmap       = (at_u8 *)                     &raw[o]; o += bitmap_bytes;
     riven->stack        = (u8 *)                        &raw[o];
@@ -1525,10 +1541,10 @@ s32 riven_moonlit_walk(
     /* setup the roots allocation */
     union mpmc_data roots = {0};
     mpmc_ring_dequeue(&riven->allocation_ring, &roots);
-    riven->reserved_heaps[riven_tag_roots].tail = riven->reserved_heaps[riven_tag_roots].head = roots.allocation;
-    riven->reserved_heaps[riven_tag_roots].head->size = roots_allocation_size;
-    riven->reserved_heaps[riven_tag_roots].head->count = total_bytes;
-    /* now we can safely call riven_alloc() with rivens_tag_roots */
+    riven->reserved_heaps[riven_tag_roots].arena.tail = riven->reserved_heaps[riven_tag_roots].arena.head = roots.allocation;
+    riven->reserved_heaps[riven_tag_roots].arena.head->size = roots_allocation_size;
+    riven->reserved_heaps[riven_tag_roots].arena.head->count = total_bytes;
+    /* now we can safely call riven_alloc() with riven_tag_roots */
     hash_table_init(&riven->table, riven, riven_tag_roots, bits_log2_next_pow2(thread_count));
 
     riven->tls[0].riven = riven;
@@ -1543,9 +1559,8 @@ s32 riven_moonlit_walk(
         tls->riven = riven;
         tls->fiber_in_use = (u32)RIVEN_FIBER_INVALID;
         thread_create(&riven->threads[i], dirty_deeds_done_dirt_cheap, (void *)tls);
-
-        void *key = &riven->threads[i];
-        hash_table_insert(&riven->table, key, sizeof(thread_t), i);
+        /* hash the thread handle */
+        hash_table_insert(&riven->table, (void *)&riven->threads[i], sizeof(thread_t), i);
     }
     thread_affinity(riven->stack, riven->threads, thread_count, cpu_count, 0);
     atomic_store_explicit(&riven->tls_sync, (usize)1, memory_order_release);
