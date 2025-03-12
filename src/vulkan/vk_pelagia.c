@@ -149,7 +149,7 @@ static PFN_vkVoidFunction instance_proc_address(
 {
     PFN_vkVoidFunction address = pelagia->vkGetInstanceProcAddr(pelagia->instance, procname);
     if (address == NULL)
-        log_warn("Pelagia 'vulkan' can't find instance procedure of name '%s'.", procname);
+        log_warn("'pelagia_vulkan' can't find instance procedure of name '%s'.", procname);
     return address;
 }
 
@@ -450,8 +450,6 @@ RIVEN_ENCORE(pelagia, vulkan) {
         WRITE_PFN(query_physical_devices)
         WRITE_PFN(create_device)
         WRITE_PFN(destroy_device)
-        WRITE_PFN(allocate_device_memory)
-        WRITE_PFN(free_device_memory)
         WRITE_PFN(create_buffers)
         WRITE_PFN(create_textures)
         WRITE_PFN(create_samplers)
@@ -473,10 +471,6 @@ RIVEN_ENCORE(pelagia, vulkan) {
     *create_info->header.interface = (riven_argument_t)pelagia;
     log_verbose("'%s' interface write.", pelagia->interface.header.name.ptr);
 }
-
-/* TODO move them into a gpu_allocator source file or some shit */
-void _pelagia_vulkan_allocate_device_memory(struct pelagia_device_memory_create_info *create_info) { (void)create_info; }
-void _pelagia_vulkan_free_device_memory(struct pelagia_device_memory *memory) { (void)memory; }
 
 /* TODO i'll handle the resources later */
 void _pelagia_vulkan_create_buffers(struct pelagia_buffers_create_info *create_info) { (void)create_info; }

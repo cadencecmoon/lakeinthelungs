@@ -933,14 +933,12 @@ usize find_first_set(
     const usize count = 1 + index_from_offset16mb(ceiling) - index;
     const u8 *raw = (const u8 *)bitmap;
 
-    u32 o = 0;
     for (;;) {
         usize bits = bits_ffs(&raw[index], count);
 
         /* bits_ffs returns a 1-based value, or 0 if no bits are set
          * this is also why we must decrement the bits value by one */
-        if (!bits) 
-            return 0lu;
+        if (!bits) return 0lu;
         /* the position_from_index will align the position from argument to a byte boundary */
         bits += position_from_index(index) - 1;
 
@@ -955,9 +953,6 @@ usize find_first_set(
         /* double check to avoid a possibility of data races */
         if ((prev & bitmask) == bitmask) 
             return offset2mb_from_position(bits);
-
-        o++;
-        assert_debug(o < 5);
     }
     UNREACHABLE;
 }

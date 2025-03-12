@@ -74,7 +74,7 @@ typedef void (AMWCALL *PFN_acquire_framebuffer_extent)(struct hadal *hadal, u32 
 #ifdef PELAGIA_VULKAN
 /* to avoid including the Vulkan header */
 struct VkInstance_T;
-struct VkSurface_T;
+struct VkSurfaceKHR_T;
 struct VkPhysicalDevice_T;
 struct VkAllocationCallbacks;
 typedef void (*(*PFN_vkGetInstanceProcAddr)(struct VkInstance_T *, const char *))(void);
@@ -89,10 +89,9 @@ typedef void (*(*PFN_vkGetInstanceProcAddr)(struct VkInstance_T *, const char *)
 typedef s32 (AMWCALL *PFN_vulkan_create_surface)(
     const struct hadal                 *hadal,
     struct VkInstance_T                *instance,
-    struct VkSurface_T                **out_surface,
+    struct VkSurfaceKHR_T             **out_surface,
     const struct VkAllocationCallbacks *callbacks,
-    void *(*vkGetInstanceProcAddr)(struct VkInstance_T *, const char *),
-    void                               *vulkan_module);
+    PFN_vkGetInstanceProcAddr           vkGetInstanceProcAddr);
 
 /** Checks whether the physical device supports presentation for a given display backend.
  *  If a display backend has no dedicated vkGetPhysicalDevice*PresentationSupport procedure,
@@ -102,10 +101,10 @@ typedef s32 (AMWCALL *PFN_vulkan_create_surface)(
 typedef b32 (AMWCALL *PFN_vulkan_physical_device_presentation_support)(
     const struct hadal                 *hadal,
     struct VkInstance_T                *instance,
-    struct VkSurface_T                 *surface,
+    struct VkSurfaceKHR_T              *surface,
+    struct VkPhysicalDevice_T          *physical_device,
     u32                                 queue_family,
-    void *(*vkGetInstanceProcAddr)(struct VkInstance_T *, const char *),
-    void                               *vulkan_module);
+    PFN_vkGetInstanceProcAddr           vkGetInstanceProcAddr);
 #endif
 
 /** Procedures to be provided by an implementation. The backend must implement the 'struct hadal' and 

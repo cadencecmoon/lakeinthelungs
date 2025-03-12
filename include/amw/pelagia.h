@@ -13,9 +13,6 @@ typedef u32 render_resource_t;
 /** The rendering device is our context of execution, used to create resources and run commands 
  *  on the GPU. (struct pelagia_device *) can be safely cast into (struct pelagia_interface **). */
 struct pelagia_device;
-/** A device memory handle. Represents allocated GPU memory, it can be referenced when creating 
- *  resources on VRAM, like buffers and textures, to control how the allocation is done. */
-struct pelagia_device_memory;
 /** A buffer handle. Buffers hold data for different purposes, e.g. vertex data, index data, uniform data, etc. */
 struct pelagia_buffer;
 /** A texture handle. Textures represent 2D or 3D images, with properties like color, depth and stencil. */
@@ -34,7 +31,7 @@ struct pelagia_compute_pipeline;
 struct pelagia_raytracing_pipeline;
 /** A shader binding table handle. SBT's are used in raytracing pipelines to specify which shaders should be 
  *  invoked for different rays. For example, in Vulkan they are GPU memory buffers storing references to shader 
- *  groups, used when calling 'vkCmdTraceRaysKHR()'. They allow to define custom raytracing behaviour. */
+ *  groups, used when calling e.g. 'vkCmdTraceRaysKHR()'. They allow to define custom raytracing behaviour. */
 struct pelagia_shader_binding_table;
 /** A command buffer handle. They hold a sequence of commands for the GPU to execute. 
  *  Pelagia is designed in a way to exploit parallel recording and submition of GPU commands. */
@@ -63,6 +60,18 @@ struct pelagia;
 struct pelagia_create_info {
     struct riven_create_info_header header;
     b32 debug_utilities;
+};
+
+/** Optional GPU features of the renderer, may be different per-device. */
+enum pelagia_features {
+    pelagia_feature_swapchain                   = (1u << 0),
+    pelagia_feature_sparse_binding              = (1u << 1),
+    pelagia_feature_acceleration_structures     = (1u << 2),
+    pelagia_feature_raytracing_pipeline         = (1u << 3),
+    pelagia_feature_ray_query                   = (1u << 4),
+    pelagia_feature_mesh_shader                 = (1u << 5),
+    pelagia_feature_decode_av1                  = (1u << 6),
+    pelagia_feature_decode_h264                 = (1u << 7),
 };
 
 #ifdef PELAGIA_D3D12
@@ -107,17 +116,17 @@ AMWAPI RIVEN_ENCORE(pelagia, native);
  *  create info, when creating a device. */
 struct pelagia_physical_device_info {
     struct str              name;           /**< The name of the physical device. */
+    u32                     index;          /**< Internal index of the physical device structure. */
     u32                     device_type;    /**< Device type, e.g. discrete GPU, integrated GPU, CPU, virtual. */
     u32                     vendor_id;      /**< The vendor ID, e.g. AMD, NVIDIA, Intel. */
     u32                     api_version;    /**< The version of the supported API, depends on the backend. */
+    u32                     features;       /**< Bits from enum pelagia_features. */
     usize                   total_vram;     /**< Total video memory available, in bytes. */
     /** An internally resolved score for comparing devices with each other. By itself a score 
      *  means nothing, as backend can write arbitrary scores as they do the device query. */
     u32                     score;
     /** This device has surface capabilities and can be used to create and control swapchains. */
     b32                     presentation;
-    /** We may discard devices that were not flagged as valid. */
-    b32                     valid;
 };
 
 /** Information needed to create a rendering device. */
@@ -132,7 +141,6 @@ struct pelagia_device_create_info {
 /** Types of GPU resources. */
 enum pelagia_resource_type {
     pelagia_resource_type_invalid = 0u,
-    pelagia_resource_type_device_memory,
     pelagia_resource_type_buffer,
     pelagia_resource_type_texture,
     pelagia_resource_type_sampler,
@@ -165,7 +173,6 @@ struct pelagia_resource_header {
 /** Abstracts the handle to a GPU resource. */
 union pelagia_resource {
     struct pelagia_resource_header         *header;
-    struct pelagia_device_memory           *device_memory;
     struct pelagia_buffer                  *buffer;
     struct pelagia_texture                 *texture;
     struct pelagia_sampler                 *sampler;
@@ -194,12 +201,6 @@ union pelagia_resource {
 
 /** Abstracts common fields in a create_info structure of any resource type. */
 struct pelagia_resources_create_info { PELAGIA_RESOURCES_CREATE_INFO_HEADER(resource_header); };
-
-/** Information needed to perform device allocations in bulk. */
-struct pelagia_device_memory_create_info {
-    PELAGIA_RESOURCES_CREATE_INFO_HEADER(device_memory);
-    /* TODO */
-};
 
 /** Information needed to create an array of buffers. */
 struct pelagia_buffers_create_info {
@@ -320,14 +321,6 @@ typedef void (AMWCALL *PFN_pelagia_create_device)(struct pelagia_device_create_i
 /** All existing resources with an affinity of this device must be destroyed before the device may be destroyed too. */
 typedef void (AMWCALL *PFN_pelagia_destroy_device)(struct pelagia_device *device);
 
-/** Allocates a chunk of heap memory on the GPU's VRAM. Writes a handle that can be referenced by 
- *  GPU resources for suballocation or fine-control memory management from high-level code. */
-typedef void (AMWCALL *PFN_pelagia_allocate_device_memory)(struct pelagia_device_memory_create_info *create_info);
-
-/** Frees a chunk of heap memory that was allocated on the GPU's VRAM. All resources using this memory chunk 
- *  must be destroyed before the memory can be freed safely. */
-typedef void (AMWCALL *PFN_pelagia_free_device_memory)(struct pelagia_device_memory *memory);
-
 /** Macro to define a procedure pointer that creates a type of GPU resource. */
 #define PFN_PELAGIA_CREATE_RESOURCE(type) \
     typedef void (AMWCALL *PFN_pelagia_create_##type)(struct pelagia_##type##_create_info *create_info)
@@ -393,16 +386,10 @@ typedef void (AMWCALL *PFN_pelagia_destroy_resources)(struct pelagia_destroy_res
 struct pelagia_interface {
     struct riven_interface_header               header;
 
-    /* device API */
     PFN_pelagia_query_physical_devices          query_physical_devices;
     PFN_pelagia_create_device                   create_device;
     PFN_pelagia_destroy_device                  destroy_device;
 
-    /* GPU memory API */
-    PFN_pelagia_allocate_device_memory          allocate_device_memory;
-    PFN_pelagia_free_device_memory              free_device_memory;
-
-    /* GPU resources API */
     PFN_pelagia_create_buffers                  create_buffers;
     PFN_pelagia_create_textures                 create_textures;
     PFN_pelagia_create_samplers                 create_samplers;
@@ -419,9 +406,6 @@ struct pelagia_interface {
     PFN_pelagia_create_bottom_levels            create_bottom_levels;
     PFN_pelagia_create_top_levels               create_top_levels;
     PFN_pelagia_destroy_resources               destroy_resources;
-
-    /* GPU commands API */
-        /* TODO */
 };
 
 attr_inline attr_nonnull(1,3)

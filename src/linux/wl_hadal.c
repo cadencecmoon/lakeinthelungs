@@ -37,12 +37,6 @@ static void wayland_interface_fini(struct hadal *hadal)
     g_wl_hadal = NULL;
 }
 
-static void wayland_acquire_framebuffer_extent(struct hadal *hadal, u32 *width, u32 *height)
-{
-    *width = atomic_load_explicit(&hadal->fb_width, memory_order_acquire);
-    *height = atomic_load_explicit(&hadal->fb_height, memory_order_acquire);
-}
-
 static void handle_wm_base_ping(
     void               *data,
     struct xdg_wm_base *wm_base,
@@ -391,7 +385,13 @@ RIVEN_ENCORE(hadal, wayland) {
             .tag = create_info->header.tag,
             .fini = (PFN_riven_work)wayland_interface_fini,
         },
-        .acquire_framebuffer_extent = wayland_acquire_framebuffer_extent,
+#define WRITE_PFN(fn) \
+        .fn = _hadal_wayland_##fn,
+        WRITE_PFN(acquire_framebuffer_extent)
+#ifdef PELAGIA_VULKAN
+        WRITE_PFN(vulkan_create_surface)
+        WRITE_PFN(vulkan_physical_device_presentation_support)
+#endif
     };
     *create_info->header.interface = (riven_argument_t)hadal;
     log_verbose("'%s' interface write.", hadal->interface.header.name.ptr);
@@ -402,11 +402,6 @@ leave:
     process_close_dll(module_cursor);
     process_close_dll(module_xkb);
 }
-
-#if 0 && defined(VK_KHR_wayland_surface)
-    pelagia->vkCreateWaylandSurfaceKHR = (PFN_vkCreateWaylandSurfaceKHR)instance_proc_address(pelagia, "vkCreateWaylandSurfaceKHR");
-    pelagia->vkGetPhysicalDeviceWaylandPresentationSupportKHR = (PFN_vkGetPhysicalDeviceWaylandPresentationSupportKHR)instance_proc_address(pelagia, "vkGetPhysicalDeviceWaylandPresentationSupportKHR");
-#endif /* VK_KHR_wayland_surface */
 
 #include <wayland-protocol-code.h>
 #include <xdg-shell-protocol-code.h>

@@ -3,6 +3,25 @@
 #include <amw/bedrock.h>
 #include <amw/hadal.h>
 
+extern void AMWCALL _hadal_wayland_acquire_framebuffer_extent(struct hadal *hadal, u32 *width, u32 *height);
+
+#ifdef PELAGIA_VULKAN
+extern s32 AMWCALL _hadal_wayland_vulkan_create_surface(
+    const struct hadal                 *hadal,
+    struct VkInstance_T                *instance,
+    struct VkSurfaceKHR_T             **out_surface,
+    const struct VkAllocationCallbacks *callbacks,
+    PFN_vkGetInstanceProcAddr           vkGetInstanceProcAddr);
+
+extern b32 AMWCALL _hadal_wayland_vulkan_physical_device_presentation_support(
+    const struct hadal                 *hadal,
+    struct VkInstance_T                *instance,
+    struct VkSurfaceKHR_T              *surface,
+    struct VkPhysicalDevice_T          *physical_device,
+    u32                                 queue_family,
+    PFN_vkGetInstanceProcAddr           vkGetInstanceProcAddr);
+#endif
+
 extern struct hadal *g_wl_hadal;
 
 #ifndef _GNU_SOURCE

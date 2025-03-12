@@ -115,8 +115,9 @@ typedef u64 riven_tag_t;
 /** Predefined tags for expected lifetime frequencies of game resources. Tags of other values can be 
  *  used for other uses, like allocating memory for assets: scenes, textures, meshes, audio, etc. */
 enum riven_tag {
+    riven_tag_invalid = 0llu,
     /** Resources under this tag cannot be freed, they will share the lifetime of Riven. */
-    riven_tag_roots = 0llu,
+    riven_tag_roots,
     /** Scratch memory for the GPU execution stage. */
     riven_tag_gpuexec,
     /** Scratch memory for the rendering stage. */

@@ -38,20 +38,20 @@ struct lake {
 struct framedata {
     struct work_header work_header;
     /** A frame index incremented every frame. Can be cycled to access per-frame resources via an array index. */
-    u64 index;
+    u64 frame_index;
     /** Delta time of the last frame, whatever it is. */
     f64 dt;     
 
     /* TODO instance arrays, command buffers, skinning matrices */
 
-    struct lake            *lake;
-    const struct framedata *last_frame;
+    struct lake        *lake;
+    struct framedata   *last_frame;
     /** Next framedata, used to feed forward data like low-priority ray casts, seeds, etc.
      *  The framedata is assumed to may have invalid/outdated state, and is really intended
      *  only for touching long-lived data of the same gameloop stage, none other. */
-    struct framedata       *next_frame;
+    struct framedata   *next_frame;
     /** A synchronization primitive, only one stage can work on a framedata at a time. */
-    riven_chain_t           chain;
+    riven_chain_t       chain;
 };
 
 #define LAKE_SIMULATION_WORK_IDX 0

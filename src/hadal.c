@@ -50,6 +50,10 @@ RIVEN_ENCORE(hadal, native)
         if (interface->fn == NULL) { log_warn(fmt, interface->header.name.ptr, #fn); valid = false; }
 
         VALIDATE(acquire_framebuffer_extent)
+#ifdef PELAGIA_VULKAN
+        VALIDATE(vulkan_create_surface)
+        VALIDATE(vulkan_physical_device_presentation_support)
+#endif
 #undef VALIDATE
         if (valid) return;
 

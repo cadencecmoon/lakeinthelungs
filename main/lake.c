@@ -38,6 +38,18 @@ struct engine_hints {
 
 static void lake_fini(struct lake *lake)
 {
+    if (lake->devices) {
+        struct pelagia_interface *pelagia = (struct pelagia_interface *)lake->pelagia;
+        struct riven_work *device_work = (struct riven_work *)
+            riven_alloc(lake->riven, riven_tag_deferred, sizeof(struct riven_work) * lake->device_count, _Alignof(struct riven_work));
+        for (u32 i = 0; i < lake->device_count; i++) {
+            device_work[i].name = str_init("lake_fini:destroy_device");
+            device_work[i].argument = lake->devices[i];
+            device_work[i].procedure = (PFN_riven_work)pelagia->destroy_device;
+        }
+        riven_split_work_and_unchain(lake->riven, device_work, lake->device_count);
+    }
+
     riven_argument_t interfaces[] = {
         (riven_argument_t)lake->hadal,
         (riven_argument_t)lake->pelagia,
@@ -50,13 +62,13 @@ static void lake_fini(struct lake *lake)
         riven_interface_fini(lake->octavia),
     };
 
-    struct riven_work fini[arraysize(interfaces)];
+    struct riven_work fini_work[arraysize(interfaces)];
     for (u32 i = 0; i < arraysize(interfaces); i++) {
-        fini[i].name = str_init("lake_fini");
-        fini[i].argument = interfaces[i];
-        fini[i].procedure = finales[i];
+        fini_work[i].name = str_init("lake_fini");
+        fini_work[i].argument = interfaces[i];
+        fini_work[i].procedure = finales[i];
     }
-    riven_split_work_and_unchain(lake->riven, fini, arraysize(interfaces));
+    riven_split_work_and_unchain(lake->riven, fini_work, arraysize(interfaces));
 }
 
 static s32 lake_init(
@@ -143,33 +155,43 @@ static s32 lake_init(
     assert_debug(res == result_success);
 
     /* select devices from quered information */
-    u32 *indices = (u32 *)riven_alloc(lake->riven, riven_tag_deferred, sizeof(u32) * physical_device_count, _Alignof(u32));
+    u32 *indices = NULL;
     {
-        for (u32 i = 0, o = 0; i < physical_device_count; i++) {
-            if (!physical_devices[i].valid) continue;
-            indices[o++] = i;
-            lake->device_count = o;
-        }
+        lake->device_count = physical_device_count;
         lake->device_count += hints->pelagia_virtual_device_count;
         if (hints->pelagia_device_max_count)
             lake->device_count = min(lake->device_count, hints->pelagia_device_max_count);
         assert_debug(lake->device_count);
 
+        indices = (u32 *)riven_alloc(lake->riven, riven_tag_deferred, sizeof(u32) * lake->device_count, _Alignof(u32));
+
         u32 best_score = 0;
         u32 best_index;
         /* save the index of the best device, this will be our 'primary' */
         for (u32 i = 0; i < lake->device_count; i++) {
-            if ((s32)i == hints->pelagia_force_primary_device_index) {
-                best_score = UINT32_MAX;
-                best_index = (u32)hints->pelagia_force_primary_device_index;
-            } else if (physical_devices[indices[i % physical_device_count]].score > best_score) {
-                best_score = physical_devices[indices[i % physical_device_count]].score;
-                best_index = i;
+            indices[i] = i % physical_device_count;
+
+            if (physical_devices[indices[i]].presentation) {
+                if ((s32)i == hints->pelagia_force_primary_device_index) {
+                    best_score = UINT32_MAX;
+                    best_index = (u32)hints->pelagia_force_primary_device_index;
+                } else if (physical_devices[indices[i]].score > best_score) {
+                    best_score = physical_devices[indices[i]].score;
+                    best_index = i;
+                }
             }
         }
         /* ensure our selected primary device is first in the array */
         xorswap(&indices[0], &indices[best_index]);
+
+        /* log for presentation */
+        if (!physical_devices[indices[0]].presentation) {
+            log_warn("Selected primary device '%s' of index %u has no presentation. "
+                     "Creating a swapchain and drawing to a surface is not supported.", 
+                     physical_devices[indices[0]].name.ptr, indices[0]);
+        }
     }
+
     /* create rendering devices */
     lake->devices = (struct pelagia_device **)
         riven_alloc(lake->riven, tag, sizeof(struct pelagia_device *) * lake->device_count, _Alignof(struct pelagia_device *));
@@ -180,18 +202,24 @@ static s32 lake_init(
     struct pelagia_interface *pelagia = (struct pelagia_interface *)lake->pelagia;
     struct riven_work *device_work = (struct riven_work *)
         riven_alloc(lake->riven, riven_tag_deferred, sizeof(struct riven_work) * lake->device_count, _Alignof(struct riven_work));
+
     for (u32 i = 0; i < lake->device_count; i++) {
         lake->devices[i] = NULL;
         device_infos[i].work_header = (struct work_header){ .index = i, };
         device_infos[i].pelagia = lake->pelagia;
         device_infos[i].write_device = lake->devices;
-        device_infos[i].physical_device = &physical_devices[indices[i % physical_device_count]];
+        device_infos[i].physical_device = &physical_devices[indices[i]];
         device_infos[i].allocation = (struct riven_allocation){ .tag = tag, };
         riven_format_string(lake->riven, riven_tag_deferred, &device_work[i].name, "%s:create_device:%u", pelagia->header.name.ptr, i);
         device_work[i].argument = &device_infos[i];
         device_work[i].procedure = (PFN_riven_work)pelagia->create_device;
     }
     riven_split_work_and_unchain(lake->riven, device_work, lake->device_count);
+
+#if DEBUG
+    for (u32 i = 0; i < lake->device_count; i++)
+        assert_debug(device_infos[i].write_device);
+#endif
 
     return result_success;
 }
@@ -266,9 +294,6 @@ static s32 lake_in_the_lungs(
                 lake.exit_game = true;
             }
 
-            /* wait for last GPU execution to complete */
-            riven_unchain(riven, gpuexec->last_frame->chain);
-
             /* feed forward to GPU execution */
             work[LAKE_GPUEXEC_WORK_IDX].argument = gpuexec;
             riven_split_work(riven, &work[LAKE_GPUEXEC_WORK_IDX], 1, &gpuexec->chain);
@@ -286,9 +311,6 @@ static s32 lake_in_the_lungs(
                           frame_index, work[LAKE_SIMULATION_WORK_IDX].name.ptr);
                 lake.exit_game = true;
             }
-
-            /* wait for last rendering to complete */
-            riven_unchain(riven, rendering->last_frame->chain);
 
             /* feed forward to rendering */
             work[LAKE_RENDERING_WORK_IDX].argument = rendering;
@@ -309,18 +331,14 @@ static s32 lake_in_the_lungs(
             }
 
             /* prepare the next framedata */
-            simulation->index = frame_index;
+            simulation->frame_index = frame_index;
             simulation->dt = dt;
 
-            /* wait for last simulation to complete */
-            riven_unchain(riven, simulation->last_frame->chain);
-            
             /* begin the next frame */
             work[LAKE_SIMULATION_WORK_IDX].argument = simulation;
             riven_split_work(riven, &work[LAKE_SIMULATION_WORK_IDX], 1, &simulation->chain);
         }
 
-        /* XXX delete the close_counter later */
         close_counter -= dt;
         if ((lake.exit_game || close_counter <= 0))
             lake.finalize_gameloop = true;
@@ -403,7 +421,5 @@ s32 amw_main(s32 argc, char **argv)
             (PFN_riven_heart)lake_in_the_lungs,
             (riven_argument_t)&hints);
     } while (res == result_continue);
-
-    log_verbose("%s exit.", metadata.game_name.ptr);
     return res;
 }

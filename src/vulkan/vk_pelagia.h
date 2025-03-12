@@ -75,23 +75,25 @@ enum vulkan_extensions {
     vulkan_ext_acceleration_structure_bit       = (1ull << 7),  /**< VK_KHR_acceleration_structure */
     vulkan_ext_pipeline_library_bit             = (1ull << 8),  /**< VK_KHR_pipeline_library */
     vulkan_ext_ray_query_bit                    = (1ull << 9),  /**< VK_KHR_ray_query */
-    vulkan_ext_ray_tracing_pipeline_bit         = (1ull << 10), /**< VK_KHR_ray_tracing_pipeline */
-    vulkan_ext_ray_tracing_maintenance1_bit     = (1ull << 11), /**< VK_KHR_ray_tracing_maintenance1 */
+    vulkan_ext_raytracing_pipeline_bit          = (1ull << 10), /**< VK_KHR_ray_tracing_pipeline */
+    vulkan_ext_raytracing_maintenance1_bit      = (1ull << 11), /**< VK_KHR_ray_tracing_maintenance1 */
     vulkan_ext_video_queue_bit                  = (1ull << 12), /**< VK_KHR_video_queue */
     vulkan_ext_video_decode_queue_bit           = (1ull << 13), /**< VK_KHR_video_decode_queue */
-    vulkan_ext_video_encode_queue_bit           = (1ull << 14), /**< VK_KHR_video_encode_queue */
-    vulkan_ext_video_maintenance1_bit           = (1ull << 15), /**< VK_KHR_video_maintenance1 */
+    vulkan_ext_video_decode_av1_bit             = (1ull << 14), /**< VK_KHR_video_decode_av1 */
+    vulkan_ext_video_decode_h264_bit            = (1ull << 15), /**< VK_KHR_video_decode_h264 */
+    vulkan_ext_video_maintenance1_bit           = (1ull << 16), /**< VK_KHR_video_maintenance1 */
     /* AMD hardware */
-    vulkan_ext_amd_device_coherent_memory_bit   = (1ull << 16), /**< VK_AMD_device_coherent_memory */
+    vulkan_ext_amd_device_coherent_memory_bit   = (1ull << 17), /**< VK_AMD_device_coherent_memory */
     /* core 1.4, for backwards compatibility */
-    vulkan_ext_dynamic_rendering_local_read_bit = (1ull << 17), /**< VK_KHR_dynamic_rendering_local_read */
-    vulkan_ext_maintenance5_bit                 = (1ull << 18), /**< VK_KHR_maintenance5 */
+    vulkan_ext_dynamic_rendering_local_read_bit = (1ull << 18), /**< VK_KHR_dynamic_rendering_local_read */
+    vulkan_ext_maintenance5_bit                 = (1ull << 19), /**< VK_KHR_maintenance5 */
     /* core 1.3, for backwards compatibility */
-    vulkan_ext_dynamic_rendering_bit            = (1ull << 19), /**< VK_KHR_dynamic_rendering */
-    vulkan_ext_synchronization2_bit             = (1ull << 20), /**< VK_KHR_synchronization2 */
-    vulkan_ext_maintenance4_bit                 = (1ull << 21), /**< VK_KHR_maintenance4 */
+    vulkan_ext_dynamic_rendering_bit            = (1ull << 20), /**< VK_KHR_dynamic_rendering */
+    vulkan_ext_synchronization2_bit             = (1ull << 21), /**< VK_KHR_synchronization2 */
+    vulkan_ext_maintenance4_bit                 = (1ull << 22), /**< VK_KHR_maintenance4 */
 };
 
+#define VULKAN_QUEUE_FAMILY_INDICES_COUNT 5
 /** Holds information about physical devices available. We query this once,
  *  and reference them whenever we create a rendering device. */
 struct vulkan_physical_device {
@@ -99,6 +101,7 @@ struct vulkan_physical_device {
     VkPhysicalDevice            device;
 
     u32                         score;
+    u32                         pelagia_features;
     u64                         extension_bits;
     usize                       total_vram;
 
@@ -107,17 +110,23 @@ struct vulkan_physical_device {
     u32                         transfer_queue_family_index;
     u32                         sparse_binding_queue_family_index;
     u32                         video_decode_queue_family_index;
-    u32                         video_encode_queue_family_index;
+    u32                         presentation_queue_family_index;
 
     /** Unique queue family indices present in this device. */
-    u32                         queue_family_indices[6];
+    u32                         queue_family_indices[VULKAN_QUEUE_FAMILY_INDICES_COUNT];
     /** How many unique queue families are present. */
     u32                         queue_family_count;
 
+    u32                         graphics_queue_family_queue_count;
+    u32                         async_compute_queue_family_queue_count;
+
+    VkSurfaceCapabilitiesKHR    surface_capabilities;
+    VkBool32                    presentation_support;
     b32                         has_async_compute;
     b32                         has_async_transfer;
     b32                         has_async_sparse_binding;
     b32                         has_async_video;
+    b32                         has_async_present;
 
     /** Information about hardware properties of the physical device. */
     VkPhysicalDeviceProperties2                                 properties2;
@@ -151,47 +160,33 @@ struct vulkan_physical_device {
     VkPhysicalDeviceFragmentShadingRateFeaturesKHR              fragment_shading_rate_features;
     VkPhysicalDeviceMeshShaderFeaturesEXT                       mesh_shader_features;
 
-    /** Information about surface capabilities for the swapchain. */
-    VkBool32                                                    presentation_support;
-    VkFormat                                                    swapchain_image_format;
-    VkSurfaceCapabilitiesKHR                                    surface_capabilities;
-    VkSurfaceFormatKHR                                          surface_format;
-    VkPresentModeKHR                                            present_mode;
-
-    /** Information about capabilities of accelerated H.264 video coding. */
+    /** Information about capabilities of accelerated video coding. */
     VkVideoDecodeH264ProfileInfoKHR                             decode_h264_profile;
     VkVideoDecodeH264CapabilitiesKHR                            decode_h264_capabilities;
-    VkVideoEncodeH264ProfileInfoKHR                             encode_h264_profile;
-    VkVideoEncodeH264CapabilitiesKHR                            encode_h264_capabilities;
-
-    /** Information about capabilities of accelerated AV1 video coding. */
     VkVideoDecodeAV1ProfileInfoKHR                              decode_av1_profile;
     VkVideoDecodeAV1CapabilitiesKHR                             decode_av1_capabilities;
-    VkVideoEncodeAV1ProfileInfoKHR                              encode_av1_profile;
-    VkVideoEncodeAV1CapabilitiesKHR                             encode_av1_capabilities;
 
     struct vulkan_video_capability {
         VkVideoProfileInfoKHR                                   profile;
         VkVideoDecodeCapabilitiesKHR                            decode_capabilities;
-        VkVideoEncodeCapabilitiesKHR                            encode_capabilities;
         VkVideoCapabilitiesKHR                                  video_capabilities;
     } video_h264_capability, video_av1_capability;
 };
 
 struct pelagia {
-    struct pelagia_interface    interface;
+    struct pelagia_interface                interface;
     /** An instance makes Vulkan functions available to us. It is used for calls to the driver,
      *  and holds information about the application. Afterwards it is passed to the logical device. */
-    VkInstance                  instance;
+    VkInstance                              instance;
     /** Used for logging messages and profiling with validation layers enabled. */
-    VkDebugUtilsMessengerEXT    debug_messenger;
+    VkDebugUtilsMessengerEXT                debug_messenger;
     /** The loaded driver library. */
-    void                       *module;
+    void                                   *module;
 
     /** We query available physical devices at initialization. */
-    const struct vulkan_physical_device *physical_devices;
+    const struct vulkan_physical_device    *physical_devices;
     /** Available physical devices, this value won't change at runtime. */
-    u32                                  physical_device_count;
+    u32                                     physical_device_count;
 
     /* access points */
     PFN_vkGetInstanceProcAddr                                   vkGetInstanceProcAddr;
@@ -252,19 +247,19 @@ struct pelagia {
 
 struct pelagia_device {
     /** We can cast struct pelagia_device* into struct pelagia**. */
-    struct pelagia                         *pelagia;
+    const struct pelagia                   *pelagia;
     /** The physical device used to create this rendering device. */
     const struct vulkan_physical_device    *physical;
     /** The Vulkan context of a rendering device, using the given physical device. */
     VkDevice                                logical;
 
-    /* Command queues, they comply with information about queue families stored in the physical device structure. */
+    /* Command queues, they are created from the information about queue families stored in the physical device structure. */
     VkQueue                                 graphics_queue;
     VkQueue                                 compute_queue;
     VkQueue                                 transfer_queue;
     VkQueue                                 sparse_binding_queue;
     VkQueue                                 video_decode_queue;
-    VkQueue                                 video_encode_queue;
+    VkQueue                                 presentation_queue;
 
     /* core 1.0 */
 	PFN_vkAllocateCommandBuffers                                vkAllocateCommandBuffers;
@@ -494,7 +489,6 @@ struct pelagia_device {
     PFN_vkCmdBeginVideoCodingKHR                                vkCmdBeginVideoCodingKHR;
     PFN_vkCmdControlVideoCodingKHR                              vkCmdControlVideoCodingKHR;
     PFN_vkCmdDecodeVideoKHR                                     vkCmdDecodeVideoKHR;
-    PFN_vkCmdEncodeVideoKHR                                     vkCmdEncodeVideoKHR;
     PFN_vkCmdEndVideoCodingKHR                                  vkCmdEndVideoCodingKHR;
     PFN_vkCreateVideoSessionKHR                                 vkCreateVideoSessionKHR;
     PFN_vkCreateVideoSessionParametersKHR                       vkCreateVideoSessionParametersKHR;
@@ -502,12 +496,6 @@ struct pelagia_device {
     PFN_vkDestroyVideoSessionParametersKHR                      vkDestroyVideoSessionParametersKHR;
     PFN_vkGetVideoSessionMemoryRequirementsKHR                  vkGetVideoSessionMemoryRequirementsKHR;
     PFN_vkUpdateVideoSessionParametersKHR                       vkUpdateVideoSessionParametersKHR;
-};
-
-struct pelagia_device_memory {
-    /** pelagia_resource_type_device_memory */
-    struct pelagia_resource_header  header;
-    /* TODO */
 };
 
 struct pelagia_buffer {
@@ -618,10 +606,10 @@ struct pelagia_top_level {
 };
 
 /** Get a (very helpful I guess) message of a given Vulkan error code. */
-extern attr_const const char *vulkan_result_string(VkResult result);
+extern attr_const const char *AMWCALL vulkan_result_string(VkResult result);
 
 /** Return true if an extension is present in the properties array. */
-extern b32 vulkan_query_extension(VkExtensionProperties *properties, u32 count, const char *ext);
+extern b32 AMWCALL vulkan_query_extension(VkExtensionProperties *properties, u32 count, const char *ext);
 
 #if !defined(NDEBUG)
     #define VERIFY_VK(x) { \
@@ -672,8 +660,6 @@ extern s32 AMWCALL _pelagia_vulkan_query_physical_devices(
 
 extern void AMWCALL _pelagia_vulkan_create_device(struct pelagia_device_create_info *create_info);
 extern void AMWCALL _pelagia_vulkan_destroy_device(struct pelagia_device *device);
-extern void AMWCALL _pelagia_vulkan_allocate_device_memory(struct pelagia_device_memory_create_info *create_info);
-extern void AMWCALL _pelagia_vulkan_free_device_memory(struct pelagia_device_memory *memory);
 
 extern void AMWCALL _pelagia_vulkan_create_buffers(struct pelagia_buffers_create_info *create_info);
 extern void AMWCALL _pelagia_vulkan_create_textures(struct pelagia_textures_create_info *create_info);
