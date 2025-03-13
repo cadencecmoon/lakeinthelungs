@@ -3,13 +3,13 @@
 #include <amw/log.h>
 
 void _hadal_wayland_acquire_framebuffer_extent(
-    struct hadal *hadal, 
-    u32          *width, 
-    u32          *height)
+    const struct hadal *hadal, 
+    u32                *out_width, 
+    u32                *out_height)
 {
-    assert_debug(width && height);
-    *width = atomic_load_explicit(&hadal->fb_width, memory_order_acquire);
-    *height = atomic_load_explicit(&hadal->fb_height, memory_order_acquire);
+    assert_debug(out_width && out_height);
+    *out_width = atomic_load_explicit(&hadal->fb_width, memory_order_acquire);
+    *out_height = atomic_load_explicit(&hadal->fb_height, memory_order_acquire);
 }
 
 #ifdef PELAGIA_VULKAN

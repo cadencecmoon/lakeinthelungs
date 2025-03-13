@@ -56,7 +56,7 @@ if sys == 'linux' or sys == 'bsd'
     build_wayland = (dep_wayland_client.found() and wayland_scanner.found() and dep_xkbcommon.found())
     if build_wayland
         engine_sources += files(
-            'wl_hadal.c',
+            'wl_display.c',
             'wl_window.c',
         )
         defs += [ '-DHADAL_WAYLAND=1', '-DVK_USE_PLATFORM_WAYLAND_KHR' ]

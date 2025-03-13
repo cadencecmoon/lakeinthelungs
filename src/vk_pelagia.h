@@ -120,7 +120,6 @@ struct vulkan_physical_device {
     u32                         graphics_queue_family_queue_count;
     u32                         async_compute_queue_family_queue_count;
 
-    VkSurfaceCapabilitiesKHR    surface_capabilities;
     VkBool32                    presentation_support;
     b32                         has_async_compute;
     b32                         has_async_transfer;
@@ -260,6 +259,22 @@ struct pelagia_device {
     VkQueue                                 sparse_binding_queue;
     VkQueue                                 video_decode_queue;
     VkQueue                                 presentation_queue;
+
+#if PELAGIA_ENABLE_GPU_PROFILER
+    at_u32                                  device_memory_count;
+    at_u32                                  buffer_count;
+    at_u32                                  texture_count;
+    at_u32                                  sampler_count;
+    at_u32                                  pipeline_layout_count;
+    at_u32                                  graphics_pipeline_count;
+    at_u32                                  compute_pipeline_count;
+    at_u32                                  raytracing_pipeline_count;
+    at_u32                                  descriptor_set_layout_count;
+    at_u32                                  descriptor_pool_count;
+    at_u32                                  swapchain_count;
+    at_u32                                  query_pool_count;
+#endif
+    u32                                     frames_in_flight;
 
     /* core 1.0 */
 	PFN_vkAllocateCommandBuffers                                vkAllocateCommandBuffers;
@@ -498,6 +513,12 @@ struct pelagia_device {
     PFN_vkUpdateVideoSessionParametersKHR                       vkUpdateVideoSessionParametersKHR;
 };
 
+struct pelagia_device_memory {
+    /** pelagia_resource_type_device_memory */
+    struct pelagia_resource_header  header;
+    /* TODO */
+};
+
 struct pelagia_buffer {
     /** pelagia_resource_type_buffer */
     struct pelagia_resource_header  header;
@@ -552,12 +573,6 @@ struct pelagia_shader_binding_table {
     /* TODO */
 };
 
-struct pelagia_command_buffer {
-    /** pelagia_resource_type_command_buffer */
-    struct pelagia_resource_header  header;
-    /* TODO */
-};
-
 struct pelagia_descriptor_set {
     /** pelagia_resource_type_descriptor_set */
     struct pelagia_resource_header  header;
@@ -576,19 +591,26 @@ struct pelagia_swapchain {
     /** The display used to create a surface. */
     struct hadal                   *hadal;
     /** The Vulkan object for a swapchain, created using the surface below. */
-    VkSwapchainKHR                  swapchain;
+    VkSwapchainKHR                  sc;
     /** A surface created by interfacing with a display backend. */
     VkSurfaceKHR                    surface;
-    /** The format of held images, in pixels. */
-    VkFormat                        format;
-    /** Selected mode of image presentation. */
-    VkPresentModeKHR                present_mode;
+    /** Selected mode of image presentation, when V-SYNC is disabled. */
+    VkPresentModeKHR                no_vsync_present_mode;
+    /** The bit flag of the composite alpha. */
+    VkCompositeAlphaFlagsKHR        composite_alpha;
+    /** The resolution of images, in pixels. */
+    VkExtent2D                      extent;
+    VkSharingMode                   sharing_mode;
+    /** The intended use of the images. If transfer is set, screenshots are supported. */
+    VkImageUsageFlags               image_usage;
+    /** The format of images held in the swapchain. */
+    VkFormat                        image_format;
     /** An array of images held in the swapchain. */
-    VkImage                        *images;
+    VkImage                         images[PELAGIA_MAX_SWAPCHAIN_IMAGES];
     /** An image view for each image in the swapchain. */
-    VkImageView                    *image_views;
+    VkImageView                     image_views[PELAGIA_MAX_SWAPCHAIN_IMAGES];
     /** Synchronization semaphores used for presentation. */
-    VkSemaphore                    *image_available_sem;
+    VkSemaphore                     image_available_sem[PELAGIA_MAX_FRAMES_IN_FLIGHT];
     /** Number of images in the swapchain. */
     u32                             image_count;
 };
@@ -610,6 +632,9 @@ extern attr_const const char *AMWCALL vulkan_result_string(VkResult result);
 
 /** Return true if an extension is present in the properties array. */
 extern b32 AMWCALL vulkan_query_extension(VkExtensionProperties *properties, u32 count, const char *ext);
+
+/** Translates a pelagia_texture_format into a Vulkan image format. */
+extern attr_const VkFormat AMWCALL vulkan_translate_texture_format(enum pelagia_texture_format format);
 
 #if !defined(NDEBUG)
     #define VERIFY_VK(x) { \
@@ -650,6 +675,23 @@ attr_inline u32 vulkan_get_mipmap_count_3d(VkExtent3D *extent) {
 	return result;
 }
 
+/* calls for '_pelagia_vulkan_destroy_resources()'. */
+extern void AMWCALL vulkan_destroy_device_memory(struct pelagia_device_memory *device_memory);
+extern void AMWCALL vulkan_destroy_buffer(struct pelagia_buffer *buffer);
+extern void AMWCALL vulkan_destroy_texture(struct pelagia_texture *texture);
+extern void AMWCALL vulkan_destroy_sampler(struct pelagia_sampler *sampler);
+extern void AMWCALL vulkan_destroy_shader(struct pelagia_shader *shader);
+extern void AMWCALL vulkan_destroy_pipeline_layout(struct pelagia_pipeline_layout *pipeline_layout);
+extern void AMWCALL vulkan_destroy_graphics_pipeline(struct pelagia_graphics_pipeline *graphics_pipeline);
+extern void AMWCALL vulkan_destroy_compute_pipeline(struct pelagia_compute_pipeline *compute_pipeline);
+extern void AMWCALL vulkan_destroy_raytracing_pipeline(struct pelagia_raytracing_pipeline *raytracing_pipeline);
+extern void AMWCALL vulkan_destroy_shader_binding_table(struct pelagia_shader_binding_table *shader_binding_table);
+extern void AMWCALL vulkan_destroy_descriptor_set(struct pelagia_descriptor_set *descriptor_set);
+extern void AMWCALL vulkan_destroy_query_pool(struct pelagia_query_pool *query_pool);
+extern void AMWCALL vulkan_destroy_swapchain(struct pelagia_swapchain *swapchain);
+extern void AMWCALL vulkan_destroy_bottom_level(struct pelagia_bottom_level *bottom_level);
+extern void AMWCALL vulkan_destroy_top_level(struct pelagia_top_level *top_level);
+
 /* pelagia interface implementation */
 
 extern s32 AMWCALL _pelagia_vulkan_query_physical_devices(
@@ -661,6 +703,7 @@ extern s32 AMWCALL _pelagia_vulkan_query_physical_devices(
 extern void AMWCALL _pelagia_vulkan_create_device(struct pelagia_device_create_info *create_info);
 extern void AMWCALL _pelagia_vulkan_destroy_device(struct pelagia_device *device);
 
+extern void AMWCALL _pelagia_vulkan_create_device_memory(struct pelagia_device_memory_create_info *create_info);
 extern void AMWCALL _pelagia_vulkan_create_buffers(struct pelagia_buffers_create_info *create_info);
 extern void AMWCALL _pelagia_vulkan_create_textures(struct pelagia_textures_create_info *create_info);
 extern void AMWCALL _pelagia_vulkan_create_samplers(struct pelagia_samplers_create_info *create_info);
@@ -670,10 +713,9 @@ extern void AMWCALL _pelagia_vulkan_create_graphics_pipelines(struct pelagia_gra
 extern void AMWCALL _pelagia_vulkan_create_compute_pipelines(struct pelagia_compute_pipelines_create_info *create_info);
 extern void AMWCALL _pelagia_vulkan_create_raytracing_pipelines(struct pelagia_raytracing_pipelines_create_info *create_info);
 extern void AMWCALL _pelagia_vulkan_create_shader_binding_tables(struct pelagia_shader_binding_tables_create_info *create_info);
-extern void AMWCALL _pelagia_vulkan_create_command_buffers(struct pelagia_command_buffers_create_info *create_info);
 extern void AMWCALL _pelagia_vulkan_create_descriptor_sets(struct pelagia_descriptor_sets_create_info *create_info);
 extern void AMWCALL _pelagia_vulkan_create_query_pools(struct pelagia_query_pools_create_info *create_info);
-extern void AMWCALL _pelagia_vulkan_create_swapchains(struct pelagia_swapchains_create_info *create_info);
+extern void AMWCALL _pelagia_vulkan_create_swapchain(struct pelagia_swapchain_create_info *create_info);
 extern void AMWCALL _pelagia_vulkan_create_bottom_levels(struct pelagia_bottom_levels_create_info *create_info);
 extern void AMWCALL _pelagia_vulkan_create_top_levels(struct pelagia_top_levels_create_info *create_info);
 extern void AMWCALL _pelagia_vulkan_destroy_resources(struct pelagia_destroy_resources_work *work);

@@ -1,7 +1,7 @@
 #define A_MOONLIT_WALK_MAIN
 #include "lake.h"
 
-static_assert(MAX_FRAMES_IN_FLIGHT >= 3, "AMW_MAX_FRAMES_IN_FLIGHT must be 3 or more.");
+static_assert(PELAGIA_MAX_FRAMES_IN_FLIGHT >= 3, "AMW_MAX_FRAMES_IN_FLIGHT must be 3 or more.");
 
 /* XXX delete later */
 #define DEBUG_CLOSE_COUNTER_MS 100
@@ -187,7 +187,7 @@ static s32 lake_init(
         /* log for presentation */
         if (!physical_devices[indices[0]].presentation) {
             log_warn("Selected primary device '%s' of index %u has no presentation. "
-                     "Creating a swapchain and drawing to a surface is not supported.", 
+                     "Creating a swapchain and drawing to a window surface is not supported from this device.", 
                      physical_devices[indices[0]].name.ptr, indices[0]);
         }
     }
@@ -210,6 +210,7 @@ static s32 lake_init(
         device_infos[i].write_device = lake->devices;
         device_infos[i].physical_device = &physical_devices[indices[i]];
         device_infos[i].allocation = (struct riven_allocation){ .tag = tag, };
+        device_infos[i].frames_in_flight = hints->frames_in_flight;
         riven_format_string(lake->riven, riven_tag_deferred, &device_work[i].name, "%s:create_device:%u", pelagia->header.name.ptr, i);
         device_work[i].argument = &device_infos[i];
         device_work[i].procedure = (PFN_riven_work)pelagia->create_device;
@@ -249,16 +250,16 @@ static s32 lake_in_the_lungs(
     }
     riven_free(riven, riven_tag_deferred);
 
-    struct framedata frames[MAX_FRAMES_IN_FLIGHT];
+    struct framedata frames[PELAGIA_MAX_FRAMES_IN_FLIGHT];
     zeroa(frames);
 
-    for (s32 i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+    for (s32 i = 0; i < PELAGIA_MAX_FRAMES_IN_FLIGHT; i++) {
         frames[i].work_header = (struct work_header){
             .result = result_success,
         };
         frames[i].lake = &lake;
-        frames[i].last_frame = &frames[(i - 1 + MAX_FRAMES_IN_FLIGHT) % MAX_FRAMES_IN_FLIGHT];
-        frames[i].next_frame = &frames[(i + 1 + MAX_FRAMES_IN_FLIGHT) % MAX_FRAMES_IN_FLIGHT];
+        frames[i].last_frame = &frames[(i - 1 + PELAGIA_MAX_FRAMES_IN_FLIGHT) % PELAGIA_MAX_FRAMES_IN_FLIGHT];
+        frames[i].next_frame = &frames[(i + 1 + PELAGIA_MAX_FRAMES_IN_FLIGHT) % PELAGIA_MAX_FRAMES_IN_FLIGHT];
     }
     struct riven_work work[3];
     work[LAKE_SIMULATION_WORK_IDX].procedure = (PFN_riven_work)lake_in_the_lungs_simulation;
@@ -346,14 +347,14 @@ static s32 lake_in_the_lungs(
         /* rotate the framedata */
         gpuexec = rendering;
         rendering = simulation;
-        simulation = lake.finalize_gameloop ? NULL : &frames[(frame_index++) % MAX_FRAMES_IN_FLIGHT];
+        simulation = lake.finalize_gameloop ? NULL : &frames[(frame_index++) % PELAGIA_MAX_FRAMES_IN_FLIGHT];
 
         print_frame_time(FRAME_TIME_PRINT_INTERVAL_MS);
         riven_rotate_deferred(riven);
     }
 
     /* wait for any existing work to finish */
-    for (u32 i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    for (u32 i = 0; i < PELAGIA_MAX_FRAMES_IN_FLIGHT; i++)
         riven_unchain(riven, frames[i].chain);
 
     dt = median_frame_time();
@@ -369,7 +370,7 @@ s32 amw_main(s32 argc, char **argv)
 {
     s32 res = result_success;
     struct engine_hints hints = {
-        .frames_in_flight = MAX_FRAMES_IN_FLIGHT,
+        .frames_in_flight = 3,
         .window_width = 1200,
         .window_height = 900,
         .window_title = str_init("UwU miau mlem"),
@@ -399,7 +400,7 @@ s32 amw_main(s32 argc, char **argv)
     (void)argc;
     (void)argv;
 
-    assert_debug(hints.frames_in_flight <= MAX_FRAMES_IN_FLIGHT && hints.frames_in_flight > 0);
+    assert_debug(hints.frames_in_flight <= PELAGIA_MAX_FRAMES_IN_FLIGHT && hints.frames_in_flight > 0);
 
     struct riven_metadata metadata = {
         .engine_name = str_init("A Moonlit Walk Engine"),

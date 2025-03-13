@@ -3,7 +3,10 @@
 #include <amw/bedrock.h>
 #include <amw/hadal.h>
 
-extern void AMWCALL _hadal_wayland_acquire_framebuffer_extent(struct hadal *hadal, u32 *width, u32 *height);
+extern void AMWCALL _hadal_wayland_acquire_framebuffer_extent(
+    const struct hadal *hadal, 
+    u32                *out_width, 
+    u32                *out_height);
 
 #ifdef PELAGIA_VULKAN
 extern s32 AMWCALL _hadal_wayland_vulkan_create_surface(

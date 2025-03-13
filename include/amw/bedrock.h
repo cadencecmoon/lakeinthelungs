@@ -1015,10 +1015,6 @@ struct work_header {
     u32 index;  /**< argument index */
 };
 
-#ifndef MAX_FRAMES_IN_FLIGHT
-#define MAX_FRAMES_IN_FLIGHT 4
-#endif
-
 #ifdef __cplusplus
 }
 #endif

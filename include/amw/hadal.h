@@ -69,7 +69,7 @@ AMWAPI RIVEN_ENCORE(hadal, headless);
 AMWAPI RIVEN_ENCORE(hadal, native);
 
 /** Acquires the framebuffer extent/resolution, may be different from the window size. */
-typedef void (AMWCALL *PFN_acquire_framebuffer_extent)(struct hadal *hadal, u32 *width, u32 *height);
+typedef void (AMWCALL *PFN_acquire_framebuffer_extent)(const struct hadal *hadal, u32 *width, u32 *height);
 
 #ifdef PELAGIA_VULKAN
 /* to avoid including the Vulkan header */

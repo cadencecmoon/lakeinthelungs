@@ -8,11 +8,28 @@
 extern "C" {
 #endif
 
+#ifndef PELAGIA_MAX_FRAMES_IN_FLIGHT
+#define PELAGIA_MAX_FRAMES_IN_FLIGHT 4
+#endif
+#ifndef PELAGIA_MAX_SWAPCHAIN_IMAGES
+#define PELAGIA_MAX_SWAPCHAIN_IMAGES 8
+#endif
+
+#ifndef PELAGIA_ENABLE_GPU_PROFILER
+    #ifndef NDEBUG
+        #define PELAGIA_ENABLE_GPU_PROFILER 1
+    #else
+        #define PELAGIA_ENABLE_GPU_PROFILER 0
+    #endif
+#endif
+
 typedef u32 render_resource_t;
 
 /** The rendering device is our context of execution, used to create resources and run commands 
  *  on the GPU. (struct pelagia_device *) can be safely cast into (struct pelagia_interface **). */
 struct pelagia_device;
+/** A handle to memory allocated on the GPUs VRAM. Used to control how allocating GPU resources is done. */
+struct pelagia_device_memory;
 /** A buffer handle. Buffers hold data for different purposes, e.g. vertex data, index data, uniform data, etc. */
 struct pelagia_buffer;
 /** A texture handle. Textures represent 2D or 3D images, with properties like color, depth and stencil. */
@@ -136,11 +153,13 @@ struct pelagia_device_create_info {
     struct pelagia_device                     **write_device;           /**< The device handle will be written here. */
     const struct pelagia_physical_device_info  *physical_device;        /**< This physical device will be used. */
     struct riven_allocation                     allocation;             /**< The host allocation that will hold all device state. The caller may pass a riven_tag, or do the deed after a query. */
+    u32                                         frames_in_flight;       /**< GPU resources buffering, must be between 1 and PELAGIA_MAX_FRAMES_IN_FLIGHT. */
 };
 
 /** Types of GPU resources. */
 enum pelagia_resource_type {
     pelagia_resource_type_invalid = 0u,
+    pelagia_resource_type_device_memory,
     pelagia_resource_type_buffer,
     pelagia_resource_type_texture,
     pelagia_resource_type_sampler,
@@ -150,7 +169,6 @@ enum pelagia_resource_type {
     pelagia_resource_type_compute_pipeline,
     pelagia_resource_type_raytracing_pipeline,
     pelagia_resource_type_shader_binding_table,
-    pelagia_resource_type_command_buffer,
     pelagia_resource_type_descriptor_set,
     pelagia_resource_type_query_pool,
     pelagia_resource_type_swapchain,
@@ -158,6 +176,8 @@ enum pelagia_resource_type {
     pelagia_resource_type_top_level,
     pelagia_resource_type_count,
 };
+#define pelagia_resource_type_index(__type) \
+    (pelagia_resource_type_##__type - 1u)
 
 /** All resource types implement this header as the first struct member,
  *  so that we can safely cast any resource type into this header. */
@@ -173,6 +193,7 @@ struct pelagia_resource_header {
 /** Abstracts the handle to a GPU resource. */
 union pelagia_resource {
     struct pelagia_resource_header         *header;
+    struct pelagia_device_memory           *device_memory;
     struct pelagia_buffer                  *buffer;
     struct pelagia_texture                 *texture;
     struct pelagia_sampler                 *sampler;
@@ -182,18 +203,140 @@ union pelagia_resource {
     struct pelagia_compute_pipeline        *compute_pipeline;
     struct pelagia_raytracing_pipeline     *raytracing_pipeline;
     struct pelagia_shader_binding_table    *shader_binding_table;
-    struct pelagia_command_buffer          *command_buffer;
     struct pelagia_descriptor_set          *descriptor_set;
     struct pelagia_query_pool              *query_pool;
     struct pelagia_swapchain               *swapchain;
     struct pelagia_bottom_level            *bottom_level;
     struct pelagia_top_level               *top_level;
+    void                                   *write;
+};
+
+/** A list of supported formats of textures, they describe how memory is laid out.
+ *  Availability of formats depends on physical device and backend. */
+enum pelagia_texture_format {
+    pelagia_texture_format_unknown = 0,
+    pelagia_texture_format_r1_unorm,        /**< 1-bit no format */
+    pelagia_texture_format_a8_unorm,        /**< 8-bit alpha */
+    /* depth formats */
+    pelagia_texture_format_d16_unorm,       /**< 16-bit unorm depth */
+    pelagia_texture_format_d16s8_unorm,     /**< 24-bit unorm depth/stencil */
+    pelagia_texture_format_d24s8_unorm,     /**< 32-bit unorm depth/stencil */
+    pelagia_texture_format_d32_float,       /**< 32-bit float depth */
+    pelagia_texture_format_d0s8_unorm,      /**< 8-bit unorm stencil */
+    /* 8-bit, block size 1 byte, 1x1x1 extent, 1 texel/block */
+    pelagia_texture_format_r8_snorm,
+    pelagia_texture_format_r8_unorm,
+    pelagia_texture_format_r8_sint,
+    pelagia_texture_format_r8_uint,
+    /* 16-bit, block size 2 bytes, 1x1x1 extent, 1 texel/block */
+    pelagia_texture_format_r16_float,
+    pelagia_texture_format_r16_snorm,
+    pelagia_texture_format_r16_unorm,
+    pelagia_texture_format_r16_sint,
+    pelagia_texture_format_r16_uint,
+    pelagia_texture_format_r8g8_snorm,
+    pelagia_texture_format_r8g8_unorm,
+    pelagia_texture_format_r8g8_sint,
+    pelagia_texture_format_r8g8_uint,
+    /* 24-bit, block size 3 bytes, 1x1x1 extent, 1 texel/block */
+    pelagia_texture_format_r8g8b8_snorm,
+    pelagia_texture_format_r8g8b8_unorm,
+    pelagia_texture_format_r8g8b8_sint,
+    pelagia_texture_format_r8g8b8_uint,
+    /* 32-bit, block size 4 bytes, 1x1x1 extent, 1 texel/block */
+    pelagia_texture_format_r32_float,
+    pelagia_texture_format_r32_sint,
+    pelagia_texture_format_r32_uint,
+    pelagia_texture_format_r16g16_float,
+    pelagia_texture_format_r16g16_snorm,
+    pelagia_texture_format_r16g16_unorm,
+    pelagia_texture_format_r16g16_sint,
+    pelagia_texture_format_r16g16_uint,
+    pelagia_texture_format_r8g8b8a8_snorm,
+    pelagia_texture_format_r8g8b8a8_unorm,
+    pelagia_texture_format_r8g8b8a8_sint,
+    pelagia_texture_format_r8g8b8a8_uint,
+    pelagia_texture_format_b8g8r8a8_snorm,
+    pelagia_texture_format_b8g8r8a8_unorm,
+    pelagia_texture_format_b8g8r8a8_sint,
+    pelagia_texture_format_b8g8r8a8_uint,
+    pelagia_texture_format_r10g10b10a2,
+    pelagia_texture_format_b10g10r10a2,
+    /* 48-bit, block size 6 bytes, 1x1x1 block extent, 1 texel/block */
+    pelagia_texture_format_r16g16b16_float,
+    pelagia_texture_format_r16g16b16_snorm,
+    pelagia_texture_format_r16g16b16_unorm,
+    pelagia_texture_format_r16g16b16_sint,
+    pelagia_texture_format_r16g16b16_uint,
+    /* 64-bit, block size 8 bytes, 1x1x1 block extent, 1 texel/block */
+    pelagia_texture_format_r64_float,
+    pelagia_texture_format_r64_sint,
+    pelagia_texture_format_r64_uint,
+    pelagia_texture_format_r32g32_float,
+    pelagia_texture_format_r32g32_sint,
+    pelagia_texture_format_r32g32_uint,
+    pelagia_texture_format_r16g16b16a16_float,
+    pelagia_texture_format_r16g16b16a16_snorm,
+    pelagia_texture_format_r16g16b16a16_unorm,
+    pelagia_texture_format_r16g16b16a16_sint,
+    pelagia_texture_format_r16g16b16a16_uint,
+    /* 96-bit, block size 12 bytes, 1x1x1 block extent, 1 texel/block */
+    pelagia_texture_format_r32g32b32_float,
+    pelagia_texture_format_r32g32b32_sint,
+    pelagia_texture_format_r32g32b32_uint,
+    /* 128-bit, block size 16 bytes, 1x1x1 block extent, 1 texel/block */
+    pelagia_texture_format_r32g32b32a32_float,
+    pelagia_texture_format_r32g32b32a32_sint,
+    pelagia_texture_format_r32g32b32a32_uint,
+    pelagia_texture_format_r64g64_float,
+    pelagia_texture_format_r64g64_sint,
+    pelagia_texture_format_r64g64_uint,
+    /* 192-bit, block size 24 bytes, 1x1x1 block extent, 1 texel/block */
+    pelagia_texture_format_r64g64b64_float,
+    pelagia_texture_format_r64g64b64_sint,
+    pelagia_texture_format_r64g64b64_uint,
+    /* 256-bit, block size 32 bytes, 1x1x1 block extent, 1 texel/block */
+    pelagia_texture_format_r64g64b64a64_float,
+    pelagia_texture_format_r64g64b64a64_sint,
+    pelagia_texture_format_r64g64b64a64_uint,
+    /* compressed texture formats */
+    pelagia_texture_format_BC1,         /**< DXT1 r5g6b5a1 */
+    pelagia_texture_format_BC2,         /**< DXT3 r5g6b6a4 */
+    pelagia_texture_format_BC3,         /**< DXT5 r5g6b5a8 */
+    pelagia_texture_format_BC4,         /**< LATC1/ATI1 r8 */
+    pelagia_texture_format_BC5,         /**< LATC2/ATI2 r8g8 */
+    pelagia_texture_format_BC6H,        /**< BC6H r16g16b16_float */
+    pelagia_texture_format_BC7,         /**< BC7 rgb 4-7 bits per color channel */
+    pelagia_texture_format_ETC1,        /**< ETC1 r8g8b8 */
+    pelagia_texture_format_ETC2,        /**< ETC2 r8g8b8 */
+    pelagia_texture_format_ETC2A,       /**< ETC2 r8g8b8a8 */
+    pelagia_texture_format_ETC2A1,      /**< ETC2 r8g8b8a1 */
+    pelagia_texture_format_PTC12,       /**< PVRTC1 rgb 2BPP */
+    pelagia_texture_format_PTC14,       /**< PVRTC1 rgb 4BPP */
+    pelagia_texture_format_PTC22,       /**< PVRTC2 rgba 2BPP */
+    pelagia_texture_format_PTC24,       /**< PVRTC2 rgba 4BPP */
+    pelagia_texture_format_ASTC4x4,     /**< ASTC 4x4 8.0 BPP */
+    pelagia_texture_format_ASTC5x4,     /**< ASTC 5x4 6.40 BPP */
+    pelagia_texture_format_ASTC5x5,     /**< ASTC 5x5 5.12 BPP */
+    pelagia_texture_format_ASTC6x5,     /**< ASTC 6x5 4.27 BPP */
+    pelagia_texture_format_ASTC6x6,     /**< ASTC 6x6 3.56 BPP */
+    pelagia_texture_format_ASTC8x5,     /**< ASTC 8x5 3.20 BPP */
+    pelagia_texture_format_ASTC8x6,     /**< ASTC 8x6 2.67 BPP */
+    pelagia_texture_format_ASTC8x8,     /**< ASTC 8x8 2.0 BPP */
+    pelagia_texture_format_ASTC10x5,    /**< ASTC 10x5 2.56 BPP */
+    pelagia_texture_format_ASTC10x6,    /**< ASTC 10x6 2.13 BPP */
+    pelagia_texture_format_ASTC10x8,    /**< ASTC 10x8 1.60 BPP */
+    pelagia_texture_format_ASTC10x10,   /**< ASTC 10x10 1.28 BPP */
+    pelagia_texture_format_ASTC12x10,   /**< ASTC 12x10 1.07 BPP */
+    pelagia_texture_format_ASTC12x12,   /**< ASTC 12x12 0.89 BPP */
+    /* format count */
+    pelagia_texture_format_count,
 };
 
 /** Macro to define a pelagia 'create_info' structure's header. */
 #define PELAGIA_RESOURCES_CREATE_INFO_HEADER(__type) \
     struct work_header                      work_header;    /**< Holds the error code and work index. */ \
-    const struct pelagia_device            *device;         /**< Creates resources on the GPU, will write itself to the resources' headers. */ \
+    struct pelagia_device                  *device;         /**< Creates resources on the GPU, will write itself to the resources' headers. */ \
     enum pelagia_resource_type              resource_type;  /**< The type of this create info, used for abstracted access. */ \
     u32                                     write_count;    /**< The length of the write array, equal to amount of resources to be created. */ \
     struct pelagia_##__type               **write;          /**< An array of handles where the resources will be written. They will share the same lifetime. */ \
@@ -201,6 +344,12 @@ union pelagia_resource {
 
 /** Abstracts common fields in a create_info structure of any resource type. */
 struct pelagia_resources_create_info { PELAGIA_RESOURCES_CREATE_INFO_HEADER(resource_header); };
+
+/** Information needed to create a GPU allocation. */
+struct pelagia_device_memory_create_info {
+    PELAGIA_RESOURCES_CREATE_INFO_HEADER(device_memory);
+    /* TODO */
+};
 
 /** Information needed to create an array of buffers. */
 struct pelagia_buffers_create_info {
@@ -256,12 +405,6 @@ struct pelagia_shader_binding_tables_create_info {
     /* TODO */
 };
 
-/** Information needed to create a command buffer. */
-struct pelagia_command_buffers_create_info {
-    PELAGIA_RESOURCES_CREATE_INFO_HEADER(command_buffer);
-    /* TODO */
-};
-
 /** Information needed to create an array of descriptor sets. */
 struct pelagia_descriptor_sets_create_info {
     PELAGIA_RESOURCES_CREATE_INFO_HEADER(descriptor_set);
@@ -275,10 +418,14 @@ struct pelagia_query_pools_create_info {
 };
 
 /** Information needed to create an array of swapchains. */
-struct pelagia_swapchains_create_info {
+struct pelagia_swapchain_create_info {
     PELAGIA_RESOURCES_CREATE_INFO_HEADER(swapchain);
     /** We need to interface with the display backend to create a surface we can draw to. */
-    const struct hadal *display;
+    const struct hadal         *hadal;
+    /** If a given format is supported by the surface and the physical device, it is preferred. */
+    enum pelagia_texture_format preferred_format;
+    /** If true, V-SYNC will be enabled (FIFO present mode is used). */
+    b32                         enable_vsync;
 };
 
 /** Information needed to create an array of bottom-level acceleration structures. */
@@ -325,6 +472,9 @@ typedef void (AMWCALL *PFN_pelagia_destroy_device)(struct pelagia_device *device
 #define PFN_PELAGIA_CREATE_RESOURCE(type) \
     typedef void (AMWCALL *PFN_pelagia_create_##type)(struct pelagia_##type##_create_info *create_info)
 
+/** Allocated GPU memory. */
+PFN_PELAGIA_CREATE_RESOURCE(device_memory);
+
 /** Creates a buffer. */
 PFN_PELAGIA_CREATE_RESOURCE(buffers);
 
@@ -352,9 +502,6 @@ PFN_PELAGIA_CREATE_RESOURCE(raytracing_pipelines);
 /** Creates a command buffer. */
 PFN_PELAGIA_CREATE_RESOURCE(shader_binding_tables);
 
-/** Creates a command buffer. */
-PFN_PELAGIA_CREATE_RESOURCE(command_buffers);
-
 /** Creates a descriptor set. */
 PFN_PELAGIA_CREATE_RESOURCE(descriptor_sets);
 
@@ -362,7 +509,7 @@ PFN_PELAGIA_CREATE_RESOURCE(descriptor_sets);
 PFN_PELAGIA_CREATE_RESOURCE(query_pools);
 
 /** Creates a swapchain. The given device must support presentation to a window surface. */
-PFN_PELAGIA_CREATE_RESOURCE(swapchains);
+PFN_PELAGIA_CREATE_RESOURCE(swapchain);
 
 /** Creates a bottom-level acceleration structure. */
 PFN_PELAGIA_CREATE_RESOURCE(bottom_levels);
@@ -390,6 +537,7 @@ struct pelagia_interface {
     PFN_pelagia_create_device                   create_device;
     PFN_pelagia_destroy_device                  destroy_device;
 
+    PFN_pelagia_create_device_memory            create_device_memory;
     PFN_pelagia_create_buffers                  create_buffers;
     PFN_pelagia_create_textures                 create_textures;
     PFN_pelagia_create_samplers                 create_samplers;
@@ -399,10 +547,9 @@ struct pelagia_interface {
     PFN_pelagia_create_compute_pipelines        create_compute_pipelines;
     PFN_pelagia_create_raytracing_pipelines     create_raytracing_pipelines;
     PFN_pelagia_create_shader_binding_tables    create_shader_binding_tables;
-    PFN_pelagia_create_command_buffers          create_command_buffers;   
     PFN_pelagia_create_descriptor_sets          create_descriptor_sets;
     PFN_pelagia_create_query_pools              create_query_pools;
-    PFN_pelagia_create_swapchains               create_swapchains;
+    PFN_pelagia_create_swapchain                create_swapchain;
     PFN_pelagia_create_bottom_levels            create_bottom_levels;
     PFN_pelagia_create_top_levels               create_top_levels;
     PFN_pelagia_destroy_resources               destroy_resources;

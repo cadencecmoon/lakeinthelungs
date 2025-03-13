@@ -3,10 +3,307 @@
 #include <amw/bits.h>
 #include <amw/hadal.h>
 #include <amw/log.h>
+#include <amw/process.h>
 
-#ifndef PELAGIA_VULKAN_VALIDATE_REQUIRED_EXTENSIONS
-#define PELAGIA_VULKAN_VALIDATE_REQUIRED_EXTENSIONS 1
+#ifndef VULKAN_VALIDATE_REQUIRED_EXTENSIONS
+#define VULKAN_VALIDATE_REQUIRED_EXTENSIONS 1
 #endif
+
+const char *vulkan_result_string(VkResult result)
+{
+    switch (result) {
+		case VK_ERROR_OUT_OF_HOST_MEMORY:
+			return "host memory allocation has failed.";
+		case VK_ERROR_OUT_OF_DEVICE_MEMORY:
+			return "device memory allocation has failed.";
+		case VK_ERROR_INITIALIZATION_FAILED:
+			return "initialization of an object could not be completed for implementation-specific reasons.";
+		case VK_ERROR_DEVICE_LOST:
+			return "the logical or physical device has been lost.";
+		case VK_ERROR_MEMORY_MAP_FAILED:
+			return "mapping of a memory object has failed.";
+		case VK_ERROR_LAYER_NOT_PRESENT:
+			return "a requested layer is not present or could not be loaded.";
+		case VK_ERROR_EXTENSION_NOT_PRESENT:
+			return "a requested extension is not supported.";
+		case VK_ERROR_FEATURE_NOT_PRESENT:
+			return "a requested feature is not supported.";
+		case VK_ERROR_INCOMPATIBLE_DRIVER:
+			return "the requested version of Vulkan is not supported by the driver or is otherwise "
+			       "incompatible for implementation-specific reasons.";
+		case VK_ERROR_TOO_MANY_OBJECTS:
+			return "too many objects of the type have already been created.";
+		case VK_ERROR_FORMAT_NOT_SUPPORTED:
+			return "a requested format is not supported on this device.";
+		case VK_ERROR_FRAGMENTED_POOL:
+			return "a pool allocation has failed due to fragmentation of the pool's memory.";
+		case VK_ERROR_OUT_OF_POOL_MEMORY:
+			return "a pool memory allocation has failed.";
+		case VK_ERROR_INVALID_EXTERNAL_HANDLE:
+			return "an external handle is not a valid handle of the specified type.";
+		case VK_ERROR_FRAGMENTATION:
+			return "a descriptor pool creation has failed due to fragmentation.";
+		case VK_ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS:
+			return "a buffer creation or memory allocation failed because the requested address is not available.";
+		case VK_PIPELINE_COMPILE_REQUIRED:
+			return "a requested pipeline creation would have required compilation, but the application requested compilation to not be performed.";
+		case VK_ERROR_SURFACE_LOST_KHR:
+			return "a surface is no longer available.";
+		case VK_ERROR_NATIVE_WINDOW_IN_USE_KHR:
+			return "the requested window is already in use by Vulkan or another API in a manner which prevents it from being used again.";
+		case VK_SUBOPTIMAL_KHR:
+			return "a swapchain no longer matches the surface properties exactly, but can still be used to present"
+			       "to the surface successfully.";
+		case VK_ERROR_OUT_OF_DATE_KHR:
+			return "a surface has changed in such a way that it is no longer compatible with the swapchain, "
+			       "any further presentation requests using the swapchain will fail.";
+		case VK_ERROR_INCOMPATIBLE_DISPLAY_KHR:
+			return "the display used by a swapchain does not use the same presentable image layout, or is "
+			       "incompatible in a way that prevents sharing an image.";
+		case VK_ERROR_VALIDATION_FAILED_EXT:
+			return "VK_ERROR_VALIDATION_FAILED_EXT";
+		case VK_ERROR_INVALID_SHADER_NV:
+			return "one or more shaders failed to compile or link";
+		case VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT:
+			return "VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT";
+		case VK_ERROR_NOT_PERMITTED_KHR:
+			return "VK_ERROR_NOT_PERMITTED_KHR";
+		case VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT:
+			return "an operation on a swapchain created with VK_FULL_SCREEN_EXCLUSIVE_APPLICATION_CONTROLLED_EXT failed as "
+			       "it did not have exlusive full-screen access.";
+		case VK_THREAD_IDLE_KHR:
+			return "a deferred operation is not complete but there is currently no work for this thread to do at the time of this call.";
+		case VK_THREAD_DONE_KHR:
+			return "a deferred operation is not complete but there is no work remaining to assign to additional threads.";
+		case VK_OPERATION_DEFERRED_KHR:
+			return "a deferred operation was requested and at least some of the work was deferred.";
+		case VK_OPERATION_NOT_DEFERRED_KHR:
+			return "a deferred operation was requested and no operations were deferred.";
+		case VK_ERROR_COMPRESSION_EXHAUSTED_EXT:
+			return "an image creation failed because internal resources required for compression are exhausted."
+			       "this must only be returned when fixed-rate compression is requested.";
+        default:
+            return "an unknown error has occured.";
+    }
+}
+
+VkFormat vulkan_translate_texture_format(enum pelagia_texture_format format)
+{
+    switch (format) {
+#define TEX_FORMAT(_type) \
+        case pelagia_texture_format_##_type: return 
+
+        TEX_FORMAT(r1_unorm) VK_FORMAT_UNDEFINED;
+        TEX_FORMAT(a8_unorm) VK_FORMAT_A8_UNORM;
+        /* depth formats */
+        TEX_FORMAT(d16_unorm) VK_FORMAT_D16_UNORM;
+        TEX_FORMAT(d16s8_unorm) VK_FORMAT_D16_UNORM_S8_UINT;
+        TEX_FORMAT(d24s8_unorm) VK_FORMAT_D24_UNORM_S8_UINT;
+        TEX_FORMAT(d32_float) VK_FORMAT_D32_SFLOAT;
+        TEX_FORMAT(d0s8_unorm) VK_FORMAT_S8_UINT;
+        /* 8-bit, block size 1 byte, 1x1x1 extent, 1 texel/block */
+        TEX_FORMAT(r8_snorm) VK_FORMAT_R8_SNORM;
+        TEX_FORMAT(r8_unorm) VK_FORMAT_R8_UNORM;
+        TEX_FORMAT(r8_sint) VK_FORMAT_R8_SINT;
+        TEX_FORMAT(r8_uint) VK_FORMAT_R8_UINT;
+        /* 16-bit, block size 2 bytes, 1x1x1 extent, 1 texel/block */
+        TEX_FORMAT(r16_float) VK_FORMAT_R16_SFLOAT;
+        TEX_FORMAT(r16_snorm) VK_FORMAT_R16_SNORM;
+        TEX_FORMAT(r16_unorm) VK_FORMAT_R16_UNORM;
+        TEX_FORMAT(r16_sint) VK_FORMAT_R16_SINT;
+        TEX_FORMAT(r16_uint) VK_FORMAT_R16_UINT;
+        TEX_FORMAT(r8g8_snorm) VK_FORMAT_R8G8_SNORM;
+        TEX_FORMAT(r8g8_unorm) VK_FORMAT_R8G8_UNORM;
+        TEX_FORMAT(r8g8_sint) VK_FORMAT_R8G8_SINT;
+        TEX_FORMAT(r8g8_uint) VK_FORMAT_R8G8_UINT;
+        /* 24-bit, block size 3 bytes, 1x1x1 extent, 1 texel/block */
+        TEX_FORMAT(r8g8b8_snorm) VK_FORMAT_R8G8B8_SNORM;
+        TEX_FORMAT(r8g8b8_unorm) VK_FORMAT_R8G8B8_UNORM;
+        TEX_FORMAT(r8g8b8_sint) VK_FORMAT_R8G8B8_SINT;
+        TEX_FORMAT(r8g8b8_uint) VK_FORMAT_R8G8B8_UINT;
+        /* 32-bit, block size 4 bytes, 1x1x1 extent, 1 texel/block */
+        TEX_FORMAT(r32_float) VK_FORMAT_R32_SFLOAT;
+        TEX_FORMAT(r32_sint) VK_FORMAT_R32_SINT;
+        TEX_FORMAT(r32_uint) VK_FORMAT_R32_UINT;
+        TEX_FORMAT(r16g16_float) VK_FORMAT_R16G16_SFLOAT;
+        TEX_FORMAT(r16g16_snorm) VK_FORMAT_R16G16_SNORM;
+        TEX_FORMAT(r16g16_unorm) VK_FORMAT_R16G16_UNORM;
+        TEX_FORMAT(r16g16_sint) VK_FORMAT_R16G16_SINT;
+        TEX_FORMAT(r16g16_uint) VK_FORMAT_R16G16_UINT;
+        TEX_FORMAT(r8g8b8a8_snorm) VK_FORMAT_R8G8B8A8_SNORM;
+        TEX_FORMAT(r8g8b8a8_unorm) VK_FORMAT_R8G8B8A8_UNORM;
+        TEX_FORMAT(r8g8b8a8_sint) VK_FORMAT_R8G8B8A8_SINT;
+        TEX_FORMAT(r8g8b8a8_uint) VK_FORMAT_R8G8B8A8_UINT;
+        TEX_FORMAT(b8g8r8a8_snorm) VK_FORMAT_B8G8R8A8_SNORM;
+        TEX_FORMAT(b8g8r8a8_unorm) VK_FORMAT_B8G8R8A8_SNORM;
+        TEX_FORMAT(b8g8r8a8_sint) VK_FORMAT_B8G8R8A8_SINT;
+        TEX_FORMAT(b8g8r8a8_uint) VK_FORMAT_B8G8R8A8_UINT;
+        TEX_FORMAT(r10g10b10a2) VK_FORMAT_A2R10G10B10_UNORM_PACK32;
+        TEX_FORMAT(b10g10r10a2) VK_FORMAT_A2B10G10R10_UNORM_PACK32;
+        /* 48-bit, block size 6 bytes, 1x1x1 block extent, 1 texel/block */
+        TEX_FORMAT(r16g16b16_float) VK_FORMAT_R16G16B16_SFLOAT;
+        TEX_FORMAT(r16g16b16_snorm) VK_FORMAT_R16G16B16_SNORM;
+        TEX_FORMAT(r16g16b16_unorm) VK_FORMAT_R16G16B16_UNORM;
+        TEX_FORMAT(r16g16b16_sint) VK_FORMAT_R16G16B16_SINT;
+        TEX_FORMAT(r16g16b16_uint) VK_FORMAT_R16G16B16_UINT;
+        /* 64-bit, block size 8 bytes, 1x1x1 block extent, 1 texel/block */
+        TEX_FORMAT(r64_float) VK_FORMAT_R64_SFLOAT;
+        TEX_FORMAT(r64_sint) VK_FORMAT_R64_SINT;
+        TEX_FORMAT(r64_uint) VK_FORMAT_R64_UINT;
+        TEX_FORMAT(r32g32_float) VK_FORMAT_R32G32_SFLOAT;
+        TEX_FORMAT(r32g32_sint) VK_FORMAT_R32G32_SINT;
+        TEX_FORMAT(r32g32_uint) VK_FORMAT_R32G32_UINT;
+        TEX_FORMAT(r16g16b16a16_float) VK_FORMAT_R16G16B16A16_SFLOAT;
+        TEX_FORMAT(r16g16b16a16_snorm) VK_FORMAT_R16G16B16A16_SNORM;
+        TEX_FORMAT(r16g16b16a16_unorm) VK_FORMAT_R16G16B16A16_UNORM;
+        TEX_FORMAT(r16g16b16a16_sint) VK_FORMAT_R16G16B16A16_SINT;
+        TEX_FORMAT(r16g16b16a16_uint) VK_FORMAT_R16G16B16A16_UINT;
+        /* 96-bit, block size 12 bytes, 1x1x1 block extent, 1 texel/block */
+        TEX_FORMAT(r32g32b32_float) VK_FORMAT_R32G32B32_SFLOAT;
+        TEX_FORMAT(r32g32b32_sint) VK_FORMAT_R32G32B32_SINT;
+        TEX_FORMAT(r32g32b32_uint) VK_FORMAT_R32G32B32_UINT;
+        /* 128-bit, block size 16 bytes, 1x1x1 block extent, 1 texel/block */
+        TEX_FORMAT(r32g32b32a32_float) VK_FORMAT_R32G32B32A32_SFLOAT;
+        TEX_FORMAT(r32g32b32a32_sint) VK_FORMAT_R32G32B32A32_SINT;
+        TEX_FORMAT(r32g32b32a32_uint) VK_FORMAT_R32G32B32A32_UINT;
+        TEX_FORMAT(r64g64_float) VK_FORMAT_R64G64_SFLOAT;
+        TEX_FORMAT(r64g64_sint) VK_FORMAT_R64G64_SINT;
+        TEX_FORMAT(r64g64_uint) VK_FORMAT_R64G64_UINT;
+        /* 192-bit, block size 24 bytes, 1x1x1 block extent, 1 texel/block */
+        TEX_FORMAT(r64g64b64_float) VK_FORMAT_R64G64B64_SFLOAT;
+        TEX_FORMAT(r64g64b64_sint) VK_FORMAT_R64G64B64_SINT;
+        TEX_FORMAT(r64g64b64_uint) VK_FORMAT_R64G64B64_UINT;
+        /* 256-bit, block size 32 bytes, 1x1x1 block extent, 1 texel/block */
+        TEX_FORMAT(r64g64b64a64_float) VK_FORMAT_R64G64B64A64_SFLOAT;
+        TEX_FORMAT(r64g64b64a64_sint) VK_FORMAT_R64G64B64A64_SINT;
+        TEX_FORMAT(r64g64b64a64_uint) VK_FORMAT_R64G64B64A64_UINT;
+        /* compressed texture formats */
+        TEX_FORMAT(BC1) VK_FORMAT_BC1_RGB_SRGB_BLOCK;
+        TEX_FORMAT(BC2) VK_FORMAT_BC2_SRGB_BLOCK;
+        TEX_FORMAT(BC3) VK_FORMAT_BC3_SRGB_BLOCK;
+        TEX_FORMAT(BC4) VK_FORMAT_BC4_SNORM_BLOCK;
+        TEX_FORMAT(BC5) VK_FORMAT_BC5_SNORM_BLOCK;
+        TEX_FORMAT(BC6H) VK_FORMAT_BC6H_SFLOAT_BLOCK;
+        TEX_FORMAT(BC7) VK_FORMAT_BC7_SRGB_BLOCK;
+        TEX_FORMAT(ETC1) VK_FORMAT_E5B9G9R9_UFLOAT_PACK32;
+        TEX_FORMAT(ETC2) VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK;
+        TEX_FORMAT(ETC2A) VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK;
+        TEX_FORMAT(ETC2A1) VK_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK;
+        TEX_FORMAT(PTC12) VK_FORMAT_PVRTC1_2BPP_UNORM_BLOCK_IMG;
+        TEX_FORMAT(PTC14) VK_FORMAT_PVRTC1_4BPP_UNORM_BLOCK_IMG;
+        TEX_FORMAT(PTC22) VK_FORMAT_PVRTC2_2BPP_SRGB_BLOCK_IMG;
+        TEX_FORMAT(PTC24) VK_FORMAT_PVRTC2_4BPP_SRGB_BLOCK_IMG;
+        TEX_FORMAT(ASTC4x4) VK_FORMAT_ASTC_4x4_SRGB_BLOCK;
+        TEX_FORMAT(ASTC5x4) VK_FORMAT_ASTC_5x4_SRGB_BLOCK;
+        TEX_FORMAT(ASTC5x5) VK_FORMAT_ASTC_5x5_SRGB_BLOCK;
+        TEX_FORMAT(ASTC6x5) VK_FORMAT_ASTC_6x5_SRGB_BLOCK;
+        TEX_FORMAT(ASTC6x6) VK_FORMAT_ASTC_6x6_SRGB_BLOCK;
+        TEX_FORMAT(ASTC8x5) VK_FORMAT_ASTC_8x5_SRGB_BLOCK;
+        TEX_FORMAT(ASTC8x6) VK_FORMAT_ASTC_8x6_SRGB_BLOCK;
+        TEX_FORMAT(ASTC8x8) VK_FORMAT_ASTC_8x8_SRGB_BLOCK;
+        TEX_FORMAT(ASTC10x5) VK_FORMAT_ASTC_10x5_SRGB_BLOCK;
+        TEX_FORMAT(ASTC10x6) VK_FORMAT_ASTC_10x6_SRGB_BLOCK;
+        TEX_FORMAT(ASTC10x8) VK_FORMAT_ASTC_10x8_SRGB_BLOCK;
+        TEX_FORMAT(ASTC10x10) VK_FORMAT_ASTC_10x10_SRGB_BLOCK;
+        TEX_FORMAT(ASTC12x10) VK_FORMAT_ASTC_12x10_SRGB_BLOCK;
+        TEX_FORMAT(ASTC12x12) VK_FORMAT_ASTC_12x12_SRGB_BLOCK;
+#undef TEX_FORMAT
+        default:
+            return VK_FORMAT_UNDEFINED;
+    };
+}
+
+b32 vulkan_query_extension(
+    VkExtensionProperties *properties, 
+    u32                    count, 
+    const char            *ext)
+{
+    for (u32 i = 0; i < count; i++)
+        if (!strcmp(properties[i].extensionName, ext))
+            return true;
+    return false;
+}
+
+static VKAPI_ATTR VkBool32 VKAPI_CALL
+debug_utils_callback(
+    VkDebugUtilsMessageSeverityFlagBitsEXT      severity,
+    VkDebugUtilsMessageTypeFlagsEXT             type,
+    const VkDebugUtilsMessengerCallbackDataEXT *callbackdata,
+    void                                       *userdata)
+{
+    (void)userdata; (void)type;
+
+    switch (severity) {
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
+            log_debug("%s", callbackdata->pMessage);
+            break;
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
+            log_verbose("%s", callbackdata->pMessage);
+            break;
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
+            log_warn("%s", callbackdata->pMessage);
+            break;
+        default:
+            log_error("%s", callbackdata->pMessage);
+            assert_debug(!"Vulkan validation error !!");
+    }
+    return VK_FALSE;
+}
+
+static void create_validation_layers(struct pelagia *pelagia)
+{
+    if (pelagia->instance == VK_NULL_HANDLE || pelagia->debug_messenger) return;
+
+    VkDebugUtilsMessengerCreateInfoEXT messenger_info = {
+        .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+        .pNext = NULL,
+        .flags = 0,
+        .messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+                           VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
+                           VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
+                           VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT,
+        .messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+                       VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+                       VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
+        .pfnUserCallback = debug_utils_callback,
+        .pUserData = NULL,
+    };
+
+    if (pelagia->vkCreateDebugUtilsMessengerEXT(pelagia->instance, &messenger_info, NULL, &pelagia->debug_messenger) != VK_SUCCESS)
+        return;
+    log_verbose("Created Vulkan validation layers.");
+}
+
+static PFN_vkVoidFunction instance_proc_address(
+    const struct pelagia *pelagia, 
+    const char           *procname)
+{
+    PFN_vkVoidFunction address = pelagia->vkGetInstanceProcAddr(pelagia->instance, procname);
+    if (address == NULL)
+        log_warn("'pelagia_vulkan' can't find instance procedure of name '%s'.", procname);
+    return address;
+}
+
+/** We allow only one Vulkan backend at a time. */
+static struct pelagia *g_vk_pelagia = NULL;
+
+static void vulkan_interface_fini(struct pelagia *pelagia)
+{
+    if (!pelagia) return;
+
+    if (pelagia->debug_messenger) {
+        pelagia->vkDestroyDebugUtilsMessengerEXT(pelagia->instance, pelagia->debug_messenger, NULL);
+        pelagia->debug_messenger = VK_NULL_HANDLE;
+        log_verbose("Destroyed Vulkan validation layers.");
+    }
+
+    if (pelagia->instance)
+        pelagia->vkDestroyInstance(pelagia->instance, NULL);
+    if (pelagia->module)
+        process_close_dll(pelagia->module);
+    zerop(pelagia);
+    g_vk_pelagia = NULL;
+}
 
 static const char *device_type_string(VkPhysicalDeviceType type)
 {
@@ -161,13 +458,7 @@ static void physical_device_query(struct physical_device_query_work *work)
         struct hadal_interface *interface = (struct hadal_interface *)work->hadal;
         VkResult res = interface->vulkan_create_surface(work->hadal, pelagia->instance, &surface, NULL, pelagia->vkGetInstanceProcAddr);
 
-        if (res == VK_SUCCESS && surface) {
-            VERIFY_VK(pelagia->vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical->device, surface, &physical->surface_capabilities));
-            /* XXX I'll probably move the part of looking for a surface format and present mode into the code responsible
-             * for creating a swapchain, and allow to tweak some stuff - like allowing the user to choose a specific format. */
-            //VERIFY_VK(pelagia->vkGetPhysicalDeviceSurfaceFormatsKHR(physical->device, surface, &surface_format_count, NULL));
-            //VERIFY_VK(pelagia->vkGetPhysicalDeviceSurfacePresentModesKHR(physical->device, surface, &present_mode_count, NULL));
-        } else {
+        if (res != VK_SUCCESS || !surface) {
             log_warn("%s creating a temporary Vulkan surface failed: %s. Can't check for presentation support.", err, vulkan_result_string(res));
             surface = VK_NULL_HANDLE;
         }
@@ -493,7 +784,7 @@ static void physical_device_query(struct physical_device_query_work *work)
         if (vulkan_query_extension(extension_properties, extension_count, VK_KHR_MAINTENANCE_4_EXTENSION_NAME))
             physical->extension_bits |= vulkan_ext_maintenance4_bit;
     }
-#if PELAGIA_VULKAN_VALIDATE_REQUIRED_EXTENSIONS
+#if VULKAN_VALIDATE_REQUIRED_EXTENSIONS
     if (!valid_ext) {
         log_warn("DISCARD: %s is not suitable for our rendering work (lack of core extensions support).", err);
         return;
@@ -718,16 +1009,18 @@ void _pelagia_vulkan_create_device(struct pelagia_device_create_info *create_inf
     const struct pelagia *pelagia = create_info->pelagia;
     const struct vulkan_physical_device *physical = &pelagia->physical_devices[create_info->physical_device->index];
 
-    if (!create_info->allocation.tag && !create_info->allocation.memory) {
+    create_info->allocation.size = sizeof(struct pelagia_device);
+    create_info->allocation.alignment = _Alignof(struct pelagia_device);
+    *create_info->write_device = NULL;
+
+    if (create_info->allocation.tag == riven_tag_invalid && !create_info->allocation.memory) {
         assert_debug(create_info->work_header.result != result_allocation_query);
-        create_info->allocation.size = sizeof(struct pelagia_device);
-        create_info->allocation.alignment = _Alignof(struct pelagia_device);
         create_info->work_header.result = result_allocation_query;
         return;
     }
+    create_info->work_header.result = result_error;
 
-    assert_debug(physical->queue_family_count <= VULKAN_QUEUE_FAMILY_INDICES_COUNT);
-    f32 queue_priorities[VULKAN_QUEUE_FAMILY_INDICES_COUNT] = { 1.f, 1.f, 1.f, 1.f, 1.f };
+    f32 queue_priorities[6] = { 1.f, 1.f, 1.f, 1.f, 1.f, 1.f };
     VkDeviceQueueCreateInfo queue_infos[VULKAN_QUEUE_FAMILY_INDICES_COUNT];
 
     for (u32 i = 0; i < physical->queue_family_count; i++) {
@@ -859,6 +1152,7 @@ void _pelagia_vulkan_create_device(struct pelagia_device_create_info *create_inf
     device->pelagia = pelagia;
     device->logical = logical;
     device->physical = physical;
+    device->frames_in_flight = max(1, min(create_info->frames_in_flight, PELAGIA_MAX_FRAMES_IN_FLIGHT));
 
     /* core 1.0 */
 	device->vkAllocateCommandBuffers = (PFN_vkAllocateCommandBuffers)device_proc_address(device, "vkAllocateCommandBuffers");
@@ -1172,6 +1466,9 @@ void _pelagia_vulkan_create_device(struct pelagia_device_create_info *create_inf
         assert_debug(!physical->has_async_present);
         device->presentation_queue = device->graphics_queue;
     }
+
+    /* write results */
+    create_info->work_header.result = result_success;
     *create_info->write_device = device;
 
     log_debug("Created rendering device: %s.", physical->properties2.properties.deviceName);
@@ -1182,6 +1479,479 @@ void _pelagia_vulkan_destroy_device(struct pelagia_device *device)
     if (device->logical == VK_NULL_HANDLE) return;
 
     device->vkDeviceWaitIdle(device->logical);
+#if PELAGIA_ENABLE_GPU_PROFILER
+    assert_debug(atomic_load_explicit(&device->device_memory_count, memory_order_relaxed) == 0);
+    assert_debug(atomic_load_explicit(&device->buffer_count, memory_order_relaxed) == 0);
+    assert_debug(atomic_load_explicit(&device->texture_count, memory_order_relaxed) == 0);
+    assert_debug(atomic_load_explicit(&device->sampler_count, memory_order_relaxed) == 0);
+    assert_debug(atomic_load_explicit(&device->pipeline_layout_count, memory_order_relaxed) == 0);
+    assert_debug(atomic_load_explicit(&device->graphics_pipeline_count, memory_order_relaxed) == 0);
+    assert_debug(atomic_load_explicit(&device->compute_pipeline_count, memory_order_relaxed) == 0);
+    assert_debug(atomic_load_explicit(&device->raytracing_pipeline_count, memory_order_relaxed) == 0);
+    assert_debug(atomic_load_explicit(&device->descriptor_set_layout_count, memory_order_relaxed) == 0);
+    assert_debug(atomic_load_explicit(&device->descriptor_pool_count, memory_order_relaxed) == 0);
+    assert_debug(atomic_load_explicit(&device->swapchain_count, memory_order_relaxed) == 0);
+    assert_debug(atomic_load_explicit(&device->query_pool_count, memory_order_relaxed) == 0);
+#endif
     device->vkDestroyDevice(device->logical, NULL);
     log_debug("Destroyed rendering device: %s.", device->physical->properties2.properties.deviceName);
+}
+
+void _pelagia_vulkan_destroy_resources(struct pelagia_destroy_resources_work *work) 
+{
+    for (u32 i = 0; i < work->resource_count; i++) {
+        union pelagia_resource resource = work->resources[i];
+
+        switch(resource.header->type) {
+#define DESTROY(__type) \
+            case pelagia_resource_type_##__type: \
+                vulkan_destroy_##__type(resource.__type); break;
+            DESTROY(device_memory)
+            DESTROY(buffer)
+            DESTROY(texture)
+            DESTROY(sampler)
+            DESTROY(shader)
+            DESTROY(pipeline_layout)
+            DESTROY(graphics_pipeline)
+            DESTROY(compute_pipeline)
+            DESTROY(raytracing_pipeline)
+            DESTROY(shader_binding_table)
+            DESTROY(descriptor_set)
+            DESTROY(query_pool)
+            DESTROY(swapchain)
+            DESTROY(bottom_level)
+            DESTROY(top_level)
+#undef DESTROY
+            case pelagia_resource_type_invalid:
+                log_warn("'pelagia_vulkan' asked to destroy an invalid type of GPU resource.");
+                break;
+            default:
+                log_warn("'pelagia_vulkan' asked to destroy a resource of unknown type: %u.", resource.header->type);
+                break;
+        }
+    }
+}
+
+/* FIXME stubs */
+void _pelagia_vulkan_create_device_memory(struct pelagia_device_memory_create_info *create_info) { (void)create_info; }
+void _pelagia_vulkan_create_buffers(struct pelagia_buffers_create_info *create_info) { (void)create_info; }
+void _pelagia_vulkan_create_textures(struct pelagia_textures_create_info *create_info) { (void)create_info; }
+void _pelagia_vulkan_create_samplers(struct pelagia_samplers_create_info *create_info) { (void)create_info; }
+void _pelagia_vulkan_create_shaders(struct pelagia_shaders_create_info *create_info) { (void)create_info; }
+void _pelagia_vulkan_create_pipeline_layouts(struct pelagia_pipeline_layouts_create_info *create_info) { (void)create_info; }
+void _pelagia_vulkan_create_graphics_pipelines(struct pelagia_graphics_pipelines_create_info *create_info) { (void)create_info; }
+void _pelagia_vulkan_create_compute_pipelines(struct pelagia_compute_pipelines_create_info *create_info) { (void)create_info; }
+void _pelagia_vulkan_create_raytracing_pipelines(struct pelagia_raytracing_pipelines_create_info *create_info) { (void)create_info; }
+void _pelagia_vulkan_create_shader_binding_tables(struct pelagia_shader_binding_tables_create_info *create_info) { (void)create_info; }
+void _pelagia_vulkan_create_descriptor_sets(struct pelagia_descriptor_sets_create_info *create_info) { (void)create_info; }
+void _pelagia_vulkan_create_query_pools(struct pelagia_query_pools_create_info *create_info) { (void)create_info; }
+
+void _pelagia_vulkan_create_bottom_levels(struct pelagia_bottom_levels_create_info *create_info) { (void)create_info; }
+void _pelagia_vulkan_create_top_levels(struct pelagia_top_levels_create_info *create_info) { (void)create_info; }
+
+/* TODO macro for destroy stubs */
+#define DESTROY_FN(__type) \
+    void vulkan_destroy_##__type(struct pelagia_##__type *__type)
+
+DESTROY_FN(device_memory) {
+    struct pelagia_device *device = device_memory->header.device;
+
+    zerop(device_memory);
+#if PELAGIA_ENABLE_GPU_PROFILER
+    atomic_fetch_sub_explicit(&device->device_memory_count, 1u, memory_order_release);
+#endif
+}
+
+DESTROY_FN(buffer) {
+    struct pelagia_device *device = buffer->header.device;
+
+    zerop(buffer);
+#if PELAGIA_ENABLE_GPU_PROFILER
+    atomic_fetch_sub_explicit(&device->buffer_count, 1u, memory_order_release);
+#endif
+}
+
+DESTROY_FN(texture) {
+    struct pelagia_device *device = texture->header.device;
+
+    zerop(texture);
+#if PELAGIA_ENABLE_GPU_PROFILER
+    atomic_fetch_sub_explicit(&device->texture_count, 1u, memory_order_release);
+#endif
+}
+
+DESTROY_FN(sampler) {
+    struct pelagia_device *device = sampler->header.device;
+
+    zerop(sampler);
+#if PELAGIA_ENABLE_GPU_PROFILER
+    atomic_fetch_sub_explicit(&device->sampler_count, 1u, memory_order_release);
+#endif
+}
+
+DESTROY_FN(shader) {
+    zerop(shader);
+}
+
+DESTROY_FN(pipeline_layout) {
+    struct pelagia_device *device = pipeline_layout->header.device;
+
+    zerop(pipeline_layout);
+#if PELAGIA_ENABLE_GPU_PROFILER
+    atomic_fetch_sub_explicit(&device->pipeline_layout_count, 1u, memory_order_release);
+#endif
+}
+
+DESTROY_FN(graphics_pipeline) {
+    struct pelagia_device *device = graphics_pipeline->header.device;
+
+    zerop(graphics_pipeline);
+#if PELAGIA_ENABLE_GPU_PROFILER
+    atomic_fetch_sub_explicit(&device->graphics_pipeline_count, 1u, memory_order_release);
+#endif
+}
+
+DESTROY_FN(compute_pipeline) {
+    struct pelagia_device *device = compute_pipeline->header.device;
+
+    zerop(compute_pipeline);
+#if PELAGIA_ENABLE_GPU_PROFILER
+    atomic_fetch_sub_explicit(&device->compute_pipeline_count, 1u, memory_order_release);
+#endif
+}
+
+DESTROY_FN(raytracing_pipeline) {
+    struct pelagia_device *device = raytracing_pipeline->header.device;
+
+    zerop(raytracing_pipeline);
+#if PELAGIA_ENABLE_GPU_PROFILER
+    atomic_fetch_sub_explicit(&device->raytracing_pipeline_count, 1u, memory_order_release);
+#endif
+}
+
+DESTROY_FN(shader_binding_table) {
+    zerop(shader_binding_table);
+}
+
+DESTROY_FN(descriptor_set) {
+    zerop(descriptor_set);
+}
+
+DESTROY_FN(query_pool) {
+    struct pelagia_device *device = query_pool->header.device;
+
+    zerop(query_pool);
+#if PELAGIA_ENABLE_GPU_PROFILER
+    atomic_fetch_sub_explicit(&device->query_pool_count, 1u, memory_order_release);
+#endif
+}
+
+DESTROY_FN(bottom_level) { 
+    zerop(bottom_level); 
+}
+
+DESTROY_FN(top_level) {
+    zerop(top_level);
+}
+
+RIVEN_ENCORE(pelagia, vulkan) {
+    assert_debug(create_info->header.interface && *create_info->header.interface == NULL);
+
+    const char *fmt = "'pelagia_encore_vulkan' %s";
+    void *module = NULL;
+    u32 instance_version = 0, layer_count = 0;
+    u32 extension_count = 0;
+    u32 extension_bits = 0;
+    const char **extensions = NULL;
+
+    /* we allow only one vulkan backend at a time, so the interface will be shared */
+    if (UNLIKELY(g_vk_pelagia != NULL)) {
+        *create_info->header.interface = (riven_argument_t)g_vk_pelagia;
+        return;
+    }
+
+#if defined(PLATFORM_WINDOWS)
+    module = process_load_dll("vulkan-1.dll");
+#elif defined(PLATFORM_APPLE)
+    module = process_load_dll("libvulkan.dylib");
+    if (!module)
+        module = process_load_dll("libvulkan.1.dylib");
+    if (!module)
+        module = process_load_dll("libMoltenVK.dylib");
+    /* Add support for using Vulkan and MoltenVK in a framework. App store rules for iOS 
+     * strictly enforce no .dylib's. If they aren't found it just falls through. */
+    if (!module)
+        module = process_load_dll("vulkan.framework/vulkan");
+    if (!module)
+        module = process_load_dll("MoltenVK.framework/MoltenVK");
+    /* Modern versions of MacOS don't search /usr/local/lib automatically contrary to what
+     * man dlopen says. Vulkan SDK uses this as the system-wide installation location, so 
+     * we're going to fallback to this if all else fails. */
+    if (!module)
+        module = process_load_dll("/usr/local/lib/libvulkan.dylib");
+#else
+    module = process_load_dll("libvulkan.so.1");
+    if (!module)
+        module = process_load_dll("libvulkan.so");
+#endif
+    if (!module) {
+        log_error(fmt, "can't open the Vulkan drivers, ensure they are correclty installed and available via the system PATH");
+        return;
+    }
+
+    PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr)process_get_address(module, "vkGetInstanceProcAddr");
+    if (vkGetInstanceProcAddr == NULL) {
+        process_close_dll(module);
+        log_error(fmt, "can't get the address of vkGetInstanceProcAddr from Vulkan drivers");
+        return;
+    }
+
+    PFN_vkCreateInstance vkCreateInstance = (PFN_vkCreateInstance)vkGetInstanceProcAddr(NULL, "vkCreateInstance");
+    PFN_vkEnumerateInstanceVersion vkEnumerateInstanceVersion = (PFN_vkEnumerateInstanceVersion)vkGetInstanceProcAddr(NULL, "vkEnumerateInstanceVersion");
+    PFN_vkEnumerateInstanceExtensionProperties vkEnumerateInstanceExtensionProperties = (PFN_vkEnumerateInstanceExtensionProperties)vkGetInstanceProcAddr(NULL, "vkEnumerateInstanceExtensionProperties");
+    PFN_vkEnumerateInstanceLayerProperties vkEnumerateInstanceLayerProperties = (PFN_vkEnumerateInstanceLayerProperties)vkGetInstanceProcAddr(NULL, "vkEnumerateInstanceLayerProperties");
+
+    if (!vkCreateInstance || !vkEnumerateInstanceVersion || !vkEnumerateInstanceExtensionProperties || !vkEnumerateInstanceLayerProperties) {
+        process_close_dll(module);
+        log_error(fmt, "can't get addresses of global procedures from Vulkan drivers");
+        return;
+    }
+
+    /* check the API version */
+    vkEnumerateInstanceVersion(&instance_version);
+    if (instance_version < VK_API_VERSION_1_2) {
+        process_close_dll(module);
+        log_error(fmt, "outdated drivers");
+        log_info("We target a minimum of Vulkan 1.2 core. Your drivers API version is %u.%u.%u, please update your drivers.",
+            (instance_version >> 22u), (instance_version >> 12u) & 0x3ffu, (instance_version & 0xfffu));
+        return;
+    }
+    vkEnumerateInstanceLayerProperties(&layer_count, NULL);
+
+    VERIFY_VK(vkEnumerateInstanceExtensionProperties(NULL, &extension_count, NULL));
+    if (!extension_count) {
+        process_close_dll(module);
+        log_error(fmt, "no instance extensions available, we can't continue");
+        return;
+    }
+
+    /* allocate the interface */
+    struct pelagia *pelagia = (struct pelagia *)
+        riven_alloc(create_info->header.riven, create_info->header.tag, sizeof(struct pelagia), _Alignof(struct pelagia));
+    zerop(pelagia);
+
+    pelagia->module = module;
+    pelagia->vkCreateInstance = vkCreateInstance;
+    pelagia->vkGetInstanceProcAddr = vkGetInstanceProcAddr;
+    pelagia->vkEnumerateInstanceExtensionProperties = vkEnumerateInstanceExtensionProperties;
+    pelagia->vkEnumerateInstanceLayerProperties = vkEnumerateInstanceLayerProperties;
+    pelagia->vkEnumerateInstanceVersion = vkEnumerateInstanceVersion;
+
+    VkExtensionProperties *extension_properties = (VkExtensionProperties *)
+        riven_alloc(create_info->header.riven, riven_tag_deferred, sizeof(VkExtensionProperties) * extension_count, _Alignof(VkExtensionProperties));
+    VERIFY_VK(vkEnumerateInstanceExtensionProperties(NULL, &extension_count, extension_properties));
+
+    /* query instance extensions */
+    if (vulkan_query_extension(extension_properties, extension_count, VK_KHR_SURFACE_EXTENSION_NAME))
+        extension_bits |= vulkan_ext_surface_bit;
+#if defined(PLATFORM_WINDOWS)
+    if (vulkan_query_extension(extension_properties, extension_count, VK_KHR_WIN32_SURFACE_EXTENSION_NAME))
+        extension_bits |= vulkan_ext_win32_surface_bit;
+#elif defined(PLATFORM_APPLE)
+    if (vulkan_query_extension(extension_properties, extension_count, VK_EXT_METAL_SURFACE_EXTENSION_NAME))
+        extension_bits |= vulkan_ext_metal_surface_bit;
+#elif defined(PLATFORM_ANDROID)
+    if (vulkan_query_extension(extension_properties, extension_count, VK_KHR_ANDROID_SURFACE_EXTENSION_NAME))
+        extension_bits |= vulkan_ext_android_surface_bit;
+#endif
+#ifdef HADAL_WAYLAND
+    if (vulkan_query_extension(extension_properties, extension_count, VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME))
+        extension_bits |= vulkan_ext_wayland_surface_bit;
+#endif
+#ifdef HADAL_XCB
+    if (vulkan_query_extension(extension_properties, extension_count, VK_KHR_XCB_SURFACE_EXTENSION_NAME))
+        extension_bits |= vulkan_ext_xcb_surface_bit;
+#endif
+#ifdef HADAL_DRMKMS
+    if (vulkan_query_extension(extension_properties, extension_count, VK_KHR_DISPLAY_EXTENSION_NAME))
+        extension_bits |= vulkan_ext_display_bit;
+#endif
+    if (vulkan_query_extension(extension_properties, extension_count, VK_EXT_HEADLESS_SURFACE_EXTENSION_NAME))
+        extension_bits |= vulkan_ext_headless_surface_bit;
+    if (vulkan_query_extension(extension_properties, extension_count, VK_EXT_DEBUG_UTILS_EXTENSION_NAME))
+        extension_bits |= vulkan_ext_debug_utils_bit;
+
+    u32 o = 0;
+    extension_count = bits_popcnt_lookup((const u8 *)&extension_bits, sizeof(extension_bits));
+    extensions = (const char **)
+        riven_alloc(create_info->header.riven, riven_tag_deferred, sizeof(const char *) * extension_count, _Alignof(const char *));
+    if (extension_bits & vulkan_ext_surface_bit)
+        extensions[o++] = VK_KHR_SURFACE_EXTENSION_NAME;
+#if defined(PLATFORM_WINDOWS)
+    if (extension_bits & vulkan_ext_win32_surface_bit)
+        extensions[o++] = VK_KHR_WIN32_SURFACE_EXTENSION_NAME;
+#elif defined(PLATFORM_APPLE)
+    if (extension_bits & vulkan_ext_metal_surface_bit)
+        extensions[o++] = VK_EXT_METAL_SURFACE_EXTENSION_NAME;
+#elif defined(PLATFORM_ANDROID)
+    if (extension_bits & vulkan_ext_android_surface_bit)
+        extensions[o++] = VK_KHR_ANDROID_SURFACE_EXTENSION_NAME;
+#endif
+#ifdef HADAL_WAYLAND
+    if (extension_bits & vulkan_ext_wayland_surface_bit)
+        extensions[o++] = VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME;
+#endif
+#ifdef HADAL_XCB
+    if (extension_bits & vulkan_ext_xcb_surface_bit)
+        extensions[o++] = VK_KHR_XCB_SURFACE_EXTENSION_NAME;
+#endif
+#ifdef HADAL_DRMKMS
+    if (extension_bits & vulkan_ext_display_bit)
+        extensions[o++] = VK_KHR_DISPLAY_EXTENSION_NAME;
+#endif
+    if (extension_bits & vulkan_ext_headless_surface_bit)
+        extensions[o++] = VK_EXT_HEADLESS_SURFACE_EXTENSION_NAME;
+    if (extension_bits & vulkan_ext_debug_utils_bit)
+        extensions[o++] = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
+
+    VkApplicationInfo app_info = {
+        .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
+        .pNext = NULL,
+        .pApplicationName = create_info->header.metadata->game_name.ptr,
+        .applicationVersion = create_info->header.metadata->game_build_version,
+        .pEngineName = create_info->header.metadata->engine_name.ptr,
+        .engineVersion = create_info->header.metadata->engine_build_version,
+        .apiVersion = instance_version,
+    };
+
+    VkInstanceCreateInfo instance_info = {
+        .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .pApplicationInfo = &app_info,
+        .enabledLayerCount = 0,
+        .ppEnabledLayerNames = NULL,
+        .enabledExtensionCount = extension_count,
+        .ppEnabledExtensionNames = (const char * const *)extensions,
+    };
+
+    VkValidationFeatureEnableEXT validation_feature_enable[] = {
+        VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT,
+        VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT,
+        VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT,
+        VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT,
+    };
+    VkValidationFeaturesEXT validation_features = {
+        .sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT,
+        .pNext = NULL,
+        .enabledValidationFeatureCount = arraysize(validation_feature_enable),
+        .pEnabledValidationFeatures = validation_feature_enable,
+        .disabledValidationFeatureCount = 0,
+        .pDisabledValidationFeatures = NULL,
+    };
+    const char *validation_layers[] = {
+        "VK_LAYER_KHRONOS_validation",
+    };
+
+    /* use validation layers if requested */
+    if (layer_count && extension_count & vulkan_ext_debug_utils_bit) {
+        extension_bits |= vulkan_ext_layer_validation_bit;
+        instance_info.pNext = &validation_features;
+        instance_info.enabledLayerCount = 1;
+        instance_info.ppEnabledLayerNames = (const char * const *)validation_layers;
+    }
+    VERIFY_VK(vkCreateInstance(&instance_info, NULL, &pelagia->instance));
+
+    /* core instance procedures */
+    pelagia->vkCreateDevice = (PFN_vkCreateDevice)instance_proc_address(pelagia, "vkCreateDevice");
+    pelagia->vkDestroyInstance = (PFN_vkDestroyInstance)instance_proc_address(pelagia, "vkDestroyInstance");
+    pelagia->vkEnumerateDeviceExtensionProperties = (PFN_vkEnumerateDeviceExtensionProperties)instance_proc_address(pelagia, "vkEnumerateDeviceExtensionProperties");
+    pelagia->vkEnumeratePhysicalDeviceGroups = (PFN_vkEnumeratePhysicalDeviceGroups)instance_proc_address(pelagia, "vkEnumeratePhysicalDeviceGroups");
+    pelagia->vkEnumeratePhysicalDevices = (PFN_vkEnumeratePhysicalDevices)instance_proc_address(pelagia, "vkEnumeratePhysicalDevices");
+    pelagia->vkGetDeviceProcAddr = (PFN_vkGetDeviceProcAddr)instance_proc_address(pelagia, "vkGetDeviceProcAddr");
+    pelagia->vkGetPhysicalDeviceFeatures = (PFN_vkGetPhysicalDeviceFeatures)instance_proc_address(pelagia, "vkGetPhysicalDeviceFeatures");
+    pelagia->vkGetPhysicalDeviceFeatures2 = (PFN_vkGetPhysicalDeviceFeatures2)instance_proc_address(pelagia, "vkGetPhysicalDeviceFeatures2");
+    pelagia->vkGetPhysicalDeviceFormatProperties = (PFN_vkGetPhysicalDeviceFormatProperties)instance_proc_address(pelagia, "vkGetPhysicalDeviceFormatProperties");
+    pelagia->vkGetPhysicalDeviceFormatProperties2 = (PFN_vkGetPhysicalDeviceFormatProperties2)instance_proc_address(pelagia, "vkGetPhysicalDeviceFormatProperties2");
+    pelagia->vkGetPhysicalDeviceImageFormatProperties = (PFN_vkGetPhysicalDeviceImageFormatProperties)instance_proc_address(pelagia, "vkGetPhysicalDeviceImageFormatProperties");
+    pelagia->vkGetPhysicalDeviceImageFormatProperties2 = (PFN_vkGetPhysicalDeviceImageFormatProperties2)instance_proc_address(pelagia, "vkGetPhysicalDeviceImageFormatProperties2");
+    pelagia->vkGetPhysicalDeviceMemoryProperties = (PFN_vkGetPhysicalDeviceMemoryProperties)instance_proc_address(pelagia, "vkGetPhysicalDeviceMemoryProperties");
+    pelagia->vkGetPhysicalDeviceMemoryProperties2 = (PFN_vkGetPhysicalDeviceMemoryProperties2)instance_proc_address(pelagia, "vkGetPhysicalDeviceMemoryProperties2");
+    pelagia->vkGetPhysicalDeviceProperties = (PFN_vkGetPhysicalDeviceProperties)instance_proc_address(pelagia, "vkGetPhysicalDeviceProperties");
+    pelagia->vkGetPhysicalDeviceProperties2 = (PFN_vkGetPhysicalDeviceProperties2)instance_proc_address(pelagia, "vkGetPhysicalDeviceProperties2");
+    pelagia->vkGetPhysicalDeviceQueueFamilyProperties = (PFN_vkGetPhysicalDeviceQueueFamilyProperties)instance_proc_address(pelagia, "vkGetPhysicalDeviceQueueFamilyProperties");
+    pelagia->vkGetPhysicalDeviceQueueFamilyProperties2 = (PFN_vkGetPhysicalDeviceQueueFamilyProperties2)instance_proc_address(pelagia, "vkGetPhysicalDeviceQueueFamilyProperties2");
+
+    /* ensure there are any physical devices available */
+    u32 physical_device_count = 0;
+    VERIFY_VK(pelagia->vkEnumeratePhysicalDevices(pelagia->instance, &physical_device_count, NULL));
+    if (physical_device_count == 0) {
+        log_error(fmt, "no physical devices are available to Vulkan");
+        return;
+    }
+
+    /* surface */
+    pelagia->vkDestroySurfaceKHR = (PFN_vkDestroySurfaceKHR)instance_proc_address(pelagia, "vkDestroySurfaceKHR");
+    pelagia->vkGetPhysicalDeviceSurfaceSupportKHR = (PFN_vkGetPhysicalDeviceSurfaceSupportKHR)instance_proc_address(pelagia, "vkGetPhysicalDeviceSurfaceSupportKHR");
+    pelagia->vkGetPhysicalDeviceSurfaceCapabilitiesKHR = (PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR)instance_proc_address(pelagia, "vkGetPhysicalDeviceSurfaceCapabilitiesKHR");
+    pelagia->vkGetPhysicalDeviceSurfaceFormatsKHR = (PFN_vkGetPhysicalDeviceSurfaceFormatsKHR)instance_proc_address(pelagia, "vkGetPhysicalDeviceSurfaceFormatsKHR");
+    pelagia->vkGetPhysicalDeviceSurfacePresentModesKHR = (PFN_vkGetPhysicalDeviceSurfacePresentModesKHR)instance_proc_address(pelagia, "vkGetPhysicalDeviceSurfacePresentModesKHR");
+
+    /* debug utils */
+    pelagia->vkSetDebugUtilsObjectNameEXT = (PFN_vkSetDebugUtilsObjectNameEXT)instance_proc_address(pelagia, "vkSetDebugUtilsObjectNameEXT");
+    pelagia->vkSetDebugUtilsObjectTagEXT = (PFN_vkSetDebugUtilsObjectTagEXT)instance_proc_address(pelagia, "vkSetDebugUtilsObjectTagEXT");
+    pelagia->vkQueueBeginDebugUtilsLabelEXT = (PFN_vkQueueBeginDebugUtilsLabelEXT)instance_proc_address(pelagia, "vkQueueBeginDebugUtilsLabelEXT");
+    pelagia->vkQueueEndDebugUtilsLabelEXT = (PFN_vkQueueEndDebugUtilsLabelEXT)instance_proc_address(pelagia, "vkQueueEndDebugUtilsLabelEXT");
+    pelagia->vkQueueInsertDebugUtilsLabelEXT = (PFN_vkQueueInsertDebugUtilsLabelEXT)instance_proc_address(pelagia, "vkQueueInsertDebugUtilsLabelEXT");
+    pelagia->vkCmdBeginDebugUtilsLabelEXT = (PFN_vkCmdBeginDebugUtilsLabelEXT)instance_proc_address(pelagia, "vkCmdBeginDebugUtilsLabelEXT");
+    pelagia->vkCmdEndDebugUtilsLabelEXT = (PFN_vkCmdEndDebugUtilsLabelEXT)instance_proc_address(pelagia, "vkCmdEndDebugUtilsLabelEXT");
+    pelagia->vkCmdInsertDebugUtilsLabelEXT = (PFN_vkCmdInsertDebugUtilsLabelEXT)instance_proc_address(pelagia, "vkCmdInsertDebugUtilsLabelEXT");
+    pelagia->vkCreateDebugUtilsMessengerEXT = (PFN_vkCreateDebugUtilsMessengerEXT)instance_proc_address(pelagia, "vkCreateDebugUtilsMessengerEXT");
+    pelagia->vkDestroyDebugUtilsMessengerEXT = (PFN_vkDestroyDebugUtilsMessengerEXT)instance_proc_address(pelagia, "vkDestroyDebugUtilsMessengerEXT");
+    pelagia->vkSubmitDebugUtilsMessageEXT = (PFN_vkSubmitDebugUtilsMessageEXT)instance_proc_address(pelagia, "vkSubmitDebugUtilsMessageEXT");
+
+    /* video coding */
+    pelagia->vkGetPhysicalDeviceVideoCapabilitiesKHR = (PFN_vkGetPhysicalDeviceVideoCapabilitiesKHR)instance_proc_address(pelagia, "vkGetPhysicalDeviceVideoCapabilitiesKHR");
+    pelagia->vkGetPhysicalDeviceVideoFormatPropertiesKHR = (PFN_vkGetPhysicalDeviceVideoFormatPropertiesKHR)instance_proc_address(pelagia, "vkGetPhysicalDeviceVideoFormatPropertiesKHR");
+
+    if (extension_bits & vulkan_ext_layer_validation_bit)
+        create_validation_layers(pelagia);
+
+    /* write the interface ;3 */
+    pelagia->interface = (struct pelagia_interface){
+        .header = {
+            .name = str_init("pelagia_vulkan"),
+            .riven = create_info->header.riven,
+            .tag = create_info->header.tag,
+            .fini = (PFN_riven_work)vulkan_interface_fini,
+        },
+#define WRITE_PFN(fn) \
+        .fn = _pelagia_vulkan_##fn,
+        /* device API */
+        WRITE_PFN(query_physical_devices)
+        WRITE_PFN(create_device)
+        WRITE_PFN(destroy_device)
+        /* resources API */
+        WRITE_PFN(create_device_memory)
+        WRITE_PFN(create_buffers)
+        WRITE_PFN(create_textures)
+        WRITE_PFN(create_samplers)
+        WRITE_PFN(create_shaders)
+        WRITE_PFN(create_pipeline_layouts)
+        WRITE_PFN(create_graphics_pipelines)
+        WRITE_PFN(create_compute_pipelines)
+        WRITE_PFN(create_raytracing_pipelines)
+        WRITE_PFN(create_shader_binding_tables)
+        WRITE_PFN(create_descriptor_sets)
+        WRITE_PFN(create_query_pools)
+        WRITE_PFN(create_swapchain)
+        WRITE_PFN(create_bottom_levels)
+        WRITE_PFN(create_top_levels)
+        WRITE_PFN(destroy_resources)
+        /* commands API */
+        /* TODO */
+#undef WRITE_PFN
+    };
+    *create_info->header.interface = (riven_argument_t)pelagia;
+    log_verbose("'%s' interface write.", pelagia->interface.header.name.ptr);
 }

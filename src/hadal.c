@@ -64,11 +64,14 @@ RIVEN_ENCORE(hadal, native)
     }
 }
 
-static void headless_acquire_framebuffer_extent(struct hadal *hadal, u32 *width, u32 *height)
+static void headless_acquire_framebuffer_extent(const
+    struct hadal *hadal, 
+    u32          *out_width, 
+    u32          *out_height)
 {
     (void)hadal;
-    (void)width;
-    (void)height;
+    (void)out_width;
+    (void)out_height;
 }
 
 RIVEN_ENCORE(hadal, headless)
