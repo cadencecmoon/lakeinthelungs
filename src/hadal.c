@@ -64,12 +64,12 @@ RIVEN_ENCORE(hadal, native)
     }
 }
 
-static void headless_acquire_framebuffer_extent(const
-    struct hadal *hadal, 
-    u32          *out_width, 
-    u32          *out_height)
+static void _hadal_headless_acquire_framebuffer_extent(
+    const struct hadal_window *window, 
+    u32                       *out_width, 
+    u32                       *out_height)
 {
-    (void)hadal;
+    (void)window;
     (void)out_width;
     (void)out_height;
 }
@@ -91,7 +91,7 @@ RIVEN_ENCORE(hadal, headless)
             .tag = tag,
             .fini = riven_work_nop,
         },
-        .acquire_framebuffer_extent = headless_acquire_framebuffer_extent,
+        .acquire_framebuffer_extent = _hadal_headless_acquire_framebuffer_extent,
     };
     *create_info->header.interface = (riven_argument_t)(struct hadal *)interface;
     log_verbose("'%s' interface write.", interface->header.name.ptr);

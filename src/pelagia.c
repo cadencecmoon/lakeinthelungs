@@ -54,10 +54,11 @@ RIVEN_ENCORE(pelagia, native)
         VALIDATE(create_shader_binding_tables)
         VALIDATE(create_descriptor_sets)
         VALIDATE(create_query_pools)
-        VALIDATE(create_swapchain)
+        VALIDATE(create_swapchains)
         VALIDATE(create_bottom_levels)
         VALIDATE(create_top_levels)
         VALIDATE(destroy_resources)
+        VALIDATE(recreate_swapchain)
 #undef VALIDATE
         if (valid) return;
 

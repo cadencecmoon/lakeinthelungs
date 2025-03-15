@@ -245,8 +245,8 @@ struct pelagia {
 };
 
 struct pelagia_device {
-    /** We can cast struct pelagia_device* into struct pelagia**. */
-    const struct pelagia                   *pelagia;
+    /** The public header of the rendering device. */
+    struct pelagia_device_header            header;
     /** The physical device used to create this rendering device. */
     const struct vulkan_physical_device    *physical;
     /** The Vulkan context of a rendering device, using the given physical device. */
@@ -588,8 +588,8 @@ struct pelagia_query_pool {
 struct pelagia_swapchain {
     /** pelagia_resource_type_swapchain */
     struct pelagia_resource_header  header;
-    /** The display used to create a surface. */
-    struct hadal                   *hadal;
+    /** The window & display backend used to create a surface. */
+    struct hadal_window            *window;
     /** The Vulkan object for a swapchain, created using the surface below. */
     VkSwapchainKHR                  sc;
     /** A surface created by interfacing with a display backend. */
@@ -600,6 +600,7 @@ struct pelagia_swapchain {
     VkCompositeAlphaFlagsKHR        composite_alpha;
     /** The resolution of images, in pixels. */
     VkExtent2D                      extent;
+    /** Sharing mode that results from device queue families. */
     VkSharingMode                   sharing_mode;
     /** The intended use of the images. If transfer is set, screenshots are supported. */
     VkImageUsageFlags               image_usage;
@@ -610,9 +611,15 @@ struct pelagia_swapchain {
     /** An image view for each image in the swapchain. */
     VkImageView                     image_views[PELAGIA_MAX_SWAPCHAIN_IMAGES];
     /** Synchronization semaphores used for presentation. */
-    VkSemaphore                     image_available_sem[PELAGIA_MAX_FRAMES_IN_FLIGHT];
+    VkSemaphore                     image_available_semaphores[PELAGIA_MAX_FRAMES_IN_FLIGHT];
+    /** The current index to the semaphores, cycled by frames_in_flight of the device. */
+    u32                             image_available_semaphore_index;
     /** Number of images in the swapchain. */
     u32                             image_count;
+    /** If a non-zero value, will limit the framerate to a given interval. */
+    u32                             presentation_interval;
+    /** Counts the last time an image was presented to the surface. */
+    f64                             last_presented_time;
 };
 
 struct pelagia_bottom_level {
@@ -696,7 +703,7 @@ extern void AMWCALL vulkan_destroy_top_level(struct pelagia_top_level *top_level
 
 extern s32 AMWCALL _pelagia_vulkan_query_physical_devices(
     struct pelagia                      *pelagia, 
-    const struct hadal                  *hadal,
+    const struct hadal_window           *window,
     u32                                 *out_device_count, 
     struct pelagia_physical_device_info *out_devices);
 
@@ -715,7 +722,7 @@ extern void AMWCALL _pelagia_vulkan_create_raytracing_pipelines(struct pelagia_r
 extern void AMWCALL _pelagia_vulkan_create_shader_binding_tables(struct pelagia_shader_binding_tables_create_info *create_info);
 extern void AMWCALL _pelagia_vulkan_create_descriptor_sets(struct pelagia_descriptor_sets_create_info *create_info);
 extern void AMWCALL _pelagia_vulkan_create_query_pools(struct pelagia_query_pools_create_info *create_info);
-extern void AMWCALL _pelagia_vulkan_create_swapchain(struct pelagia_swapchain_create_info *create_info);
+extern void AMWCALL _pelagia_vulkan_create_swapchains(struct pelagia_swapchains_create_info *create_info);
 extern void AMWCALL _pelagia_vulkan_create_bottom_levels(struct pelagia_bottom_levels_create_info *create_info);
 extern void AMWCALL _pelagia_vulkan_create_top_levels(struct pelagia_top_levels_create_info *create_info);
 extern void AMWCALL _pelagia_vulkan_destroy_resources(struct pelagia_destroy_resources_work *work);

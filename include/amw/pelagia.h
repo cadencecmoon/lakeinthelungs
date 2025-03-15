@@ -8,6 +8,10 @@
 extern "C" {
 #endif
 
+/* forward declarations */
+struct hadal;
+struct hadal_window;
+
 #ifndef PELAGIA_MAX_FRAMES_IN_FLIGHT
 #define PELAGIA_MAX_FRAMES_IN_FLIGHT 4
 #endif
@@ -22,8 +26,6 @@ extern "C" {
         #define PELAGIA_ENABLE_GPU_PROFILER 0
     #endif
 #endif
-
-typedef u32 render_resource_t;
 
 /** The rendering device is our context of execution, used to create resources and run commands 
  *  on the GPU. (struct pelagia_device *) can be safely cast into (struct pelagia_interface **). */
@@ -79,18 +81,6 @@ struct pelagia_create_info {
     b32 debug_utilities;
 };
 
-/** Optional GPU features of the renderer, may be different per-device. */
-enum pelagia_features {
-    pelagia_feature_swapchain                   = (1u << 0),
-    pelagia_feature_sparse_binding              = (1u << 1),
-    pelagia_feature_acceleration_structures     = (1u << 2),
-    pelagia_feature_raytracing_pipeline         = (1u << 3),
-    pelagia_feature_ray_query                   = (1u << 4),
-    pelagia_feature_mesh_shader                 = (1u << 5),
-    pelagia_feature_decode_av1                  = (1u << 6),
-    pelagia_feature_decode_h264                 = (1u << 7),
-};
-
 #ifdef PELAGIA_D3D12
 /** The entry point to a Windows Direct 3D 12 Ultimate rendering backend. */
 AMWAPI RIVEN_ENCORE(pelagia, d3d12);
@@ -127,89 +117,6 @@ AMWAPI RIVEN_ENCORE(pelagia, stub);
  *  Other possible rendering backends that could be created:
  *      GNM (PS5), NVN, AGC, serialized proxy, older APIs(OpenGL, OpenGL ES, DX11, etc.)? */
 AMWAPI RIVEN_ENCORE(pelagia, native);
-
-/** Quered information about the physical device, used either for logging or for decisions
- *  related to creating rendering devices. This information must be passed to the device 
- *  create info, when creating a device. */
-struct pelagia_physical_device_info {
-    struct str              name;           /**< The name of the physical device. */
-    u32                     index;          /**< Internal index of the physical device structure. */
-    u32                     device_type;    /**< Device type, e.g. discrete GPU, integrated GPU, CPU, virtual. */
-    u32                     vendor_id;      /**< The vendor ID, e.g. AMD, NVIDIA, Intel. */
-    u32                     api_version;    /**< The version of the supported API, depends on the backend. */
-    u32                     features;       /**< Bits from enum pelagia_features. */
-    usize                   total_vram;     /**< Total video memory available, in bytes. */
-    /** An internally resolved score for comparing devices with each other. By itself a score 
-     *  means nothing, as backend can write arbitrary scores as they do the device query. */
-    u32                     score;
-    /** This device has surface capabilities and can be used to create and control swapchains. */
-    b32                     presentation;
-};
-
-/** Information needed to create a rendering device. */
-struct pelagia_device_create_info {
-    struct work_header                          work_header;            /**< Holds the error code and work index. */
-    struct pelagia                             *pelagia;                /**< The context for the device. */
-    struct pelagia_device                     **write_device;           /**< The device handle will be written here. */
-    const struct pelagia_physical_device_info  *physical_device;        /**< This physical device will be used. */
-    struct riven_allocation                     allocation;             /**< The host allocation that will hold all device state. The caller may pass a riven_tag, or do the deed after a query. */
-    u32                                         frames_in_flight;       /**< GPU resources buffering, must be between 1 and PELAGIA_MAX_FRAMES_IN_FLIGHT. */
-};
-
-/** Types of GPU resources. */
-enum pelagia_resource_type {
-    pelagia_resource_type_invalid = 0u,
-    pelagia_resource_type_device_memory,
-    pelagia_resource_type_buffer,
-    pelagia_resource_type_texture,
-    pelagia_resource_type_sampler,
-    pelagia_resource_type_shader,
-    pelagia_resource_type_pipeline_layout,
-    pelagia_resource_type_graphics_pipeline,
-    pelagia_resource_type_compute_pipeline,
-    pelagia_resource_type_raytracing_pipeline,
-    pelagia_resource_type_shader_binding_table,
-    pelagia_resource_type_descriptor_set,
-    pelagia_resource_type_query_pool,
-    pelagia_resource_type_swapchain,
-    pelagia_resource_type_bottom_level,
-    pelagia_resource_type_top_level,
-    pelagia_resource_type_count,
-};
-#define pelagia_resource_type_index(__type) \
-    (pelagia_resource_type_##__type - 1u)
-
-/** All resource types implement this header as the first struct member,
- *  so that we can safely cast any resource type into this header. */
-struct pelagia_resource_header {
-    /** The device used to create this GPU resource. */
-    struct pelagia_device                  *device; 
-    /** Indicates the type of the internal resource structure. */
-    enum pelagia_resource_type              type;
-    /** A render handle it references. */
-    render_resource_t                       handle;
-};
-
-/** Abstracts the handle to a GPU resource. */
-union pelagia_resource {
-    struct pelagia_resource_header         *header;
-    struct pelagia_device_memory           *device_memory;
-    struct pelagia_buffer                  *buffer;
-    struct pelagia_texture                 *texture;
-    struct pelagia_sampler                 *sampler;
-    struct pelagia_shader                  *shader;
-    struct pelagia_pipeline_layout         *pipeline_layout;
-    struct pelagia_graphics_pipeline       *graphics_pipeline;
-    struct pelagia_compute_pipeline        *compute_pipeline;
-    struct pelagia_raytracing_pipeline     *raytracing_pipeline;
-    struct pelagia_shader_binding_table    *shader_binding_table;
-    struct pelagia_descriptor_set          *descriptor_set;
-    struct pelagia_query_pool              *query_pool;
-    struct pelagia_swapchain               *swapchain;
-    struct pelagia_bottom_level            *bottom_level;
-    struct pelagia_top_level               *top_level;
-    void                                   *write;
-};
 
 /** A list of supported formats of textures, they describe how memory is laid out.
  *  Availability of formats depends on physical device and backend. */
@@ -333,14 +240,124 @@ enum pelagia_texture_format {
     pelagia_texture_format_count,
 };
 
+/** Flags describing a rendering device. */
+enum pelagia_device_flags {
+    /** A primary device implicitly controls the rendering logic within a mGPU setup. */
+    pelagia_device_flag_is_primary              = (1u << 0),
+    /** The device supports presenting to a window surface via the swapchain extension. */
+    pelagia_device_flag_swapchain               = (1u << 1),
+    /** The device supports sparse binding of huge resources, like virtual textures. */
+    pelagia_device_flag_sparse_binding          = (1u << 2),
+    /** The device supports dedicated raytracing pipelines and shader types. */
+    pelagia_device_flag_raytracing_pipeline     = (1u << 3),
+    /** The device supports acceleration structures as shaders extension. */
+    pelagia_device_flag_acceleration_structures = (1u << 4),
+    /** The device can use mesh shaders within graphics pipelines. */
+    pelagia_device_flag_mesh_shader             = (1u << 5),
+    /** The device can decode AV1 videos. */
+    pelagia_device_flag_video_av1               = (1u << 6),
+    /** The device can decode H.264 videos. */
+    pelagia_device_flag_video_h264              = (1u << 7),
+};
+
+/** A public interface to a rendering device. All devices are expected to include 
+ *  this header as the first element of it's struct. */
+struct pelagia_device_header {
+    /** The rendering backend used to create this rendering device. */
+    struct pelagia *pelagia;
+    /** Flags describe the state of a device and the features or operations it supports at a given time. */
+    at_u32          flags;
+};
+
+/** Quered information about the physical device, used either for logging or for decisions
+ *  related to creating rendering devices. This information must be passed to the device 
+ *  create info, when creating a device. */
+struct pelagia_physical_device_info {
+    struct str              name;           /**< The name of the physical device. */
+    u32                     index;          /**< Internal index of the physical device structure. */
+    u32                     device_type;    /**< Device type, e.g. discrete GPU, integrated GPU, CPU, virtual. */
+    u32                     vendor_id;      /**< The vendor ID, e.g. AMD, NVIDIA, Intel. */
+    u32                     api_version;    /**< The version of the supported API, depends on the backend. */
+    usize                   total_vram;     /**< Total video memory available, in bytes. */
+    /** An internally resolved score for comparing devices with each other. By itself a score 
+     *  means nothing, as backend can write arbitrary scores as they do the device query. */
+    u32                     score;
+    u32                     flags;          /**< Bits from enum pelagia_device_flags. */
+};
+
+/** Information needed to create a rendering device. */
+struct pelagia_device_create_info {
+    struct work_header                          work_header;            /**< Holds the error code and work index. */
+    struct pelagia                             *pelagia;                /**< The context for the device. */
+    struct riven_allocation                     allocation;             /**< The host allocation that will hold all device state. The caller may pass a riven_tag, or do the deed after a query. */
+    struct pelagia_device                     **write_device;           /**< The device handle will be written here. */
+    const struct pelagia_physical_device_info  *physical_device;        /**< This physical device will be used. */
+    u32                                         frames_in_flight;       /**< GPU resources buffering, must be between 1 and PELAGIA_MAX_FRAMES_IN_FLIGHT. */
+};
+
+/** Types of GPU resources. */
+enum pelagia_resource_type {
+    pelagia_resource_type_invalid = 0u,
+    pelagia_resource_type_device_memory,
+    pelagia_resource_type_buffer,
+    pelagia_resource_type_texture,
+    pelagia_resource_type_sampler,
+    pelagia_resource_type_shader,
+    pelagia_resource_type_pipeline_layout,
+    pelagia_resource_type_graphics_pipeline,
+    pelagia_resource_type_compute_pipeline,
+    pelagia_resource_type_raytracing_pipeline,
+    pelagia_resource_type_shader_binding_table,
+    pelagia_resource_type_descriptor_set,
+    pelagia_resource_type_query_pool,
+    pelagia_resource_type_swapchain,
+    pelagia_resource_type_bottom_level,
+    pelagia_resource_type_top_level,
+    pelagia_resource_type_count,
+};
+#define pelagia_resource_type_index(__type) \
+    (pelagia_resource_type_##__type - 1u)
+
+/** All resource types implement this header as the first struct member,
+ *  so that we can safely cast any resource type into this header. */
+struct pelagia_resource_header {
+    /** The device used to create this GPU resource. */
+    struct pelagia_device                  *device; 
+    /** Indicates the type of the internal resource structure. */
+    enum pelagia_resource_type              type;
+    /** Flags to control the state of this resource. */
+    at_u32                                  flags;
+};
+
+/** Abstracts the handle to a GPU resource. */
+union pelagia_resource {
+    struct pelagia_resource_header         *header;
+    struct pelagia_device_memory           *device_memory;
+    struct pelagia_buffer                  *buffer;
+    struct pelagia_texture                 *texture;
+    struct pelagia_sampler                 *sampler;
+    struct pelagia_shader                  *shader;
+    struct pelagia_pipeline_layout         *pipeline_layout;
+    struct pelagia_graphics_pipeline       *graphics_pipeline;
+    struct pelagia_compute_pipeline        *compute_pipeline;
+    struct pelagia_raytracing_pipeline     *raytracing_pipeline;
+    struct pelagia_shader_binding_table    *shader_binding_table;
+    struct pelagia_descriptor_set          *descriptor_set;
+    struct pelagia_query_pool              *query_pool;
+    struct pelagia_swapchain               *swapchain;
+    struct pelagia_bottom_level            *bottom_level;
+    struct pelagia_top_level               *top_level;
+    void                                   *write;
+};
+
 /** Macro to define a pelagia 'create_info' structure's header. */
 #define PELAGIA_RESOURCES_CREATE_INFO_HEADER(__type) \
     struct work_header                      work_header;    /**< Holds the error code and work index. */ \
     struct pelagia_device                  *device;         /**< Creates resources on the GPU, will write itself to the resources' headers. */ \
+    struct riven_allocation                 allocation;     /**< Allocation query of memory requirements. */ \
     enum pelagia_resource_type              resource_type;  /**< The type of this create info, used for abstracted access. */ \
     u32                                     write_count;    /**< The length of the write array, equal to amount of resources to be created. */ \
-    struct pelagia_##__type               **write;          /**< An array of handles where the resources will be written. They will share the same lifetime. */ \
-    struct riven_allocation                 allocation;     /**< Allocation query of memory requirements. */
+    struct pelagia_##__type               **write;          /**< An array of handles where the resources will be written. They will share the same lifetime. */
 
 /** Abstracts common fields in a create_info structure of any resource type. */
 struct pelagia_resources_create_info { PELAGIA_RESOURCES_CREATE_INFO_HEADER(resource_header); };
@@ -371,7 +388,7 @@ struct pelagia_samplers_create_info {
 
 /** Information needed to create an array of shader modules. */
 struct pelagia_shaders_create_info {
-    PELAGIA_RESOURCES_CREATE_INFO_HEADER(sampler);
+    PELAGIA_RESOURCES_CREATE_INFO_HEADER(shaders);
     /* TODO */
 };
 
@@ -417,14 +434,39 @@ struct pelagia_query_pools_create_info {
     /* TODO */
 };
 
+enum pelagia_swapchain_flags {
+    /** True if the swapchain is currently connected to a system window. */
+    pelagia_swapchain_flag_attached_to_window   = (1u << 0),
+    /** True whenever presentation fails due to a lost surface or destroyed window. */
+    pelagia_swapchain_flag_surface_was_lost     = (1u << 1),
+    /** True whenever the present queue timed out for some reason. */
+    pelagia_swapchain_flag_timed_out            = (1u << 2),
+    /** Set from a window event whenever the framebuffer extent changes. */
+    pelagia_swapchain_flag_framebuffer_resized  = (1u << 3),
+    /** Vertical synchronization is used as the present mode. */
+    pelagia_swapchain_flag_vsync_enabled        = (1u << 4),
+    /** True if the swapchain images can be saved on disk. */
+    pelagia_swapchain_flag_screenshot_supported = (1u << 5),
+};
+
 /** Information needed to create an array of swapchains. */
-struct pelagia_swapchain_create_info {
-    PELAGIA_RESOURCES_CREATE_INFO_HEADER(swapchain);
-    /** We need to interface with the display backend to create a surface we can draw to. */
-    const struct hadal         *hadal;
+struct pelagia_swapchains_create_info {
+    PELAGIA_RESOURCES_CREATE_INFO_HEADER(swapchains);
+    /** We need to interface with the display backend to create a surface we can draw to.
+     *  The windows can be of different backends (for example, a native and a headless window surface),
+     *  and multiple windows can be passed in so that each one can own a swapchain.
+     *
+     *  This work expects exactly one unique window handle per swapchain to be created.
+     *  From Vulkan specs: "A native window cannot be associated with more than one non-retired swapchain at a time". 
+     *
+     *  Non-retired means, an old swapchain may be passed in when recreating a swapchain,
+     *  but trying to create a swapchain from an already used window surface will be asserted. */
+    const struct hadal_window **windows;
     /** If a given format is supported by the surface and the physical device, it is preferred. */
     enum pelagia_texture_format preferred_format;
-    /** If true, V-SYNC will be enabled (FIFO present mode is used). */
+    /** Optional value to limit the framerate. Can be set later at any time. */
+    u32                         presentation_interval;
+    /** If true, V-SYNC will be enabled (FIFO present mode is used). Can be set when recreating a swapchain. */
     b32                         enable_vsync;
 };
 
@@ -455,10 +497,9 @@ struct pelagia_top_levels_create_info {
  *  that will store information for every physical device. Their count may be retrieved from 
  *  out_physical_device_count, and the caller may allocate memory for the physical device infos.
  *
- *  Non-zero value is returned on errors that invalidate the query, or the rendering backend. */
+ *  Non-zero value is returned on errors that invalidate the query or the entire rendering backend. */
 typedef s32 (AMWCALL *PFN_pelagia_query_physical_devices)(
     struct pelagia                      *pelagia, 
-    const struct hadal                  *hadal,
     u32                                 *out_device_count, 
     struct pelagia_physical_device_info *out_devices);
 
@@ -509,7 +550,7 @@ PFN_PELAGIA_CREATE_RESOURCE(descriptor_sets);
 PFN_PELAGIA_CREATE_RESOURCE(query_pools);
 
 /** Creates a swapchain. The given device must support presentation to a window surface. */
-PFN_PELAGIA_CREATE_RESOURCE(swapchain);
+PFN_PELAGIA_CREATE_RESOURCE(swapchains);
 
 /** Creates a bottom-level acceleration structure. */
 PFN_PELAGIA_CREATE_RESOURCE(bottom_levels);
@@ -527,16 +568,43 @@ struct pelagia_destroy_resources_work {
 /** All GPU resources can be destroyed using this procedure. An implementation may use a dispatch table. */
 typedef void (AMWCALL *PFN_pelagia_destroy_resources)(struct pelagia_destroy_resources_work *work);
 
+/* TODO commands */
+
+/** Combines a swapchain handle with parameters to control how it is recreated.
+ *  This operation may fail if the system window is at fault. */
+struct pelagia_recreate_swapchain_work {
+    struct work_header          header;
+    struct pelagia_swapchain   *swapchain;
+    enum pelagia_texture_format new_format;
+    b32                         enable_vsync;
+};
+
+/** Tries to recreate the swapchain. This may fail due to external circumstances regarding the interfaced display.
+ *
+ *  The swapchain must be recreated in any of the following cases:
+ *  - The framebuffer resolution of the window has changed - either from scaling or resizing the window.
+ *  - The used display backend (hadal) was destroyed and recreated.
+ *  - The window surface was lost.
+ *  
+ *  This work is expected to run as a job within the gameloop's rendering stage. */
+typedef void (AMWCALL *PFN_pelagia_recreate_swapchain)(struct pelagia_recreate_swapchain_work *work);
+
+/** Sets the presentation interval of a swapchain to a value in the same frequency as the delta time.
+ *  This effectively limits the framerate. If argument of value 0 is given, the feature is disabled. */
+typedef void (AMWCALL *PFN_pelagia_set_presentation_interval)(struct pelagia_swapchain *swapchain, u32 interval);
+
 /** Procedures to be provided by an implementation. The backend must implement the 'struct pelagia' and 
  *  put the pelagia_interface as the first member of this structure, to allow casting between the opaque 
  *  handle of the rendering backend and the public interface defined below. */
 struct pelagia_interface {
     struct riven_interface_header               header;
 
+    /* devices */
     PFN_pelagia_query_physical_devices          query_physical_devices;
     PFN_pelagia_create_device                   create_device;
     PFN_pelagia_destroy_device                  destroy_device;
 
+    /* GPU resources */
     PFN_pelagia_create_device_memory            create_device_memory;
     PFN_pelagia_create_buffers                  create_buffers;
     PFN_pelagia_create_textures                 create_textures;
@@ -549,22 +617,49 @@ struct pelagia_interface {
     PFN_pelagia_create_shader_binding_tables    create_shader_binding_tables;
     PFN_pelagia_create_descriptor_sets          create_descriptor_sets;
     PFN_pelagia_create_query_pools              create_query_pools;
-    PFN_pelagia_create_swapchain                create_swapchain;
+    PFN_pelagia_create_swapchains               create_swapchains;
     PFN_pelagia_create_bottom_levels            create_bottom_levels;
     PFN_pelagia_create_top_levels               create_top_levels;
     PFN_pelagia_destroy_resources               destroy_resources;
+
+    /* GPU commands */
+    /* TODO */
+
+    /* presentation */
+    PFN_pelagia_recreate_swapchain              recreate_swapchain;
+    PFN_pelagia_set_presentation_interval       set_presentation_interval;
+    //PFN_pelagia_begin_next_image                begin_next_image;
 };
 
+/** Performs the physical device query. */
 attr_inline attr_nonnull(1,3)
 s32 pelagia_query_physical_devices(
     struct pelagia                      *pelagia,
-    const struct hadal                  *hadal,
     u32                                 *out_device_count,
     struct pelagia_physical_device_info *out_devices)
 {
     struct pelagia_interface *interface = (struct pelagia_interface *)pelagia;
     assert_debug(interface->query_physical_devices);
-    return interface->query_physical_devices(pelagia, hadal, out_device_count, out_devices);
+    return interface->query_physical_devices(pelagia, out_device_count, out_devices);
+}
+
+/** Writes the swapchain to a 'pelagia_recreate_swapchain_work' structure.
+ *  Returns true if the swapchain must be recreated. */
+attr_inline attr_nonnull_all
+b32 pelagia_recreate_swapchain_workprep(
+    struct pelagia_swapchain               *swapchain, 
+    struct pelagia_recreate_swapchain_work *work) 
+{
+    union pelagia_resource raw = { .swapchain = swapchain };
+    work->swapchain = swapchain;
+    if (atomic_load_explicit(&raw.header->flags, memory_order_relaxed) & 
+        (pelagia_swapchain_flag_framebuffer_resized 
+       | pelagia_swapchain_flag_surface_was_lost 
+       | pelagia_swapchain_flag_timed_out))
+    {
+        return true;
+    }
+    return false;
 }
 
 #ifdef __cplusplus

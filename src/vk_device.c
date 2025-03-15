@@ -334,7 +334,7 @@ static const char *vendor_name_string(u32 vendor_id)
 struct physical_device_query_work {
     struct work_header              header;
     const struct pelagia           *pelagia;
-    const struct hadal             *hadal;
+    const struct hadal_window      *window;
     struct vulkan_physical_device  *device;
 };
 
@@ -453,10 +453,10 @@ static void physical_device_query(struct physical_device_query_work *work)
     pelagia->vkGetPhysicalDeviceFeatures2(physical->device, &physical->features2);
 
     /* if the display is present, we will make an effort to check for presentation support */
-    if (work->hadal) {
+    if (work->window) {
         /* let's create a temporary surface we can work with */
-        struct hadal_interface *interface = (struct hadal_interface *)work->hadal;
-        VkResult res = interface->vulkan_create_surface(work->hadal, pelagia->instance, &surface, NULL, pelagia->vkGetInstanceProcAddr);
+        struct hadal_interface *interface = *(struct hadal_interface **)work->window;
+        VkResult res = interface->vulkan_create_surface(work->window, pelagia->instance, &surface, NULL, pelagia->vkGetInstanceProcAddr);
 
         if (res != VK_SUCCESS || !surface) {
             log_warn("%s creating a temporary Vulkan surface failed: %s. Can't check for presentation support.", err, vulkan_result_string(res));
@@ -581,11 +581,11 @@ static void physical_device_query(struct physical_device_query_work *work)
         return;
     } else if (surface) {
         /* search for a queue family that will support presentation */
-        struct hadal_interface *interface = (struct hadal_interface *)work->hadal;
+        struct hadal_interface *interface = (struct hadal_interface *)work->window;
 
         for (u32 i = 0; i < queue_family_count; i++) {
             /* pick the last queue family that supports presentation */
-            if (interface->vulkan_physical_device_presentation_support(work->hadal, pelagia->instance, surface, physical->device, i, pelagia->vkGetInstanceProcAddr))
+            if (interface->vulkan_physical_device_presentation_support(work->window, pelagia->instance, surface, physical->device, i, pelagia->vkGetInstanceProcAddr))
                 physical->presentation_queue_family_index = i;
         }
         if (physical->presentation_queue_family_index != UINT32_MAX) {
@@ -896,7 +896,7 @@ static void physical_device_query(struct physical_device_query_work *work)
 
 s32 _pelagia_vulkan_query_physical_devices(
     struct pelagia                      *pelagia, 
-    const struct hadal                  *hadal,
+    const struct hadal_window           *window,
     u32                                 *out_device_count, 
     struct pelagia_physical_device_info *out_devices)
 {
@@ -938,7 +938,7 @@ s32 _pelagia_vulkan_query_physical_devices(
             query_work[i].header.result = result_error;
             query_work[i].header.index = i;
             query_work[i].pelagia = pelagia;
-            query_work[i].hadal = hadal;
+            query_work[i].window = window;
             query_work[i].device = &physical_devices[i];
         }
         riven_split_work_and_unchain(pelagia->interface.header.riven, work, physical_device_count);
@@ -1013,7 +1013,7 @@ void _pelagia_vulkan_create_device(struct pelagia_device_create_info *create_inf
     create_info->allocation.alignment = _Alignof(struct pelagia_device);
     *create_info->write_device = NULL;
 
-    if (create_info->allocation.tag == riven_tag_invalid && !create_info->allocation.memory) {
+    if (!create_info->allocation.memory && create_info->allocation.tag == riven_tag_invalid) {
         assert_debug(create_info->work_header.result != result_allocation_query);
         create_info->work_header.result = result_allocation_query;
         return;
@@ -1138,15 +1138,10 @@ void _pelagia_vulkan_create_device(struct pelagia_device_create_info *create_inf
     };
     VERIFY_VK(pelagia->vkCreateDevice(physical->device, &device_info, NULL, &logical));
 
-    struct pelagia_device *device = NULL;
     /* allocate the device state */
-    if (create_info->allocation.tag) {
-        device = (struct pelagia_device *)
-            riven_alloc(pelagia->interface.header.riven, create_info->allocation.tag, sizeof(struct pelagia_device), _Alignof(struct pelagia_device));
-    } else {
-        assert_debug(create_info->allocation.memory);
-        device = (struct pelagia_device *)create_info->allocation.memory;
-    }
+    if (!create_info->allocation.memory)
+        create_info->allocation.memory = riven_alloc(pelagia->interface.header.riven, create_info->allocation.tag, create_info->allocation.size, create_info->allocation.alignment);
+    struct pelagia_device *device = (struct pelagia_device *)create_info->allocation.memory;
     zerop(device);
 
     device->pelagia = pelagia;
@@ -1944,7 +1939,7 @@ RIVEN_ENCORE(pelagia, vulkan) {
         WRITE_PFN(create_shader_binding_tables)
         WRITE_PFN(create_descriptor_sets)
         WRITE_PFN(create_query_pools)
-        WRITE_PFN(create_swapchain)
+        WRITE_PFN(create_swapchains)
         WRITE_PFN(create_bottom_levels)
         WRITE_PFN(create_top_levels)
         WRITE_PFN(destroy_resources)

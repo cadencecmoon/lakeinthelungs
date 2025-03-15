@@ -2,26 +2,23 @@
 
 #include <amw/hadal.h>
 
-void _pelagia_vulkan_create_swapchain(struct pelagia_swapchain_create_info *create_info) 
+void _pelagia_vulkan_create_swapchains(struct pelagia_swapchains_create_info *create_info) 
 { 
     struct pelagia_device *device = create_info->device;
     const struct pelagia *pelagia = device->pelagia;
-    const struct hadal_interface *hadal = (const struct hadal_interface *)create_info->hadal;
 
-    assert_debug(device && hadal && create_info->write);
-    assert_debug(device->vkCreateSwapchainKHR);
+    assert_debug(device && create_info->windows && create_info->write);
 
-    if (create_info->write_count > 1) 
-        log_debug("Write count (%u) for swapchain is ignored, only one will be created.", create_info->write_count);
-
-    if (!device->physical->presentation_support) {
-        log_error("Can't create a swapchain - device '%s' does not support presentation.", device->physical->properties2.properties.deviceName);
+    if ((device->physical->extension_bits & vulkan_ext_swapchain_bit) == 0) {
+        log_error("Can't create a swapchain - device '%s' does not the swapchain extension.", device->physical->properties2.properties.deviceName);
         create_info->work_header.result = result_error;
         return;
     }
+    assert_debug(create_info->write_count);
+    assert_debug(device->vkCreateSwapchainKHR);
 
     /* write the memory requirements, return if query */
-    create_info->allocation.size = sizeof(struct pelagia_swapchain);
+    create_info->allocation.size = sizeof(struct pelagia_swapchain) * create_info->write_count;
     create_info->allocation.alignment = _Alignof(struct pelagia_swapchain);
     *create_info->write = NULL;
 
@@ -31,6 +28,12 @@ void _pelagia_vulkan_create_swapchain(struct pelagia_swapchain_create_info *crea
         return;
     }
     create_info->work_header.result = result_error;
+
+    /* create the swapchains one at a time */
+    for (u32 index = 0; index < create_info->write_count; index++) {
+        const struct hadal_window *window = (const struct hadal_window *)create_info->windows[index];
+
+    }
 
     VkSurfaceKHR surface = VK_NULL_HANDLE;
     VkSurfaceCapabilitiesKHR surface_capabilities;
@@ -186,17 +189,16 @@ void _pelagia_vulkan_create_swapchain(struct pelagia_swapchain_create_info *crea
 
     /* allocate the swapchain */
     if (!create_info->allocation.memory)
-        create_info->allocation.memory = riven_alloc(pelagia->interface.header.riven, create_info->allocation.tag, sizeof(struct pelagia_swapchain *), _Alignof(struct pelagia_swapchain));
-
+        create_info->allocation.memory = riven_alloc(pelagia->interface.header.riven, create_info->allocation.tag, create_info->allocation.size, create_info->allocation.alignment);
     struct pelagia_swapchain *swapchain = (struct pelagia_swapchain *)create_info->allocation.memory;
     zerop(swapchain);
 
     swapchain->header = (struct pelagia_resource_header){
         .device = device,
-        .handle = 0u, /* TODO */
         .type = pelagia_resource_type_swapchain,
+        .flags = 0,
     };
-    swapchain->hadal = (struct hadal *)hadal;
+    swapchain->window = window;
     swapchain->sc = sc;
     swapchain->surface = surface;
     swapchain->no_vsync_present_mode = no_vsync;
@@ -206,6 +208,7 @@ void _pelagia_vulkan_create_swapchain(struct pelagia_swapchain_create_info *crea
     swapchain->image_usage = image_usage;
     swapchain->image_format = image_format;
     swapchain->image_count = image_count;
+    swapchain->presentation_interval = create_info->presentation_interval;
 
     /* get swapchain images and create views */
     VERIFY_VK(device->vkGetSwapchainImagesKHR(device->logical, sc, &swapchain->image_count, swapchain->images));

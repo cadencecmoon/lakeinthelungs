@@ -179,7 +179,7 @@ void AMWCALL riven_free(
     struct riven *riven,
     riven_tag_t   tag);
 
-/** Rotate the deffered thread-local heaps and free the resources. */
+/** Rotate the deffered thread-local heaps and free just the last resources. */
 AMWAPI attr_hot attr_nonnull_all
 void AMWCALL riven_rotate_deferred(struct riven *riven);
 
