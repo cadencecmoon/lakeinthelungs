@@ -547,8 +547,6 @@ struct riven {
     u32                         tagged_heap_count;
     u32                         thread_count;
     u32                         fiber_count;
-
-    struct riven_metadata      *metadata;
 };
 
 static usize get_free_fiber(struct riven *riven)
@@ -784,7 +782,7 @@ void heart(void *raw_heart_data)
     struct riven *riven = data->riven;
     const u32 thread_count = riven->thread_count;
 
-    data->result = data->procedure(riven, riven->metadata, riven->threads, riven->thread_count, data->argument);
+    data->result = data->procedure(riven, riven->threads, riven->thread_count, data->argument);
 
     /* returned from main, tell all threads to kys */
     for (u32 i = 0; i < thread_count; i++) {
@@ -804,6 +802,8 @@ void riven_split_work(
 {
     at_usize **counters = chain;
     at_usize *to_use = NULL;
+
+    if (!work_count) return;
 
     if (counters) {
         *counters = get_lock(riven, work_count);
@@ -1243,7 +1243,7 @@ void *riven_alloc(
     for (;;) {
         if (tail >= riven->tagged_heap_count) {
             log_error("Reached the maximum count of unique tagged heaps (%lu),"
-                      "can't perform allocation for tag: %lX.", tail, tag);
+                      "can't perform allocation for tag: %X.", tail, tag);
             return NULL;
         }
 
@@ -1387,7 +1387,6 @@ s32 riven_moonlit_walk(
     u32                     tagged_heap_count,
     u32                     log2_work_count,
     u32                     log2_memory_count,
-    struct riven_metadata  *metadata,
     PFN_riven_heart         main_procedure,
     riven_argument_t        main_argument)
 {
@@ -1501,7 +1500,6 @@ s32 riven_moonlit_walk(
     riven->tagged_heap_count = tagged_heap_count;
     riven->thread_count = thread_count;
     riven->fiber_count = fiber_count;
-    riven->metadata = metadata;
 
     assert_debug(!(((sptr)work_cells)           & 15))
     assert_debug(!(((sptr)allocation_cells)     & 15))

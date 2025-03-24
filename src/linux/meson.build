@@ -20,7 +20,7 @@ if sys == 'android'
     dep_aaudio = cc.find_library('aaudio', required : get_option('aaudio'))
     if dep_aaudio.found()
         #engine_sources += files()
-        defs += '-DPLATFORM_ANDROID_AAUDIO=1'
+        defs += '-DSOMA_AAUDIO=1'
         deps += dep_aaudio
     endif
 endif
@@ -66,8 +66,23 @@ if sys == 'linux' or sys == 'bsd'
         private_code_args = [ wayland_scanner, 'private-code', '@INPUT@', '@OUTPUT@' ]
 
         wayland_protocols = [
+            'cursor-shape-v1',
+            'fractional-scale-v1',
+            'idle-inhibit-unstable-v1',
+            'keyboard-shortcuts-inhibit-unstable-v1',
+            'pointer-constraints-unstable-v1',
+            'pointer-gestures-unstable-v1',
+            'primary-selection-unstable-v1',
+            'relative-pointer-unstable-v1',
+            'tablet-unstable-v2',
+            'text-input-unstable-v3',
+            'viewporter',
             'wayland',
+            'xdg-activation-v1',
+            'xdg-decoration-unstable-v1',
+            'xdg-output-unstable-v1',
             'xdg-shell',
+            'xdg-toplevel-icon-v1',
         ]
 
         foreach name : wayland_protocols
@@ -92,18 +107,18 @@ if sys == 'linux' or sys == 'bsd'
     dep_alsa = dependency('alsa', required : get_option('alsa'))
     if dep_alsa.found()
         #engine_sources += files('')
-        defs += '-DOCTAVIA_ALSA=1'
+        defs += '-DSOMA_ALSA=1'
     endif
 
     dep_pulse = dependency('libpulse-simple', required : get_option('pulse'))
     if dep_pulse.found()
         #engine_sources += files('')
-        defs += '-DOCTAVIA_PULSEAUDIO=1'
+        defs += '-DSOMA_PULSEAUDIO=1'
     endif
 
     dep_pipewire = dependency('libpipewire-0.3', required : get_option('pipewire'))
     if dep_pipewire.found()
-        #engine_sources += files('')
-        defs += '-DOCTAVIA_PIPEWIRE=1'
+        engine_sources += files('pipewire.c')
+        defs += '-DSOMA_PIPEWIRE=1'
     endif
 endif

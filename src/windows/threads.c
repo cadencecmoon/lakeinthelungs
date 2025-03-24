@@ -1,6 +1,6 @@
 #include <amw/threads.h>
 
-#include "windows.h"
+#include "win32_hadal.h"
 
 static DWORD WINAPI windows_thread_wrapper(LPVOID argument)
 {

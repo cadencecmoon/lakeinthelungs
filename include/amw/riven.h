@@ -10,14 +10,6 @@ extern "C" {
 
 struct riven;
 
-/** Information about the application. */
-struct riven_metadata {
-    const struct str game_name;
-    const struct str engine_name;
-    u32              game_build_version;
-    u32              engine_build_version;
-};
-
 #define A16(x)   (((x) + 15lu) & ~15lu)
 #define A4KB(x)  (((x) + 4095lu) & ~4095lu)
 
@@ -47,7 +39,6 @@ struct riven_work {
 /** Applications entry point to the entire system. */
 typedef s32 (AMWCALL *PFN_riven_heart)(
     struct riven          *riven, 
-    struct riven_metadata *metadata,
     thread_t              *threads,
     u32                    thread_count,
     riven_argument_t       argument);
@@ -79,7 +70,7 @@ void AMWCALL riven_split_work_and_unchain(
     struct riven_work *work,
     u32                work_count)
 {
-    riven_chain_t chain;
+    riven_chain_t chain = NULL;
     riven_split_work(riven, work, work_count, &chain);
     riven_unchain(riven, chain);
 }
@@ -105,38 +96,36 @@ AMWAPI attr_hot attr_nonnull(1)
 u32 AMWCALL riven_thread_index(struct riven *riven);
 
 /** An unique tag groups resources of a shared lifetime, to be freed all at once. */
-typedef u64 riven_tag_t;
+typedef u32 riven_tag_t;
 
-#define riven_tag_simulation_forward_cycle      (2llu)
-#define riven_tag_simulation_to_rendering_cycle (3llu)
-#define riven_tag_simulation_to_gpuexec_cycle   (4llu)
-#define riven_tag_rendering_to_gpuexec_cycle    (3llu)
+#define riven_tag_game_forward_cycle         (2u)
+#define riven_tag_game_to_rendering_cycle    (3u)
+#define riven_tag_game_to_gpuexec_cycle      (4u)
+#define riven_tag_rendering_to_gpuexec_cycle (3u)
 
 /** Predefined tags for expected lifetime frequencies of game resources. Tags of other values can be 
  *  used for other uses, like allocating memory for assets: scenes, textures, meshes, audio, etc. */
 enum riven_tag {
-    riven_tag_invalid = 0llu,
+    riven_tag_invalid = 0u,
     /** Resources under this tag cannot be freed, they will share the lifetime of Riven. */
     riven_tag_roots,
     /** Scratch memory for the GPU execution stage. */
     riven_tag_gpuexec,
     /** Scratch memory for the rendering stage. */
     riven_tag_rendering,
-    /** Scratch memory for the simulation stage. */
-    riven_tag_simulation,
-    /** For resources to live through to the next frame (cycled by frame index modulo 2). */
-    riven_tag_simulation_forward,
+    /** Scratch memory for the game stage. */
+    riven_tag_game,
     /** Simulation to rendering stage, e.g. object instance arrays (cycled by frame index modulo 3). */
-    riven_tag_simulation_to_rendering = riven_tag_simulation_forward + riven_tag_simulation_forward_cycle,
+    riven_tag_game_to_rendering,
     /** Simulation to GPU execution stage, e.g. skinning matrices (cycled by frame index modulo 3). */
-    riven_tag_simulation_to_gpuexec = riven_tag_simulation_to_rendering + riven_tag_simulation_to_rendering_cycle,
+    riven_tag_game_to_gpuexec = riven_tag_game_to_rendering + riven_tag_game_to_rendering_cycle,
     /** Rendering to GPU execution stage, e.g command buffers (cycled by frame index modulo 3). */
-    riven_tag_rendering_to_gpuexec = riven_tag_simulation_to_gpuexec + riven_tag_simulation_to_gpuexec_cycle,
+    riven_tag_rendering_to_gpuexec = riven_tag_game_to_gpuexec + riven_tag_game_to_gpuexec_cycle,
     /** A minimum count of tagged heaps that will be in use. */
     riven_tag_reserved_count = riven_tag_rendering_to_gpuexec + riven_tag_rendering_to_gpuexec_cycle,
 };
 /** For scratch allocations outside of the parallel gameloop. */
-#define riven_tag_deferred UINT64_MAX
+#define riven_tag_deferred UINT32_MAX
 
 /** Holds allocation rules, either defined by the caller side or from a query in the backend system.
  *  I assert that interfaces are not responsible for allocations of a different lifetime frequency 
@@ -148,10 +137,10 @@ enum riven_tag {
  *  that is expected by the system. The application can either pass a tag, so the allocation can be done 
  *  internally on a tagged heap, or the backend may query it's memory requirements, write this information 
  *  here, and expect a second call with the allocation done by the caller. */
-struct riven_allocation {
+struct memory_requirements {
+    void       *memory;     /**< The allocated memory, written here after receiving results of a query. */
     usize       size;       /**< Size requirements for the allocation, written to from a query. */
-    usize       alignment;  /**< Alignment requirements for the allocation, written to from a query. */
-    void       *memory;     /**< The allocated memory must be written here by the caller, after receiving the results of a query. */
+    u32         alignment;  /**< Alignment requirements for the allocation, written to from a query. */
     riven_tag_t tag;        /**< Optionally, a valid tag can be given for the backend to allocate his memory from riven. */
 };
 
@@ -235,19 +224,19 @@ void AMWCALL riven_concatenate_strings(
 
 /** Implements an interface. */
 #define RIVEN_ENCORE(interface, variant) \
-    void AMWCALL interface##_encore_##variant(struct interface##_create_info *create_info)
+    void AMWCALL interface##_encore_##variant(struct interface##_encore *encore)
 
 /** Definitions of reserved encores, when there is no valid implementation yet. */
 #define RIVEN_ENCORE_STUB(interface, variant) \
-    RIVEN_ENCORE(interface, variant) { log_error("'%s' is not yet implemented.", __func__); (void)create_info; }
+    RIVEN_ENCORE(interface, variant) { log_error("'%s' is not yet implemented.", __func__); (void)encore; }
 
 /** Allows abstracting away the create_info structures present within different engine systems,
  *  that expose an interface. It shares riven's structures and a destination pointer to the interface. */
-struct riven_create_info_header {
-    const struct riven_metadata    *metadata;       /**< The metadata given by the application. */
-    struct riven                   *riven;          /**< The context of our framework. */
-    riven_tag_t                     tag;            /**< The lifetime of this interface. */
-    riven_argument_t               *interface;      /**< Write destination. */
+struct riven_encore_header {
+    const struct amw_metadata *metadata;       /**< The metadata given by the application. */
+    struct riven              *riven;          /**< The context of our framework. */
+    riven_tag_t                tag;            /**< The lifetime of this interface. */
+    riven_argument_t          *interface;      /**< Write destination. */
 };
 
 /** Allows abstracting away the interface structures present within different engine systems.
@@ -295,7 +284,6 @@ s32 AMWCALL riven_moonlit_walk(
     u32                     tagged_heap_count,
     u32                     log2_work_count,
     u32                     log2_memory_count,
-    struct riven_metadata  *metadata,
     PFN_riven_heart         main_procedure,
     riven_argument_t        main_argument);
 

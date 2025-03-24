@@ -1,7 +1,41 @@
 #pragma once
 
 #include <amw/bedrock.h>
-#include <amw/pelagia.h>
+#include <amw/reznor.h>
+
+FN_REZNOR_DEVICE_QUERY(vulkan);
+FN_REZNOR_DEVICE_CREATE(vulkan);
+FN_REZNOR_DEVICE_DESTROY(vulkan);
+FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, device_memory);
+FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, buffer);
+FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, texture);
+FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, sampler);
+FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, descriptor_set_layout);
+FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, descriptor_set);
+FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, pipeline_layout);
+FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, graphics_pipeline);
+FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, compute_pipeline);
+FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, raytracing_pipeline);
+FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, shader_binding_table);
+FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, bottom_level);
+FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, top_level);
+FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, query_pool);
+FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, swapchain);
+FN_REZNOR_SWAPCHAIN_TRY_RECREATE(vulkan);
+FN_REZNOR_SWAPCHAIN_NEXT_IMAGE(vulkan);
+FN_REZNOR_DISSASEMBLY(vulkan);
+FN_REZNOR_FRAME_BEGIN(vulkan);
+FN_REZNOR_FRAME_SUBMIT(vulkan);
+FN_REZNOR_COMMAND_DRAW(vulkan);
+FN_REZNOR_COMMAND_DRAW_INDEXED(vulkan);
+FN_REZNOR_COMMAND_DRAW_INDEXED_INDIRECT(vulkan);
+FN_REZNOR_COMMAND_DRAW_INDIRECT(vulkan);
+FN_REZNOR_COMMAND_DISPATCH(vulkan);
+FN_REZNOR_COMMAND_DISPATCH_INDIRECT(vulkan);
+FN_REZNOR_COMMAND_COPY_BUFFER(vulkan);
+FN_REZNOR_COMMAND_COPY_TEXTURE(vulkan);
+FN_REZNOR_COMMAND_BEGIN_RENDER_PASS(vulkan);
+FN_REZNOR_COMMAND_END_RENDER_PASS(vulkan);
 
 #ifndef VK_NO_PROTOTYPES
     #define VK_NO_PROTOTYPES
@@ -93,7 +127,6 @@ enum vulkan_extensions {
     vulkan_ext_maintenance4_bit                 = (1ull << 22), /**< VK_KHR_maintenance4 */
 };
 
-#define VULKAN_QUEUE_FAMILY_INDICES_COUNT 5
 /** Holds information about physical devices available. We query this once,
  *  and reference them whenever we create a rendering device. */
 struct vulkan_physical_device {
@@ -113,14 +146,13 @@ struct vulkan_physical_device {
     u32                         presentation_queue_family_index;
 
     /** Unique queue family indices present in this device. */
-    u32                         queue_family_indices[VULKAN_QUEUE_FAMILY_INDICES_COUNT];
+    u32                         queue_family_indices[5];
     /** How many unique queue families are present. */
     u32                         queue_family_count;
 
     u32                         graphics_queue_family_queue_count;
     u32                         async_compute_queue_family_queue_count;
 
-    VkBool32                    presentation_support;
     b32                         has_async_compute;
     b32                         has_async_transfer;
     b32                         has_async_sparse_binding;
@@ -172,21 +204,23 @@ struct vulkan_physical_device {
     } video_h264_capability, video_av1_capability;
 };
 
-struct pelagia {
-    struct pelagia_interface                interface;
+struct reznor {
+    struct reznor_interface                                     interface;
     /** An instance makes Vulkan functions available to us. It is used for calls to the driver,
      *  and holds information about the application. Afterwards it is passed to the logical device. */
-    VkInstance                              instance;
+    VkInstance                                                  instance;
     /** Used for logging messages and profiling with validation layers enabled. */
-    VkDebugUtilsMessengerEXT                debug_messenger;
+    VkDebugUtilsMessengerEXT                                    debug_messenger;
+    /** Allocation callbacks passed into API calls. */
+    VkAllocationCallbacks                                       allocator;
     /** The loaded driver library. */
-    void                                   *module;
+    void                                                       *module;
 
     /** We query available physical devices at initialization. */
-    const struct vulkan_physical_device    *physical_devices;
+    const struct vulkan_physical_device                        *physical_devices;
     /** Available physical devices, this value won't change at runtime. */
-    u32                                     physical_device_count;
-
+    u32                                                         physical_device_count;
+    
     /* access points */
     PFN_vkGetInstanceProcAddr                                   vkGetInstanceProcAddr;
     PFN_vkGetDeviceProcAddr                                     vkGetDeviceProcAddr;
@@ -244,37 +278,36 @@ struct pelagia {
     PFN_vkGetPhysicalDeviceVideoFormatPropertiesKHR             vkGetPhysicalDeviceVideoFormatPropertiesKHR;
 };
 
-struct pelagia_device {
+struct reznor_device {
     /** The public header of the rendering device. */
-    struct pelagia_device_header            header;
+    struct reznor_device_header                                 header;
     /** The physical device used to create this rendering device. */
-    const struct vulkan_physical_device    *physical;
+    const struct vulkan_physical_device                        *physical;
     /** The Vulkan context of a rendering device, using the given physical device. */
-    VkDevice                                logical;
+    VkDevice                                                    logical;
 
     /* Command queues, they are created from the information about queue families stored in the physical device structure. */
-    VkQueue                                 graphics_queue;
-    VkQueue                                 compute_queue;
-    VkQueue                                 transfer_queue;
-    VkQueue                                 sparse_binding_queue;
-    VkQueue                                 video_decode_queue;
-    VkQueue                                 presentation_queue;
+    VkQueue                                                     graphics_queue;
+    VkQueue                                                     compute_queue;
+    VkQueue                                                     transfer_queue;
+    VkQueue                                                     sparse_binding_queue;
+    VkQueue                                                     video_decode_queue;
+    VkQueue                                                     present_queue;
 
-#if PELAGIA_ENABLE_GPU_PROFILER
-    at_u32                                  device_memory_count;
-    at_u32                                  buffer_count;
-    at_u32                                  texture_count;
-    at_u32                                  sampler_count;
-    at_u32                                  pipeline_layout_count;
-    at_u32                                  graphics_pipeline_count;
-    at_u32                                  compute_pipeline_count;
-    at_u32                                  raytracing_pipeline_count;
-    at_u32                                  descriptor_set_layout_count;
-    at_u32                                  descriptor_pool_count;
-    at_u32                                  swapchain_count;
-    at_u32                                  query_pool_count;
+#if REZNOR_ENABLE_GPU_PROFILER
+    at_u32                                                      device_memory_count;
+    at_u32                                                      buffer_count;
+    at_u32                                                      texture_count;
+    at_u32                                                      sampler_count;
+    at_u32                                                      pipeline_layout_count;
+    at_u32                                                      graphics_pipeline_count;
+    at_u32                                                      compute_pipeline_count;
+    at_u32                                                      raytracing_pipeline_count;
+    at_u32                                                      descriptor_set_layout_count;
+    at_u32                                                      descriptor_pool_count;
+    at_u32                                                      query_pool_count;
+    at_u32                                                      swapchain_count;
 #endif
-    u32                                     frames_in_flight;
 
     /* core 1.0 */
 	PFN_vkAllocateCommandBuffers                                vkAllocateCommandBuffers;
@@ -513,148 +546,204 @@ struct pelagia_device {
     PFN_vkUpdateVideoSessionParametersKHR                       vkUpdateVideoSessionParametersKHR;
 };
 
-struct pelagia_device_memory {
-    /** pelagia_resource_type_device_memory */
-    struct pelagia_resource_header  header;
-    /* TODO */
+struct vulkan_command_pool {
+    VkCommandPool                       command_pool;
+    VkCommandBuffer                    *command_buffers;
+    u32                                 command_buffers_capacity;
+    u32                                 command_buffers_count;
 };
 
-struct pelagia_buffer {
-    /** pelagia_resource_type_buffer */
-    struct pelagia_resource_header  header;
-    /* TODO */
+struct vulkan_used_swapchain_info {
+    VkSwapchainKHR                      swapchains[REZNOR_MAX_SWAPCHAINS];
+    VkPipelineStageFlags                wait_stage_masks[REZNOR_MAX_SWAPCHAINS];
+    VkSemaphore                         image_available_semaphores[REZNOR_MAX_SWAPCHAINS];
+    u32                                 image_indices[REZNOR_MAX_SWAPCHAINS];
 };
 
-struct pelagia_texture {
-    /** pelagia_resource_type_texture */
-    struct pelagia_resource_header  header;
-    /* TODO */
+struct reznor_device_memory {
+    struct reznor_resource_header       header;
+    u32                                 memory_type_index;
+    VkDeviceMemory                      memory;
 };
 
-struct pelagia_sampler {
-    /** pelagia_resource_type_sampler */
-    struct pelagia_resource_header  header;
-    /* TODO */
+struct reznor_command_buffer {
+    struct reznor_resource_header       header;
+    VkCommandBuffer                     command_buffer;
 };
 
-struct pelagia_shader {
-    /** pelagia_resource_type_shader */
-    struct pelagia_resource_header  header;
-    /* TODO */
+struct reznor_buffer {
+    struct reznor_resource_header       header;
+    VkBuffer                            buffer;
+    struct reznor_device_memory        *allocation;
 };
 
-struct pelagia_pipeline_layout {
-    /** pelagia_resource_type_pipeline_layout */
-    struct pelagia_resource_header  header;
-    /* TODO */
+struct reznor_texture {
+    struct reznor_resource_header       header;
+    VkImage                             image;
+    VkImageView                         image_view;
+    struct reznor_device_memory        *allocation;
 };
 
-struct pelagia_graphics_pipeline {
-    /** pelagia_resource_type_graphics_pipeline */
-    struct pelagia_resource_header  header;
-    /* TODO */
+struct reznor_sampler {
+    struct reznor_resource_header       header;
+    VkSampler                           sampler;
 };
 
-struct pelagia_compute_pipeline {
-    /** pelagia_resource_type_compute_pipeline */
-    struct pelagia_resource_header  header;
-    /* TODO */
+enum vulkan_descriptor_pool_type {
+    vulkan_descriptor_pool_type_dynamic,
+    vulkan_descriptor_pool_type_static,
 };
 
-struct pelagia_raytracing_pipeline {
-    /** pelagia_resource_type_raytracing_pipeline */
-    struct pelagia_resource_header  header;
-    /* TODO */
+struct vulkan_descriptor_pool {
+    struct vulkan_descriptor_pool      *next;
+    VkDescriptorPool                    pool;
+    enum vulkan_descriptor_pool_type    type;
 };
 
-struct pelagia_shader_binding_table {
-    /** pelagia_resource_type_shader_binding_table */
-    struct pelagia_resource_header  header;
-    /* TODO */
+struct reznor_descriptor_set_layout {
+    struct reznor_resource_header       header;
+    VkDescriptorSetLayout               layout;
+    struct reznor_sampler             **static_samplers;
+    u32                                 static_samplers_size;
+    u32                                 static_sampler_count;
 };
 
-struct pelagia_descriptor_set {
-    /** pelagia_resource_type_descriptor_set */
-    struct pelagia_resource_header  header;
-    /* TODO */
+struct reznor_descriptor_set {
+    struct reznor_resource_header       header;
+    VkDescriptorSet                     set;
 };
 
-struct pelagia_query_pool {
-    /** pelagia_resource_type_query_pool */
-    struct pelagia_resource_header  header;
-    /* TODO */
+struct reznor_pipeline_layout {
+    struct reznor_resource_header       header;
+    VkPipelineLayout                    pipeline_layout;
+    b32                                 use_bindless_descriptors;
 };
 
-struct pelagia_swapchain {
-    /** pelagia_resource_type_swapchain */
-    struct pelagia_resource_header  header;
+struct reznor_graphics_pipeline {
+    struct reznor_resource_header       header;
+    struct reznor_pipeline_layout      *layout;
+    VkPipeline                          pipeline;
+    b32                                 scissor_test_enabled;
+};
+
+struct reznor_compute_pipeline {
+    struct reznor_resource_header       header;
+    struct reznor_pipeline_layout      *layout;
+    VkPipeline                          pipeline;
+};
+
+struct reznor_raytracing_pipeline {
+    struct reznor_resource_header       header;
+    struct reznor_pipeline_layout      *layout;
+    VkPipeline                          pipeline;
+};
+
+struct reznor_shader_binding_table {
+    struct reznor_resource_header       header;
+    struct reznor_buffer_range          raygen_shader;
+    struct reznor_buffer_range          miss_shader;
+    struct reznor_buffer_range          hit_shader;
+    struct reznor_buffer_range          callable_shader;
+};
+
+struct reznor_bottom_level {
+    struct reznor_resource_header       header;
+    /** The bottom-level acceleration structure (raytracing mesh). */
+    VkAccelerationStructureKHR          acceleration_structure;
+    /** The buffer that holds the acceleration structure. */
+    struct reznor_buffer_range          buffer;
+};
+
+struct reznor_top_level {
+    struct reznor_resource_header       header;
+    /** The top-level acceleration structure (raytracing scene). */
+    VkAccelerationStructureKHR          acceleration_structure;
+    /** The buffer that holds the acceleration structure. */
+    struct reznor_buffer_range          buffer;
+};
+
+struct reznor_query_pool {
+    struct reznor_resource_header       header;
+    VkQueryPool                         query_pool;
+};
+
+struct reznor_swapchain {
+    struct reznor_resource_header       header;
     /** The window & display backend used to create a surface. */
-    struct hadal_window            *window;
+    struct hadal_window                *window;
     /** The Vulkan object for a swapchain, created using the surface below. */
-    VkSwapchainKHR                  sc;
+    VkSwapchainKHR                      swapchain;
     /** A surface created by interfacing with a display backend. */
-    VkSurfaceKHR                    surface;
+    VkSurfaceKHR                        surface;
+    /** Capabilities of the native surface and the physical device. */
+    VkSurfaceCapabilitiesKHR            surface_capabilities;
     /** Selected mode of image presentation, when V-SYNC is disabled. */
-    VkPresentModeKHR                no_vsync_present_mode;
+    VkPresentModeKHR                    no_vsync_present_mode;
     /** The bit flag of the composite alpha. */
-    VkCompositeAlphaFlagsKHR        composite_alpha;
+    VkCompositeAlphaFlagsKHR            composite_alpha;
     /** The resolution of images, in pixels. */
-    VkExtent2D                      extent;
+    VkExtent2D                          extent;
     /** Sharing mode that results from device queue families. */
-    VkSharingMode                   sharing_mode;
+    VkSharingMode                       sharing_mode;
     /** The intended use of the images. If transfer is set, screenshots are supported. */
-    VkImageUsageFlags               image_usage;
+    VkImageUsageFlags                   image_usage;
     /** The format of images held in the swapchain. */
-    VkFormat                        image_format;
+    VkFormat                            image_format;
     /** An array of images held in the swapchain. */
-    VkImage                         images[PELAGIA_MAX_SWAPCHAIN_IMAGES];
+    VkImage                             images[REZNOR_MAX_SWAPCHAIN_IMAGES];
     /** An image view for each image in the swapchain. */
-    VkImageView                     image_views[PELAGIA_MAX_SWAPCHAIN_IMAGES];
-    /** Synchronization semaphores used for presentation. */
-    VkSemaphore                     image_available_semaphores[PELAGIA_MAX_FRAMES_IN_FLIGHT];
-    /** The current index to the semaphores, cycled by frames_in_flight of the device. */
-    u32                             image_available_semaphore_index;
+    VkImageView                         image_views[REZNOR_MAX_SWAPCHAIN_IMAGES];
+    /** Synchronization semaphores used for presentation, one per image. */
+    VkSemaphore                         image_available_semaphores[REZNOR_MAX_FRAMES_IN_FLIGHT];
+    /** The current index to the semaphores, cycled by frames_in_flight. */
+    u32                                 image_available_semaphore_index;
     /** Number of images in the swapchain. */
-    u32                             image_count;
+    u32                                 image_count;
     /** If a non-zero value, will limit the framerate to a given interval. */
-    u32                             presentation_interval;
+    u32                                 presentation_interval;
     /** Counts the last time an image was presented to the surface. */
-    f64                             last_presented_time;
+    f64                                 last_presented_time;
 };
 
-struct pelagia_bottom_level {
-    /** pelagia_resource_type_bottom_level */
-    struct pelagia_resource_header  header;
-    /* TODO */
+struct reznor_device_frame {
+    struct reznor_device               *device;
+    VkFence                             fence;
+    /* one per thread */
+    struct vulkan_command_pool         *graphics_command_pools;
+    VkCommandBuffer                     graphics_command_buffer;
+    VkSemaphore                         rendering_finished_semaphore;
+    struct vulkan_used_swapchain_info   used_swapchain_info;
+    struct vulkan_descriptor_pool      *descriptor_pool;
+    b32                                 is_running;
 };
 
-struct pelagia_top_level {
-    /** pelagia_resource_type_top_level */
-    struct pelagia_resource_header  header;
-    /* TODO */
+struct vulkan_memory_barrier {
+    VkPipelineStageFlags                src_stage_mask;
+    VkPipelineStageFlags                dst_stage_mask;
+    VkMemoryBarrier                     barrier;
 };
 
-/** Get a (very helpful I guess) message of a given Vulkan error code. */
-extern attr_const const char *AMWCALL vulkan_result_string(VkResult result);
-
-/** Return true if an extension is present in the properties array. */
-extern b32 AMWCALL vulkan_query_extension(VkExtensionProperties *properties, u32 count, const char *ext);
-
-/** Translates a pelagia_texture_format into a Vulkan image format. */
-extern attr_const VkFormat AMWCALL vulkan_translate_texture_format(enum pelagia_texture_format format);
+struct vulkan_image_memory_barrier {
+    VkPipelineStageFlags                src_stage_mask;
+    VkPipelineStageFlags                dst_stage_mask;
+    VkImageMemoryBarrier                barrier;
+};
 
 #if !defined(NDEBUG)
     #define VERIFY_VK(x) { \
         VkResult res__ = (x); \
         if (res__ != VK_SUCCESS) { \
-            log_error("Failed to assert VK_SUCCESS for: %s", #x); \
-            log_error("The Vulkan error message: %s", vulkan_result_string(res__)); \
+            log_error("Failed to assert VK_SUCCESS for: %s, Vulkan message: %s", #x, vulkan_result_string()); \
             assert_debug(!"VkResult assertion"); \
         } \
     }
 #else
     #define VERIFY_VK(x) (void)(x)
 #endif
+
+extern attr_const const char *AMWCALL vulkan_result_string(VkResult result);
+
+extern attr_const VkFormat AMWCALL vulkan_translate_texture_format(enum reznor_texture_format format);
 
 /** Computes the number of mipmap levels needed to get from a resource of the 
  *  given size to one texel. This is the max number of mipmapc that can be created. */
@@ -681,48 +770,3 @@ attr_inline u32 vulkan_get_mipmap_count_3d(VkExtent3D *extent) {
 	result = (result < counts[2]) ? counts[2] : result;
 	return result;
 }
-
-/* calls for '_pelagia_vulkan_destroy_resources()'. */
-extern void AMWCALL vulkan_destroy_device_memory(struct pelagia_device_memory *device_memory);
-extern void AMWCALL vulkan_destroy_buffer(struct pelagia_buffer *buffer);
-extern void AMWCALL vulkan_destroy_texture(struct pelagia_texture *texture);
-extern void AMWCALL vulkan_destroy_sampler(struct pelagia_sampler *sampler);
-extern void AMWCALL vulkan_destroy_shader(struct pelagia_shader *shader);
-extern void AMWCALL vulkan_destroy_pipeline_layout(struct pelagia_pipeline_layout *pipeline_layout);
-extern void AMWCALL vulkan_destroy_graphics_pipeline(struct pelagia_graphics_pipeline *graphics_pipeline);
-extern void AMWCALL vulkan_destroy_compute_pipeline(struct pelagia_compute_pipeline *compute_pipeline);
-extern void AMWCALL vulkan_destroy_raytracing_pipeline(struct pelagia_raytracing_pipeline *raytracing_pipeline);
-extern void AMWCALL vulkan_destroy_shader_binding_table(struct pelagia_shader_binding_table *shader_binding_table);
-extern void AMWCALL vulkan_destroy_descriptor_set(struct pelagia_descriptor_set *descriptor_set);
-extern void AMWCALL vulkan_destroy_query_pool(struct pelagia_query_pool *query_pool);
-extern void AMWCALL vulkan_destroy_swapchain(struct pelagia_swapchain *swapchain);
-extern void AMWCALL vulkan_destroy_bottom_level(struct pelagia_bottom_level *bottom_level);
-extern void AMWCALL vulkan_destroy_top_level(struct pelagia_top_level *top_level);
-
-/* pelagia interface implementation */
-
-extern s32 AMWCALL _pelagia_vulkan_query_physical_devices(
-    struct pelagia                      *pelagia, 
-    const struct hadal_window           *window,
-    u32                                 *out_device_count, 
-    struct pelagia_physical_device_info *out_devices);
-
-extern void AMWCALL _pelagia_vulkan_create_device(struct pelagia_device_create_info *create_info);
-extern void AMWCALL _pelagia_vulkan_destroy_device(struct pelagia_device *device);
-
-extern void AMWCALL _pelagia_vulkan_create_device_memory(struct pelagia_device_memory_create_info *create_info);
-extern void AMWCALL _pelagia_vulkan_create_buffers(struct pelagia_buffers_create_info *create_info);
-extern void AMWCALL _pelagia_vulkan_create_textures(struct pelagia_textures_create_info *create_info);
-extern void AMWCALL _pelagia_vulkan_create_samplers(struct pelagia_samplers_create_info *create_info);
-extern void AMWCALL _pelagia_vulkan_create_shaders(struct pelagia_shaders_create_info *create_info);
-extern void AMWCALL _pelagia_vulkan_create_pipeline_layouts(struct pelagia_pipeline_layouts_create_info *create_info);
-extern void AMWCALL _pelagia_vulkan_create_graphics_pipelines(struct pelagia_graphics_pipelines_create_info *create_info);
-extern void AMWCALL _pelagia_vulkan_create_compute_pipelines(struct pelagia_compute_pipelines_create_info *create_info);
-extern void AMWCALL _pelagia_vulkan_create_raytracing_pipelines(struct pelagia_raytracing_pipelines_create_info *create_info);
-extern void AMWCALL _pelagia_vulkan_create_shader_binding_tables(struct pelagia_shader_binding_tables_create_info *create_info);
-extern void AMWCALL _pelagia_vulkan_create_descriptor_sets(struct pelagia_descriptor_sets_create_info *create_info);
-extern void AMWCALL _pelagia_vulkan_create_query_pools(struct pelagia_query_pools_create_info *create_info);
-extern void AMWCALL _pelagia_vulkan_create_swapchains(struct pelagia_swapchains_create_info *create_info);
-extern void AMWCALL _pelagia_vulkan_create_bottom_levels(struct pelagia_bottom_levels_create_info *create_info);
-extern void AMWCALL _pelagia_vulkan_create_top_levels(struct pelagia_top_levels_create_info *create_info);
-extern void AMWCALL _pelagia_vulkan_destroy_resources(struct pelagia_destroy_resources_work *work);

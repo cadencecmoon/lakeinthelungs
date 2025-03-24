@@ -1,10 +1,34 @@
-#include "wl_hadal.h"
-
 #include <amw/log.h>
 #include <amw/process.h>
 
-struct hadal *g_wl_hadal = NULL;
+#include "wl_hadal.h"
 
+struct hadal *g_wayland = NULL;
+
+#include "wayland-protocol-code.h"
+#include "cursor-shape-v1-protocol-code.h"
+#include "fractional-scale-v1-protocol-code.h"
+#include "idle-inhibit-unstable-v1-protocol-code.h"
+#include "keyboard-shortcuts-inhibit-unstable-v1-protocol-code.h"
+#include "pointer-constraints-unstable-v1-protocol-code.h"
+#include "pointer-gestures-unstable-v1-protocol-code.h"
+#include "primary-selection-unstable-v1-protocol-code.h"
+#include "relative-pointer-unstable-v1-protocol-code.h"
+#include "tablet-unstable-v2-protocol-code.h"
+#include "text-input-unstable-v3-protocol-code.h"
+#include "viewporter-protocol-code.h"
+#include "xdg-activation-v1-protocol-code.h"
+#include "xdg-decoration-unstable-v1-protocol-code.h"
+#include "xdg-output-unstable-v1-protocol-code.h"
+#include "xdg-shell-protocol-code.h"
+#include "xdg-toplevel-icon-v1-protocol-code.h"
+
+RIVEN_ENCORE(hadal, wayland)
+{
+    assert_debug(encore->header.interface && *encore->header.interface == NULL);
+}
+
+#if 0
 static void wayland_interface_fini(struct hadal *hadal)
 {
     if (!hadal) return;
@@ -139,6 +163,8 @@ static const struct wl_surface_listener surface_listener = {
     .enter = handle_surface_enter,
     .leave = handle_surface_leave,
 };
+
+static struct hadal *g_wl_hadal = NULL;
 
 RIVEN_ENCORE(hadal, wayland) {
     assert_debug(create_info->header.interface && *create_info->header.interface == NULL);
@@ -402,6 +428,4 @@ leave:
     process_close_dll(module_cursor);
     process_close_dll(module_xkb);
 }
-
-#include <wayland-protocol-code.h>
-#include <xdg-shell-protocol-code.h>
+#endif

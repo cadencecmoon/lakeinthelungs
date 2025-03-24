@@ -804,6 +804,7 @@ extern "C" {
 #define false 0
 #endif
 
+typedef int8_t                  b8;
 typedef int32_t                 b32;
 
 typedef int8_t                  s8;
@@ -884,15 +885,25 @@ typedef _Atomic uptr            at_uptr;
 typedef _Atomic ssize           at_ssize;
 typedef _Atomic usize           at_usize;
 
+#undef min
 #define min(x,y)        (((x) < (y)) ? (x) : (y))
+#undef max
 #define max(x,y)        (((x) > (y)) ? (x) : (y))
+#undef clamp
 #define clamp(x,a,b)    (((x) < (a)) ? (a) : (((x) > (b)) ? (b) : (x)))
+#undef clamp_zo
 #define clamp_zo(x)     (clamp(x,0,1))
+#undef arraysize
 #define arraysize(a)    (sizeof(a) / sizeof(a[0]))
+#undef lengthof 
 #define lengthof(s)     (arraysize(s) - 1)
+#undef xorswap
 #define xorswap(a,b)    { if (a != b) { *a ^= *b; *b ^= *a; *a ^= *b; } }
+#undef zero
 #define zero(mem)       memset(&(mem), 0, sizeof((mem)))
+#undef zerop
 #define zerop(mem)      memset((mem), 0, sizeof(*(mem)))
+#undef zeroa
 #define zeroa(mem)      memset((mem), 0, sizeof((mem)))
 
 attr_inline attr_const 

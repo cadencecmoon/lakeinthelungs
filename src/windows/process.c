@@ -1,6 +1,8 @@
 #include <amw/process.h>
 #include <amw/log.h>
 
+#include "win32_hadal.h"
+
 void *process_load_dll(const char *libname)
 {
     if (!libname)

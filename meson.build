@@ -52,7 +52,7 @@ dep_amwengine = declare_dependency(
     include_directories : include,
     link_with : amwengine)
 
-subdir('main')
+main_sources += 'lake.c'
 
 lakeinthelungs = executable(
     'lakeinthelungs',

@@ -7,10 +7,10 @@ dep_vulkan = dependency('vulkan', required : get_option('vulkan'))
 if dep_vulkan.found()
     engine_sources += files(
         'vk_device.c',
-        'vk_pelagia.c',
         'vk_swapchain.c',
+        'vk_textures.c',
     )
-    defs += '-DPELAGIA_VULKAN=1'
+    defs += '-DREZNOR_VULKAN=1'
 endif
 
 subdir('asm')
@@ -20,13 +20,17 @@ subdir('unix')
 subdir('windows')
 
 engine_sources += files(
+    'a_moonlit_walk.c',
     'bits.c',
     'frame_time.c',
+    'game.c',
+    'gpuexec.c',
     'hadal.c',
     'hash_table.c',
     'log.c',
-    'octavia.c',
-    'pelagia.c',
+    'rendering.c',
+    'reznor.c',
     'riven.c',
+    'soma.c',
     'string.c',
 )

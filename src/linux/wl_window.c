@@ -2,92 +2,42 @@
 
 #include <amw/log.h>
 
-void _hadal_wayland_acquire_framebuffer_extent(
-    const struct hadal *hadal, 
-    u32                *out_width, 
-    u32                *out_height)
+#ifdef REZNOR_VULKAN
+FN_HADAL_VULKAN_WRITE_INSTANCE_PROCEDURES(wayland)
 {
-    assert_debug(out_width && out_height);
-    *out_width = atomic_load_explicit(&hadal->fb_width, memory_order_acquire);
-    *out_height = atomic_load_explicit(&hadal->fb_height, memory_order_acquire);
-}
+    assert_debug(hadal && instance && vkGetInstanceProcAddr);
 
-#ifdef PELAGIA_VULKAN
-typedef u32 VkBool32;
-typedef u32 VkFlags;
-enum VkResult;
+    hadal->vulkan.instance = instance;
+    hadal->vulkan.vkCreateWaylandSurfaceKHR = (PFN_vkCreateWaylandSurfaceKHR)(void *)vkGetInstanceProcAddr(instance, "vkCreateWaylandSurfaceKHR");
+    hadal->vulkan.vkGetPhysicalDeviceWaylandPresentationSupportKHR = (PFN_vkGetPhysicalDeviceWaylandPresentationSupportKHR)(void *)vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceWaylandPresentationSupportKHR");
 
-enum VkStructureType {
-    VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR = 1000006000,
-};
-typedef VkFlags VkWaylandSurfaceCreateFlagsKHR;
-
-struct VkWaylandSurfaceCreateInfoKHR {
-    enum VkStructureType            sType;
-    const void                     *pNext;
-    VkWaylandSurfaceCreateFlagsKHR  flags;
-    struct wl_display              *display;
-    struct wl_surface              *surface;
-};
-
-typedef s32 (*PFN_vkCreateWaylandSurfaceKHR)(
-    struct VkInstance_T *,
-    const struct VkWaylandSurfaceCreateInfoKHR *,
-    const struct VkAllocationCallbacks *, 
-    struct VkSurfaceKHR_T **);
-
-typedef VkBool32 (*PFN_vkGetPhysicalDeviceWaylandPresentationSupportKHR)(
-    struct VkPhysicalDevice_T *, u32, struct wl_display *);
-
-s32 _hadal_wayland_vulkan_create_surface(
-    const struct hadal                 *hadal,
-    struct VkInstance_T                *instance,
-    struct VkSurfaceKHR_T             **out_surface,
-    const struct VkAllocationCallbacks *callbacks,
-    PFN_vkGetInstanceProcAddr           vkGetInstanceProcAddr)
-{
-    assert_debug(instance && out_surface && vkGetInstanceProcAddr);
-
-    PFN_vkCreateWaylandSurfaceKHR vkCreateWaylandSurfaceKHR = (PFN_vkCreateWaylandSurfaceKHR)(void *)
-        vkGetInstanceProcAddr(instance, "vkCreateWaylandSurfaceKHR");
-
-    if (!vkCreateWaylandSurfaceKHR) {
-        log_error("Can't get the vkCreateWaylandSurfaceKHR procedure.");
+    if (!hadal->vulkan.vkCreateWaylandSurfaceKHR ||
+        !hadal->vulkan.vkGetPhysicalDeviceWaylandPresentationSupportKHR)
+    {
+        log_error("Wayland can't load surface-related Vulkan procedures.");
         return result_error;
     }
+    return result_success;
+}
 
+FN_HADAL_VULKAN_SURFACE_CREATE(wayland)
+{
+    struct hadal *hadal = window->header.hadal;
     struct VkWaylandSurfaceCreateInfoKHR surface_info = {
         .sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR,
         .pNext = NULL,
         .flags = 0,
-        .display = hadal->display,
-        .surface = hadal->surface,
+        .display =hadal->display,
+        .surface = window->surface,
     };
 
     /* VK_SUCCESS is a non-zero value so its fine enough */
-    return vkCreateWaylandSurfaceKHR(instance, &surface_info, callbacks, out_surface);
+    return hadal->vulkan.vkCreateWaylandSurfaceKHR(hadal->vulkan.instance, &surface_info, callbacks, out_surface);
 }
 
-b32 _hadal_wayland_vulkan_physical_device_presentation_support(
-    const struct hadal                 *hadal,
-    struct VkInstance_T                *instance,
-    struct VkSurfaceKHR_T              *surface,
-    struct VkPhysicalDevice_T          *physical_device,
-    u32                                 queue_family,
-    PFN_vkGetInstanceProcAddr           vkGetInstanceProcAddr)
+FN_HADAL_VULKAN_PHYSICAL_DEVICE_PRESENTATION_SUPPORT(wayland)
 {
-    assert_debug(instance && vkGetInstanceProcAddr);
-
-    (void)surface;
-
-    PFN_vkGetPhysicalDeviceWaylandPresentationSupportKHR vkGetPhysicalDeviceWaylandPresentationSupportKHR =
-        (PFN_vkGetPhysicalDeviceWaylandPresentationSupportKHR)(void *)
-        vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceWaylandPresentationSupportKHR");
-
-    if (!vkGetPhysicalDeviceWaylandPresentationSupportKHR) {
-        log_error("Can't get the vkGetPhysicalDeviceWaylandPresentationSupportKHR procedure.");
-        return false;
-    }
-    return (b32)vkGetPhysicalDeviceWaylandPresentationSupportKHR(physical_device, queue_family, hadal->display);
+    struct hadal *hadal = window->header.hadal;
+    return (b32)hadal->vulkan.vkGetPhysicalDeviceWaylandPresentationSupportKHR(physical_device, queue_family, hadal->display);
 }
-#endif
+#endif /* REZNOR_VULKAN */

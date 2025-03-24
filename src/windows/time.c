@@ -1,6 +1,6 @@
 #include <amw/time.h>
 
-#include "windows.h"
+#include "win32_hadal.h"
 
 static u64 timer_frequency = 0;
 

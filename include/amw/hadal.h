@@ -9,6 +9,10 @@
 extern "C" {
 #endif
 
+#ifndef HADAL_MAX_OUTPUTS
+#define HADAL_MAX_OUTPUTS 8
+#endif
+
 #ifndef HADAL_MAX_JOYSTICKS
 #define HADAL_MAX_JOYSTICKS 16
 #endif
@@ -32,8 +36,8 @@ struct hadal_output;
 struct hadal;
 
 /** Information needed to construct a display backend. */
-struct hadal_create_info {
-    struct riven_create_info_header header;
+struct hadal_encore {
+    struct riven_encore_header      header;
     /** A gamepad mapping database file, this is optional but necessary for joysticks to work.
      *  This can be given at initialization, or later.
      *
@@ -52,14 +56,14 @@ AMWAPI RIVEN_ENCORE(hadal, win32);
 /** The entry point to an Apple MacOS Cocoa display backend. */
 AMWAPI RIVEN_ENCORE(hadal, cocoa);
 #elif defined(PLATFORM_APPLE_IOS)
-/** The entry point to an Apple iOS display backend. */
-AMWAPI RIVEN_ENCORE(hadal, ios);
+/** The entry point to an Apple iOS UIKit display backend. */
+AMWAPI RIVEN_ENCORE(hadal, uikit);
 #elif defined(PLATFORM_ANDROID)
 /** The entry point to an Android display backend, implementing an activity. */
 AMWAPI RIVEN_ENCORE(hadal, android);
 #elif defined(PLATFORM_EMSCRIPTEN)
 /** The entry point to a WebAssembly/Emscripten HTML5 display backend. */
-AMWAPI RIVEN_ENCORE(hadal, html5);
+AMWAPI RIVEN_ENCORE(hadal, emscripten);
 #endif
 #ifdef HADAL_WAYLAND
 /** The entry point to a Linux Wayland display backend. */
@@ -171,26 +175,63 @@ enum hadal_window_flags {
 /** The public interface to a native window. A window implementation is expected 
  *  to include this header as its first struct member. */
 struct hadal_window_header {
-    struct hadal           *hadal;
-    /** This is either NULL or a valid output handle if in fullscreen mode. */
-    struct hadal_output    *fullscreen;
+    struct hadal               *hadal;
+    /** A swapchain may be attached so the window can directly control it's state (flags). */
+    struct reznor_swapchain    *swapchain;
     /** Flags describe the current state of a window. */
-    at_u32                  flags;
+    at_u32                      flags;
 };
 
 /** Information needed to create a native window. */
-struct hadal_window_create_info {
-    struct work_header      work_header;
-    struct riven_allocation allocation;
+struct hadal_window_config {
     /** The display backend to communicate with the window compositor. */
-    struct hadal           *hadal;
+    struct hadal               *hadal;
     /** Dimensions of the newly created window. */
-    u32                     width, height; 
+    u32                         width, height; 
     /** The title of the newly created window. */
-    struct str              title;
+    struct str                  title;
     /** Optional flags to setup a window state. Some flags may be ignored. */
-    u32                     flags;
+    u32                         flags;
 };
+
+#define ARGS_HADAL_WINDOW_CREATE                \
+    struct hadal                       *hadal,  \
+    const struct hadal_window_config   *config, \
+    struct memory_requirements         *memory, \
+    struct hadal_window               **window
+/** Creates a native window. */
+typedef s32 (AMWCALL *PFN_hadal_window_create)(ARGS_HADAL_WINDOW_CREATE);
+#define FN_HADAL_WINDOW_CREATE(encore) \
+    extern s32 AMWCALL _hadal_##encore##_window_create(ARGS_HADAL_WINDOW_CREATE)
+
+/** Destroys a native window. */
+typedef void (AMWCALL *PFN_hadal_window_destroy)(struct hadal_window *restrict window);
+#define FN_HADAL_WINDOW_DESTROY(encore) \
+    extern void AMWCALL _hadal_##encore##_window_destroy(struct hadal_window *restrict window)
+
+struct reznor_swapchain;
+
+#define ARGS_HADAL_WINDOW_ATTACH_SWAPCHAIN \
+    struct hadal_window *window, \
+    struct reznor_swapchain *swapchain
+/** Connects a swapchain to the window, the window will control flags of the swapchain 
+ *  whenever the window state changes in a way that is relevant for rendering. NULL can be 
+ *  passed as the swapchain argument, to detach any current swapchain from the window state.
+ *  This dettachment does not imply destroying a surface the swapchain can draw to, but it 
+ *  prevents window events from controling the swapchain. The surface must be destroyed by
+ *  external means within the renderer. */
+typedef void (AMWCALL *PFN_hadal_window_attach_swapchain)(ARGS_HADAL_WINDOW_ATTACH_SWAPCHAIN);
+#define FN_HADAL_WINDOW_ATTACH_SWAPCHAIN(encore) \
+    extern void AMWCALL _hadal_##encore##_window_attach_swapchain(ARGS_HADAL_WINDOW_ATTACH_SWAPCHAIN)
+
+#define ARGS_HADAL_WINDOW_ACQUIRE_FRAMEBUFFER_EXTENT \
+    const struct hadal_window *window, \
+    u32                       *out_width, \
+    u32                       *out_height
+/** Acquires the framebuffer extent/resolution, may be different from the window size. */
+typedef void (AMWCALL *PFN_hadal_window_acquire_framebuffer_extent)(ARGS_HADAL_WINDOW_ACQUIRE_FRAMEBUFFER_EXTENT);
+#define FN_HADAL_WINDOW_ACQUIRE_FRAMEBUFFER_EXTENT(encore) \
+    extern void AMWCALL _hadal_##encore##_window_acquire_framebuffer_extent(ARGS_HADAL_WINDOW_ACQUIRE_FRAMEBUFFER_EXTENT)
 
 /** The header of a 'hadal_keyboard' device implemented by the backend. */
 struct hadal_keyboard_header {
@@ -337,7 +378,7 @@ enum hadal_pen_input {
     hadal_pen_input_button_3   = (1u << 3),  /**< Button 3 is pressed. */
     hadal_pen_input_button_4   = (1u << 4),  /**< Button 4 is pressed. */
     hadal_pen_input_button_5   = (1u << 5),  /**< Button 5 is pressed. */
-    hadal_pen_input_eraser_tip = (1u << 30), /**< Eraser tip is used. */
+    hadal_pen_input_eraser_tip = (1u << 6),  /**< Eraser tip is used. */
 };
 
 /** An axis input source of a pen device. */
@@ -352,12 +393,22 @@ enum hadal_pen_axis {
     hadal_pen_axis_count,                 /**< Total known pen axis types. */
 };
 
+/** The header of a 'hadal_pen' device implemented by the backend. */
+struct hadal_pen_header {
+    struct hadal *hadal;
+};
+
 /** A type of a touch device. */
-enum hadal_touch_device {
-    hadal_touch_device_invalid = -1,
-    hadal_touch_device_direct,            /**< Touch screen with window-relative coordinates. */
-    hadal_touch_device_indirect_absolute, /**< Trackpad with absolute device coordinates. */
-    hadal_touch_device_indirect_relative, /**< Trackpad with screen cursor-relative coordinates. */
+enum hadal_touch_type {
+    hadal_touch_type_invalid = -1,
+    hadal_touch_type_direct,            /**< Touch screen with window-relative coordinates. */
+    hadal_touch_type_indirect_absolute, /**< Trackpad with absolute device coordinates. */
+    hadal_touch_type_indirect_relative, /**< Trackpad with screen cursor-relative coordinates. */
+};
+
+/** The header of a 'hadal_touch' device implemented by the backend. */
+struct hadal_touch_header {
+    struct hadal *hadal;
 };
 
 /** Data about a single finger in a multitouch event. */
@@ -367,34 +418,7 @@ struct hadal_finger {
     f32 pressure;
 };
 
-/** Creates a native window. */
-typedef void (AMWCALL *PFN_hadal_create_window)(struct hadal_window_create_info *create_info);
-
-/** Destroys a native window. */
-typedef void (AMWCALL *PFN_hadal_destroy_window)(struct hadal_window *window);
-
-struct pelagia_swapchain;
-/** Connects a swapchain to the window, the window will control flags of the swapchain 
- *  whenever the window state changes in a way that is relevant for rendering. NULL can be 
- *  passed as the swapchain argument, to detach any current swapchain from the window state.
- *  This dettachment does not imply destroying a surface the swapchain can draw to, but it 
- *  prevents window events from controling the swapchain. The surface must be destroyed by
- *  external means within the renderer. */
-typedef s32 (AMWCALL *PFN_hadal_attach_swapchain_to_window)(
-    struct hadal_window      *window,
-    struct pelagia_swapchain *swapchain);
-
-/** Returns the handle to a swapchain that is currently attached to the window, 
- *  or NULL if currently there is no swapchain. */
-typedef struct pelagia_swapchain *(AMWCALL *PFN_hadal_acquire_swapchain)(const struct hadal_window *window);
-
-/** Acquires the framebuffer extent/resolution, may be different from the window size. */
-typedef void (AMWCALL *PFN_hadal_acquire_framebuffer_extent)(
-    const struct hadal_window *window, 
-    u32                       *out_width, 
-    u32                       *out_height);
-
-#ifdef PELAGIA_VULKAN
+#ifdef REZNOR_VULKAN
 /* to avoid including the Vulkan header */
 struct VkInstance_T;
 struct VkSurfaceKHR_T;
@@ -402,33 +426,42 @@ struct VkPhysicalDevice_T;
 struct VkAllocationCallbacks;
 typedef void (*(*PFN_vkGetInstanceProcAddr)(struct VkInstance_T *, const char *))(void);
 
+#define ARGS_HADAL_VULKAN_WRITE_INSTANCE_PROCEDURES \
+    struct hadal                       *hadal,      \
+    struct VkInstance_T                *instance,   \
+    PFN_vkGetInstanceProcAddr           vkGetInstanceProcAddr
+/** Writes instance procedures related to the window surface, specific to a display backend.
+ *  Returns a non-zero value on errors or if the display does not support Vulkan. */
+typedef s32 (AMWCALL *PFN_hadal_vulkan_write_instance_procedures)(ARGS_HADAL_VULKAN_WRITE_INSTANCE_PROCEDURES);
+#define FN_HADAL_VULKAN_WRITE_INSTANCE_PROCEDURES(encore) \
+    extern s32 AMWCALL _hadal_##encore##_vulkan_write_instance_procedures(ARGS_HADAL_VULKAN_WRITE_INSTANCE_PROCEDURES)
+
+#define ARGS_HADAL_VULKAN_SURFACE_CREATE                \
+    const struct hadal_window          *window,         \
+    struct VkSurfaceKHR_T             **out_surface,    \
+    const struct VkAllocationCallbacks *callbacks
 /** Creates a Vulkan surface from a given window. The display backend must support 
  *  interfacing with Vulkan (then for example, an Emscripten/HTML5 backend can't).
  *  The caller must pass a valid Vulkan instance, a PFN_vkGetInstanceProcAddr and 
  *  a pointer to the surface handle, where the Vulkan surface will be created.
  *  An optional pointer to the allocation callbacks can be given too.
- *
- *  Returns a non-zero value on errors, or if the display does not support Vulkan. */
-typedef s32 (AMWCALL *PFN_hadal_vulkan_create_surface)(
-    const struct hadal_window          *window,
-    struct VkInstance_T                *instance,
-    struct VkSurfaceKHR_T             **out_surface,
-    const struct VkAllocationCallbacks *callbacks,
-    PFN_vkGetInstanceProcAddr           vkGetInstanceProcAddr);
+ *  Returns a non-zero value on errors or if the display does not support Vulkan. */
+typedef s32 (AMWCALL *PFN_hadal_vulkan_surface_create)(ARGS_HADAL_VULKAN_SURFACE_CREATE);
+#define FN_HADAL_VULKAN_SURFACE_CREATE(encore) \
+    extern s32 AMWCALL _hadal_##encore##_vulkan_surface_create(ARGS_HADAL_VULKAN_SURFACE_CREATE)
 
+#define ARGS_HADAL_VULKAN_PHYSICAL_DEVICE_PRESENTATION_SUPPORT  \
+    const struct hadal_window          *window,                 \
+    struct VkPhysicalDevice_T          *physical_device,        \
+    u32                                 queue_family
 /** Checks whether the physical device supports presentation for a given display backend.
  *  If a display backend has no dedicated vkGetPhysicalDevice*PresentationSupport procedure,
  *  then a queue family's presentation support is checked via the Vulkan surface instead.
- *
  *  Returns true if presentation is supported, otherwise (or on errors) returns false. */
-typedef b32 (AMWCALL *PFN_hadal_vulkan_physical_device_presentation_support)(
-    const struct hadal_window          *window,
-    struct VkInstance_T                *instance,
-    struct VkSurfaceKHR_T              *surface,
-    struct VkPhysicalDevice_T          *physical_device,
-    u32                                 queue_family,
-    PFN_vkGetInstanceProcAddr           vkGetInstanceProcAddr);
-#endif
+typedef b32 (AMWCALL *PFN_hadal_vulkan_physical_device_presentation_support)(ARGS_HADAL_VULKAN_PHYSICAL_DEVICE_PRESENTATION_SUPPORT);
+#define FN_HADAL_VULKAN_PHYSICAL_DEVICE_PRESENTATION_SUPPORT(encore) \
+    extern b32 AMWCALL _hadal_##encore##_vulkan_physical_device_presentation_support(ARGS_HADAL_VULKAN_PHYSICAL_DEVICE_PRESENTATION_SUPPORT)
+#endif /* REZNOR_VULKAN */
 
 /** Procedures to be provided by an implementation. The backend must implement the 'struct hadal' and 
  *  put the hadal_interface as the first member of this structure, to allow casting between the opaque 
@@ -436,7 +469,7 @@ typedef b32 (AMWCALL *PFN_hadal_vulkan_physical_device_presentation_support)(
 struct hadal_interface {
     struct riven_interface_header   header;
 
-    struct hadal_output           **outputs;
+    struct hadal_output            *outputs[HADAL_MAX_OUTPUTS];
     u32                             output_count;
 
     s16                             keycodes[256];
@@ -450,14 +483,13 @@ struct hadal_interface {
     struct hadal_gamepad           *mappings;
     u32                             mapping_count;
 
-    PFN_hadal_create_window                                 create_window;
-    PFN_hadal_destroy_window                                destroy_window;
-    PFN_hadal_attach_swapchain_to_window                    attach_swapchain_to_window;
-
-    PFN_hadal_acquire_swapchain                             acquire_swapchain;
-    PFN_hadal_acquire_framebuffer_extent                    acquire_framebuffer_extent;
-#ifdef PELAGIA_VULKAN
-    PFN_hadal_vulkan_create_surface                         vulkan_create_surface;
+    PFN_hadal_window_create                                 window_create;
+    PFN_hadal_window_destroy                                window_destroy;
+    PFN_hadal_window_attach_swapchain                       window_attach_swapchain;
+    PFN_hadal_window_acquire_framebuffer_extent             window_acquire_framebuffer_extent;
+#ifdef REZNOR_VULKAN
+    PFN_hadal_vulkan_write_instance_procedures              vulkan_write_instance_procedures;
+    PFN_hadal_vulkan_surface_create                         vulkan_surface_create;
     PFN_hadal_vulkan_physical_device_presentation_support   vulkan_physical_device_presentation_support;
 #endif
 };
@@ -472,7 +504,7 @@ void hadal_acquire_framebuffer_extent(
     struct hadal_interface *interface = *(struct hadal_interface **)window;
     u32 width = 0, height = 0;
 
-    interface->acquire_framebuffer_extent(window, &width, &height);
+    interface->window_acquire_framebuffer_extent(window, &width, &height);
     if (out_width) *out_width = width;
     if (out_height) *out_height = height;
 }

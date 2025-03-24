@@ -18,7 +18,7 @@ if sys == 'darwin'
 
     dep_core = dependency('appleframeworks', modules : [ 'CoreAudio' ], required : get_option('core'))
     if dep_core.found()
-        defs += '-DOCTAVIA_COREAUDIO=1'
+        defs += '-DSOMA_COREAUDIO=1'
         deps += dep_core
     endif
 endif
