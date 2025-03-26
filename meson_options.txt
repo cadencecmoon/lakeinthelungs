@@ -1,4 +1,5 @@
 option('docs',      type : 'feature', value : 'auto', description : 'Generate Doxygen documentation')
+option('tests',     type : 'feature', value : 'auto', description : 'Enable test and benchmark builds')
 
 # vector extensions
 option('avx',       type : 'boolean', value : false, description : 'Enable x86_64 AVX extensions')

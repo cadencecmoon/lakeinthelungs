@@ -214,7 +214,7 @@ RIVEN_ENCORE(soma, pipewire)
 {
     assert_debug(encore->header.interface && *encore->header.interface == NULL);
 
-    const char *fn = "'soma_encore_pipewire'";
+    const char *fn = "'soma_pipewire'";
 
     /* we allow only one pipewire backend at a time, so the interface will be shared */
     if (UNLIKELY(g_pipewire != NULL)) {

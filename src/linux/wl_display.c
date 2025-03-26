@@ -505,7 +505,7 @@ RIVEN_ENCORE(hadal, wayland)
 {
     assert_debug(encore->header.interface && *encore->header.interface == NULL);
 
-    const char *fn = "'hadal_encore_wayland'";
+    const char *fn = "'hadal_wayland'";
 
     /* we allow only one wayland backend at a time, so the interface will be shared */
     if (UNLIKELY(g_wayland != NULL)) {

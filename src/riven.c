@@ -1220,8 +1220,9 @@ void *riven_alloc(
     usize         size,
     usize         alignment)
 {
-    assume(!(alignment & (alignment - 1)));
     alignment = min(alignment, RIVEN_BLOCK_SIZE);
+
+    assert_debug(!(alignment & (alignment - 1)));
 
     if (tag < riven_tag_reserved_count) {
         struct tagged_heap *heap = &riven->reserved_heaps[tag];

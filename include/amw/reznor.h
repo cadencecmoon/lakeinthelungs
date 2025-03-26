@@ -913,8 +913,8 @@ typedef void (AMWCALL *PFN_reznor_swapchain_next_image)(struct reznor_swapchain 
     extern void AMWCALL _reznor_##encore##_swapchain_next_image(struct reznor_swapchain *swapchain)
 
 typedef void (AMWCALL *PFN_reznor_disassembly)(void **restrict resources, u32 resource_count);
-#define FN_REZNOR_DISSASEMBLY(encore) \
-    extern void AMWCALL _reznor_##encore##_dissasembly(void **resources, u32 resource_count)
+#define FN_REZNOR_DISASSEMBLY(encore) \
+    extern void AMWCALL _reznor_##encore##_disassembly(void **resources, u32 resource_count)
 
 typedef void (AMWCALL *PFN_reznor_frame_begin)(struct reznor_device_frame *frame);
 #define FN_REZNOR_FRAME_BEGIN(encore) \

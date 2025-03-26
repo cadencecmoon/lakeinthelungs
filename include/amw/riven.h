@@ -10,6 +10,7 @@ extern "C" {
 
 struct riven;
 
+#define A8(x)    (((x) + 7lu) & ~7lu)
 #define A16(x)   (((x) + 15lu) & ~15lu)
 #define A4KB(x)  (((x) + 4095lu) & ~4095lu)
 
@@ -106,9 +107,8 @@ typedef u32 riven_tag_t;
 /** Predefined tags for expected lifetime frequencies of game resources. Tags of other values can be 
  *  used for other uses, like allocating memory for assets: scenes, textures, meshes, audio, etc. */
 enum riven_tag {
-    riven_tag_invalid = 0u,
     /** Resources under this tag cannot be freed, they will share the lifetime of Riven. */
-    riven_tag_roots,
+    riven_tag_roots = 0u,
     /** Scratch memory for the GPU execution stage. */
     riven_tag_gpuexec,
     /** Scratch memory for the rendering stage. */

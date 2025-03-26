@@ -2,4 +2,6 @@
 *.h diff=cpp 
 *.h linguist-language=C
 build/* linguist-vendored
+docs/* linguist-vendored
+assets/* linguist-vendored
 wayland_protocols/* linguist-vendored

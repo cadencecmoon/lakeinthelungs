@@ -23,7 +23,7 @@ FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, query_pool);
 FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, swapchain);
 FN_REZNOR_SWAPCHAIN_TRY_RECREATE(vulkan);
 FN_REZNOR_SWAPCHAIN_NEXT_IMAGE(vulkan);
-FN_REZNOR_DISSASEMBLY(vulkan);
+FN_REZNOR_DISASSEMBLY(vulkan);
 FN_REZNOR_FRAME_BEGIN(vulkan);
 FN_REZNOR_FRAME_SUBMIT(vulkan);
 FN_REZNOR_COMMAND_DRAW(vulkan);
@@ -220,6 +220,8 @@ struct reznor {
     const struct vulkan_physical_device                        *physical_devices;
     /** Available physical devices, this value won't change at runtime. */
     u32                                                         physical_device_count;
+    /** Bits from instance-level extension query. */
+    u32                                                         extension_bits;
     
     /* access points */
     PFN_vkGetInstanceProcAddr                                   vkGetInstanceProcAddr;
@@ -729,11 +731,14 @@ struct vulkan_image_memory_barrier {
     VkImageMemoryBarrier                barrier;
 };
 
+extern void AMWCALL vulkan_write_allocation_callbacks(VkAllocationCallbacks *allocator, const char *userdata);
+extern attr_const const char *AMWCALL vulkan_result_string(VkResult result);
+
 #if !defined(NDEBUG)
     #define VERIFY_VK(x) { \
         VkResult res__ = (x); \
         if (res__ != VK_SUCCESS) { \
-            log_error("Failed to assert VK_SUCCESS for: %s, Vulkan message: %s", #x, vulkan_result_string()); \
+            log_error("Failed to assert VK_SUCCESS for: %s, Vulkan message: %s", #x, vulkan_result_string(res__)); \
             assert_debug(!"VkResult assertion"); \
         } \
     }
@@ -741,7 +746,16 @@ struct vulkan_image_memory_barrier {
     #define VERIFY_VK(x) (void)(x)
 #endif
 
-extern attr_const const char *AMWCALL vulkan_result_string(VkResult result);
+extern b32 AMWCALL vulkan_query_extension(VkExtensionProperties *properties, u32 count, const char *ext);
+extern b32 AMWCALL vulkan_load_instance_procedures(struct reznor *reznor, u32 api_version, u32 extension_bits);
+extern b32 AMWCALL vulkan_load_device_procedures(struct reznor_device *device, u32 api_version, u64 extension_bits);
+
+struct vulkan_physical_device_query_work {
+    struct work_header              header;
+    struct reznor                  *reznor;
+    struct vulkan_physical_device   physical;
+};
+extern void AMWCALL vulkan_physical_device_query(struct vulkan_physical_device_query_work *work);
 
 extern void AMWCALL vulkan_device_memory_destroy(struct reznor_device_memory *restrict device_memory);
 extern void AMWCALL vulkan_buffer_destroy(struct reznor_buffer *restrict buffer);

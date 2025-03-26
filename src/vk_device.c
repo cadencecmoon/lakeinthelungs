@@ -1,5 +1,11 @@
 #include "vk_reznor.h"
 
+void vulkan_physical_device_query(struct vulkan_physical_device_query_work *work)
+{
+    (void)work;
+    work->header.result = result_success;
+}
+
 FN_REZNOR_DEVICE_QUERY(vulkan)
 {
     (void)reznor;
@@ -51,7 +57,7 @@ static const PFN_riven_work disassembly_dispatch_table[] = {
     (PFN_riven_work)vulkan_swapchain_destroy,
 };
 
-FN_REZNOR_DISSASEMBLY(vulkan)
+FN_REZNOR_DISASSEMBLY(vulkan)
 {
     for (u32 i = 0; i < resource_count; i++) {
         struct reznor_resource_header *header = (struct reznor_resource_header *)resources[i];
