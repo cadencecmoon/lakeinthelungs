@@ -450,7 +450,7 @@ typedef s32 (AMWCALL *PFN_hadal_vulkan_surface_create)(ARGS_HADAL_VULKAN_SURFACE
 #define FN_HADAL_VULKAN_SURFACE_CREATE(encore) \
     extern s32 AMWCALL _hadal_##encore##_vulkan_surface_create(ARGS_HADAL_VULKAN_SURFACE_CREATE)
 
-#define ARGS_HADAL_VULKAN_PHYSICAL_DEVICE_PRESENTATION_SUPPORT  \
+#define ARGS_HADAL_VULKAN_PRESENTATION_SUPPORT  \
     const struct hadal_window          *window,                 \
     struct VkPhysicalDevice_T          *physical_device,        \
     u32                                 queue_family
@@ -458,9 +458,9 @@ typedef s32 (AMWCALL *PFN_hadal_vulkan_surface_create)(ARGS_HADAL_VULKAN_SURFACE
  *  If a display backend has no dedicated vkGetPhysicalDevice*PresentationSupport procedure,
  *  then a queue family's presentation support is checked via the Vulkan surface instead.
  *  Returns true if presentation is supported, otherwise (or on errors) returns false. */
-typedef b32 (AMWCALL *PFN_hadal_vulkan_physical_device_presentation_support)(ARGS_HADAL_VULKAN_PHYSICAL_DEVICE_PRESENTATION_SUPPORT);
-#define FN_HADAL_VULKAN_PHYSICAL_DEVICE_PRESENTATION_SUPPORT(encore) \
-    extern b32 AMWCALL _hadal_##encore##_vulkan_physical_device_presentation_support(ARGS_HADAL_VULKAN_PHYSICAL_DEVICE_PRESENTATION_SUPPORT)
+typedef b32 (AMWCALL *PFN_hadal_vulkan_presentation_support)(ARGS_HADAL_VULKAN_PRESENTATION_SUPPORT);
+#define FN_HADAL_VULKAN_PRESENTATION_SUPPORT(encore) \
+    extern b32 AMWCALL _hadal_##encore##_vulkan_presentation_support(ARGS_HADAL_VULKAN_PRESENTATION_SUPPORT)
 #endif /* REZNOR_VULKAN */
 
 /** Procedures to be provided by an implementation. The backend must implement the 'struct hadal' and 
@@ -483,14 +483,14 @@ struct hadal_interface {
     struct hadal_gamepad           *mappings;
     u32                             mapping_count;
 
-    PFN_hadal_window_create                                 window_create;
-    PFN_hadal_window_destroy                                window_destroy;
-    PFN_hadal_window_attach_swapchain                       window_attach_swapchain;
-    PFN_hadal_window_acquire_framebuffer_extent             window_acquire_framebuffer_extent;
+    PFN_hadal_window_create                         window_create;
+    PFN_hadal_window_destroy                        window_destroy;
+    PFN_hadal_window_attach_swapchain               window_attach_swapchain;
+    PFN_hadal_window_acquire_framebuffer_extent     window_acquire_framebuffer_extent;
 #ifdef REZNOR_VULKAN
-    PFN_hadal_vulkan_write_instance_procedures              vulkan_write_instance_procedures;
-    PFN_hadal_vulkan_surface_create                         vulkan_surface_create;
-    PFN_hadal_vulkan_physical_device_presentation_support   vulkan_physical_device_presentation_support;
+    PFN_hadal_vulkan_write_instance_procedures      vulkan_write_instance_procedures;
+    PFN_hadal_vulkan_surface_create                 vulkan_surface_create;
+    PFN_hadal_vulkan_presentation_support           vulkan_presentation_support;
 #endif
 };
 

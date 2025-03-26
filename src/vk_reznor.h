@@ -743,7 +743,23 @@ struct vulkan_image_memory_barrier {
 
 extern attr_const const char *AMWCALL vulkan_result_string(VkResult result);
 
-extern attr_const VkFormat AMWCALL vulkan_translate_texture_format(enum reznor_texture_format format);
+extern void AMWCALL vulkan_device_memory_destroy(struct reznor_device_memory *restrict device_memory);
+extern void AMWCALL vulkan_buffer_destroy(struct reznor_buffer *restrict buffer);
+extern void AMWCALL vulkan_texture_destroy(struct reznor_texture *restrict texture);
+extern void AMWCALL vulkan_sampler_destroy(struct reznor_sampler *restrict sampler);
+extern void AMWCALL vulkan_descriptor_set_layout_destroy(struct reznor_descriptor_set_layout *restrict descriptor_set_layout);
+extern void AMWCALL vulkan_descriptor_set_destroy(struct reznor_descriptor_set *restrict descriptor_set);
+extern void AMWCALL vulkan_pipeline_layout_destroy(struct reznor_pipeline_layout *restrict pipeline_layout);
+extern void AMWCALL vulkan_graphics_pipeline_destroy(struct reznor_graphics_pipeline *restrict pipeline);
+extern void AMWCALL vulkan_compute_pipeline_destroy(struct reznor_compute_pipeline *restrict pipeline);
+extern void AMWCALL vulkan_raytracing_pipeline_destroy(struct reznor_raytracing_pipeline *restrict pipeline);
+extern void AMWCALL vulkan_shader_binding_table_destroy(struct reznor_shader_binding_table *restrict shader_binding_table);
+extern void AMWCALL vulkan_bottom_level_destroy(struct reznor_bottom_level *restrict bottom_level);
+extern void AMWCALL vulkan_top_level_destroy(struct reznor_top_level *restrict top_level);
+extern void AMWCALL vulkan_query_pool_destroy(struct reznor_query_pool *restrict query_pool);
+extern void AMWCALL vulkan_swapchain_destroy(struct reznor_swapchain *restrict swapchain);
+
+extern attr_const VkFormat AMWCALL vulkan_texture_format_translate(enum reznor_texture_format format);
 
 /** Computes the number of mipmap levels needed to get from a resource of the 
  *  given size to one texel. This is the max number of mipmapc that can be created. */

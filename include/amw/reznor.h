@@ -111,7 +111,7 @@ enum reznor_device_features {
 
 struct reznor_physical_device_info {
     struct str  name;
-    u32         index;
+    void       *internal;
     u32         score;
     u32         features;
 };
@@ -262,13 +262,13 @@ enum reznor_dynamic_state_flag {
 };
 
 struct reznor_stencil_config {
-    u8                                          test_mask;       /* 0xffu default */
-    u8                                          write_mask;
-    u8                                          test_enabled;
-    u8                                          test_func;       /**< enum reznor_comparison_function, always */
-    u8                                          op_fail;         /**< enum reznor_stencil_operation, keep */
-    u8                                          op_depth_fail;   /**< enum reznor_stencil_operation, keep */
-    u8                                          op_depth_pass;   /**< enum reznor_stencil_operation, keep */
+    u8 test_mask;       /* 0xffu default */
+    u8 write_mask;
+    u8 test_enabled;
+    u8 test_func;       /**< enum reznor_comparison_function, always */
+    u8 op_fail;         /**< enum reznor_stencil_operation, keep */
+    u8 op_depth_fail;   /**< enum reznor_stencil_operation, keep */
+    u8 op_depth_pass;   /**< enum reznor_stencil_operation, keep */
 };
 
 /** inspired by https://github.com/Tobski/simple_vulkan_synchronization */
@@ -348,26 +348,24 @@ enum reznor_access {
 
 /** Types of GPU resources. */
 enum reznor_resource_type {
-    reznor_resource_invalid = 0u,
-    reznor_resource_device_memory,
-    reznor_resource_buffer,
-    reznor_resource_texture,
-    reznor_resource_sampler,
-    reznor_resource_descriptor_set_layout,
-    reznor_resource_descriptor_set,
-    reznor_resource_pipeline_layout,
-    reznor_resource_graphics_pipeline,
-    reznor_resource_compute_pipeline,
-    reznor_resource_raytracing_pipeline,
-    reznor_resource_shader_binding_table,
-    reznor_resource_bottom_level,
-    reznor_resource_top_level,
-    reznor_resource_query_pool,
-    reznor_resource_swapchain,
-    reznor_resource_count,
+    reznor_resource_type_invalid = 0u,
+    reznor_resource_type_device_memory,
+    reznor_resource_type_buffer,
+    reznor_resource_type_texture,
+    reznor_resource_type_sampler,
+    reznor_resource_type_descriptor_set_layout,
+    reznor_resource_type_descriptor_set,
+    reznor_resource_type_pipeline_layout,
+    reznor_resource_type_graphics_pipeline,
+    reznor_resource_type_compute_pipeline,
+    reznor_resource_type_raytracing_pipeline,
+    reznor_resource_type_shader_binding_table,
+    reznor_resource_type_bottom_level,
+    reznor_resource_type_top_level,
+    reznor_resource_type_query_pool,
+    reznor_resource_type_swapchain,
+    reznor_resource_type_count,
 };
-#define reznor_resource_type_index(__type) \
-    (reznor_resource_type_##__type - 1u)
 
 struct reznor_resource_header {
     struct reznor_device       *device; 
@@ -375,12 +373,12 @@ struct reznor_resource_header {
     at_u32                      flags;
 };
 
-#define ARGS_REZNOR_RESOURCE_ASSEMBLY(_type)                \
-    const struct reznor_device           *device,           \
-    u32                                   _type##_count,    \
-    const struct reznor_##_type##_config *config,           \
-    struct memory_requirements           *memory,           \
-    struct reznor_##_type               **restrict write
+#define ARGS_REZNOR_RESOURCE_ASSEMBLY(_type)                    \
+    const struct reznor_device           *device,               \
+    u32                                   _type##_count,        \
+    const struct reznor_##_type##_config *_type##_configs,      \
+    struct memory_requirements           *memory_requirements,  \
+    struct reznor_##_type               **out_assembly
 #define PFN_REZNOR_RESOURCE_ASSEMBLY(__type) \
     typedef s32 (AMWCALL *PFN_reznor_##__type##_assembly)(ARGS_REZNOR_RESOURCE_ASSEMBLY(__type));
 #define FN_REZNOR_RESOURCE_ASSEMBLY(encore, __type) \
@@ -395,11 +393,11 @@ enum reznor_memory_priority {
 };
 
 struct reznor_memory_requirements {
-    usize                                       size;
-    usize                                       alignment;
-    s32                                         supported_memory_type_indices;
-    b32                                         prefers_dedicated_allocation;
-    b32                                         requires_dedicated_allocation;
+    usize size;
+    usize alignment;
+    s32   supported_memory_type_indices;
+    b32   prefers_dedicated_allocation;
+    b32   requires_dedicated_allocation;
 };
 
 enum reznor_device_memory_type {
@@ -908,7 +906,7 @@ PFN_REZNOR_RESOURCE_ASSEMBLY(swapchain)
 
 typedef s32 (AMWCALL *PFN_reznor_swapchain_try_recreate)(struct reznor_swapchain *restrict swapchain);
 #define FN_REZNOR_SWAPCHAIN_TRY_RECREATE(encore) \
-    extern s32 AMWCALL _reznor_##encore##_swapchain_try_recreate(struct reznor_swapchain *restrict swapchain)
+    extern s32 AMWCALL _reznor_##encore##_swapchain_try_recreate(struct reznor_swapchain *swapchain)
 
 typedef void (AMWCALL *PFN_reznor_swapchain_next_image)(struct reznor_swapchain *swapchain);
 #define FN_REZNOR_SWAPCHAIN_NEXT_IMAGE(encore) \
@@ -916,15 +914,15 @@ typedef void (AMWCALL *PFN_reznor_swapchain_next_image)(struct reznor_swapchain 
 
 typedef void (AMWCALL *PFN_reznor_disassembly)(void **restrict resources, u32 resource_count);
 #define FN_REZNOR_DISSASEMBLY(encore) \
-    extern void AMWCALL _reznor_##encore##_dissasembly(void **restrict resources, u32 resource_count)
+    extern void AMWCALL _reznor_##encore##_dissasembly(void **resources, u32 resource_count)
 
 typedef void (AMWCALL *PFN_reznor_frame_begin)(struct reznor_device_frame *frame);
 #define FN_REZNOR_FRAME_BEGIN(encore) \
-    extern void AMWCALL _reznor_##encore##_frame_begin(struct reznor_device_frame *frame);
+    extern void AMWCALL _reznor_##encore##_frame_begin(struct reznor_device_frame *frame)
 
 typedef void (AMWCALL *PFN_reznor_frame_submit)(struct reznor_device_frame *frame);
 #define FN_REZNOR_FRAME_SUBMIT(encore) \
-    extern void AMWCALL _reznor_##encore##_frame_submit(struct reznor_device_frame *frame);
+    extern void AMWCALL _reznor_##encore##_frame_submit(struct reznor_device_frame *frame)
 
 typedef void (AMWCALL *PFN_reznor_command_draw)(
     struct reznor_command_buffer       *command_buffer,

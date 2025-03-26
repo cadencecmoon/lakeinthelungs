@@ -9,7 +9,7 @@ void *process_load_dll(const char *libname)
 
     void *module = dlopen(libname, RTLD_NOW | RTLD_LOCAL);
     if (!module)
-        log_error("Plugin: dlopen '%s' failed: %s.", libname, dlerror());
+        log_error("dlopen '%s' failed: %s.", libname, dlerror());
     return module;
 }
 
@@ -23,6 +23,6 @@ void *process_get_address(void *module, const char *procedure)
     const char *err;
     void *addr = dlsym(module, procedure);
     if ((err = dlerror()) != NULL)
-        log_error("Plugin: dlsym '%s' failed: %s.", procedure, err);
+        log_error("dlsym '%s' failed: %s.", procedure, err);
     return addr;
 }

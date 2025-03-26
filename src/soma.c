@@ -57,7 +57,7 @@ RIVEN_ENCORE(soma, native)
 
         /* check the interface procedures */
 #define VALIDATE(fn) \
-        if (interface->fn == NULL) { log_warn(fmt, interface->header.name.ptr, #fn); valid = false; }
+        if (interface->fn == NULL) { log_debug(fmt, interface->header.name.ptr, #fn); valid = false; }
         VALIDATE(device_query)
         VALIDATE(device_open)
         VALIDATE(device_close)
@@ -76,20 +76,15 @@ RIVEN_ENCORE(soma, dummy)
 {
     assert_debug(encore->header.interface && *encore->header.interface == NULL);
 
-    struct riven *riven = encore->header.riven;
-    riven_tag_t tag = encore->header.tag;
-
     struct soma_interface *interface = (struct soma_interface *) 
-        riven_alloc(riven, tag, sizeof(struct soma_interface), _Alignof(struct soma_interface));
+        riven_alloc(encore->header.riven, encore->header.tag, sizeof(struct soma_interface), _Alignof(struct soma_interface));
 
-    *interface = (struct soma_interface){
-        .header = {
-            .name = str_init("soma_dummy"),
-            .riven = riven,
-            .tag = tag,
-            .fini = riven_work_nop,
-        },
-    };
+    /* write the interface */
+    interface->header.name = str_init("soma_dummy");
+    interface->header.riven = encore->header.riven;
+    interface->header.tag = encore->header.tag;
+    interface->header.fini = (PFN_riven_work)riven_work_nop;
+
     *encore->header.interface = (riven_argument_t)(struct soma *)interface;
     log_verbose("'%s' interface write.", interface->header.name.ptr);
 }

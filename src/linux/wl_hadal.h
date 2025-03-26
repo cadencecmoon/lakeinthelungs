@@ -10,7 +10,7 @@ FN_HADAL_WINDOW_ACQUIRE_FRAMEBUFFER_EXTENT(wayland);
 #ifdef REZNOR_VULKAN
 FN_HADAL_VULKAN_WRITE_INSTANCE_PROCEDURES(wayland);
 FN_HADAL_VULKAN_SURFACE_CREATE(wayland);
-FN_HADAL_VULKAN_PHYSICAL_DEVICE_PRESENTATION_SUPPORT(wayland);
+FN_HADAL_VULKAN_PRESENTATION_SUPPORT(wayland);
 #endif
 
 #ifndef _GNU_SOURCE
@@ -176,7 +176,7 @@ typedef xkb_keysym_t (*PFN_xkb_compose_state_get_one_sym)(struct xkb_compose_sta
 #define xkb_keymap_unref                                    g_wayland->xkb.keymap_unref
 #define xkb_keymap_mod_get_index                            g_wayland->xkb.keymap_mod_get_index
 #define xkb_keymap_key_repeats                              g_wayland->xkb.keymap_key_repeats
-#define xkb_keymap_key_for_each                             g_wayland->xkb.keymap_for_each
+#define xkb_keymap_key_for_each                             g_wayland->xkb.keymap_key_for_each
 #define xkb_keymap_key_get_syms_by_level                    g_wayland->xkb.keymap_key_get_syms_by_level
 #define xkb_keymap_layout_get_name                          g_wayland->xkb.keymap_layout_get_name
 #define xkb_keysym_to_utf8                                  g_wayland->xkb.keysym_to_utf8
@@ -274,6 +274,7 @@ enum libdecor_resize_edge {
 
 typedef struct libdecor *(*PFN_libdecor_new)(struct wl_display *, struct libdecor_interface *);
 typedef void (*PFN_libdecor_unref)(struct libdecor *);
+typedef s32 (*PFN_libdecor_get_fd)(struct libdecor *);
 typedef struct libdecor_frame *(*PFN_libdecor_decorate)(struct libdecor *, struct wl_surface *, struct libdecor_frame_interface *, void *);
 typedef void (*PFN_libdecor_frame_unref)(struct libdecor_frame *);
 typedef void (*PFN_libdecor_frame_set_title)(struct libdecor_frame *, const char *);
@@ -307,6 +308,7 @@ typedef b32 (*PFN_libdecor_configuration_get_window_state)(struct libdecor_confi
 typedef s32 (*PFN_libdecor_dispatch)(struct libdecor *, s32);
 #define libdecor_new                                        g_wayland->libdecor.new
 #define libdecor_unref                                      g_wayland->libdecor.unref
+#define libdecor_get_fd                                     g_wayland->libdecor.get_fd
 #define libdecor_decorate                                   g_wayland->libdecor.decorate
 #define libdecor_frame_unref                                g_wayland->libdecor.frame_unref
 #define libdecor_frame_set_title                            g_wayland->libdecor.frame_set_title
@@ -516,7 +518,6 @@ struct hadal {
         PFN_wl_proxy_marshal_array_flags                    proxy_marshal_array_flags;
         PFN_wl_proxy_set_tag                                proxy_set_tag;
         PFN_wl_proxy_get_tag                                proxy_get_tag;
-
         PFN_wl_display_connect                              display_connect;
         PFN_wl_display_connect_to_fd                        display_connect_to_fd;
         PFN_wl_display_disconnect                           display_disconnect;
@@ -541,7 +542,6 @@ struct hadal {
         PFN_wl_list_length                                  list_length;
         PFN_wl_list_empty                                   list_empty;
         PFN_wl_list_insert_list                             list_insert_list;
-
         PFN_wl_cursor_theme_load                            cursor_theme_load;
         PFN_wl_cursor_theme_destroy                         cursor_theme_destroy;
         PFN_wl_cursor_theme_get_cursor                      cursor_theme_get_cursor;
@@ -556,7 +556,7 @@ struct hadal {
         PFN_xkb_keymap_unref                                keymap_unref;
         PFN_xkb_keymap_mod_get_index                        keymap_mod_get_index;
         PFN_xkb_keymap_key_repeats                          keymap_key_repeats;
-        PFN_xkb_keymap_key_for_each                         keymap_for_each;
+        PFN_xkb_keymap_key_for_each                         keymap_key_for_each;
         PFN_xkb_keymap_key_get_syms_by_level                keymap_key_get_syms_by_level;
         PFN_xkb_keymap_layout_get_name                      keymap_layout_get_name;
         PFN_xkb_keysym_to_utf8                              keysym_to_utf8;
@@ -579,6 +579,7 @@ struct hadal {
     struct {
         PFN_libdecor_new                                    new;
         PFN_libdecor_unref                                  unref;
+        PFN_libdecor_get_fd                                 get_fd;
         PFN_libdecor_decorate                               decorate;
         PFN_libdecor_frame_unref                            frame_unref;
         PFN_libdecor_frame_set_title                        frame_set_title;
@@ -622,12 +623,21 @@ struct hadal {
 
 extern struct hadal *g_wayland;
 
+extern void AMWCALL wayland_register_surface(struct wl_surface *surface);
+extern void AMWCALL wayland_register_output(struct wl_output *output);
+extern b32 AMWCALL wayland_own_surface(struct wl_surface *surface);
+extern b32 AMWCALL wayland_own_output(struct wl_output *output);
+
 /* Protocols are generated with wayland-scanner, their sources are included in
  * the project repository: wayland_protocols/<protocol>.xml. */
 #include "wayland-protocol.h"
+#include "alpha-modifier-v1-protocol.h"
 #include "cursor-shape-v1-protocol.h"
+#include "color-management-v1-protocol.h"
 #include "fractional-scale-v1-protocol.h"
+#include "frog-color-management-v1-protocol.h"
 #include "idle-inhibit-unstable-v1-protocol.h"
+#include "input-timestamps-unstable-v1-protocol.h"
 #include "keyboard-shortcuts-inhibit-unstable-v1-protocol.h"
 #include "pointer-constraints-unstable-v1-protocol.h"
 #include "pointer-gestures-unstable-v1-protocol.h"
@@ -638,6 +648,8 @@ extern struct hadal *g_wayland;
 #include "viewporter-protocol.h"
 #include "xdg-activation-v1-protocol.h"
 #include "xdg-decoration-unstable-v1-protocol.h"
+#include "xdg-dialog-v1-protocol.h"
+#include "xdg-foreign-unstable-v2-protocol.h"
 #include "xdg-output-unstable-v1-protocol.h"
 #include "xdg-shell-protocol.h"
 #include "xdg-toplevel-icon-v1-protocol.h"

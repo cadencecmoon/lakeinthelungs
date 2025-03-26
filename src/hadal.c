@@ -47,7 +47,7 @@ RIVEN_ENCORE(hadal, native)
 
         /* check the interface procedures */
 #define VALIDATE(fn) \
-        if (interface->fn == NULL) { log_warn(fmt, interface->header.name.ptr, #fn); valid = false; }
+        if (interface->fn == NULL) { log_debug(fmt, interface->header.name.ptr, #fn); valid = false; }
 
         VALIDATE(window_create)
         VALIDATE(window_destroy)
@@ -56,7 +56,7 @@ RIVEN_ENCORE(hadal, native)
 #ifdef REZNOR_VULKAN
         VALIDATE(vulkan_write_instance_procedures)
         VALIDATE(vulkan_surface_create)
-        VALIDATE(vulkan_physical_device_presentation_support)
+        VALIDATE(vulkan_presentation_support)
 #endif
 #undef VALIDATE
         if (valid) return;
@@ -72,20 +72,15 @@ RIVEN_ENCORE(hadal, headless)
 {
     assert_debug(encore->header.interface && *encore->header.interface == NULL);
 
-    struct riven *riven = encore->header.riven;
-    riven_tag_t tag = encore->header.tag;
-
     struct hadal_interface *interface = (struct hadal_interface *) 
-        riven_alloc(riven, tag, sizeof(struct hadal_interface), _Alignof(struct hadal_interface));
+        riven_alloc(encore->header.riven, encore->header.tag, sizeof(struct hadal_interface), _Alignof(struct hadal_interface));
 
-    *interface = (struct hadal_interface){
-        .header = {
-            .name = str_init("hadal_headless"), 
-            .riven = riven,
-            .tag = tag,
-            .fini = riven_work_nop,
-        },
-    };
+    /* write the interface */
+    interface->header.name = str_init("hadal_headless");
+    interface->header.riven = encore->header.riven;
+    interface->header.tag = encore->header.tag;
+    interface->header.fini = (PFN_riven_work)riven_work_nop;
+
     *encore->header.interface = (riven_argument_t)(struct hadal *)interface;
     log_verbose("'%s' interface write.", interface->header.name.ptr);
 }

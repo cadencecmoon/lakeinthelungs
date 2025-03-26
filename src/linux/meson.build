@@ -66,9 +66,13 @@ if sys == 'linux' or sys == 'bsd'
         private_code_args = [ wayland_scanner, 'private-code', '@INPUT@', '@OUTPUT@' ]
 
         wayland_protocols = [
+            'alpha-modifier-v1',
+            'color-management-v1',
             'cursor-shape-v1',
             'fractional-scale-v1',
+            'frog-color-management-v1',
             'idle-inhibit-unstable-v1',
+            'input-timestamps-unstable-v1',
             'keyboard-shortcuts-inhibit-unstable-v1',
             'pointer-constraints-unstable-v1',
             'pointer-gestures-unstable-v1',
@@ -80,6 +84,8 @@ if sys == 'linux' or sys == 'bsd'
             'wayland',
             'xdg-activation-v1',
             'xdg-decoration-unstable-v1',
+            'xdg-dialog-v1',
+            'xdg-foreign-unstable-v2',
             'xdg-output-unstable-v1',
             'xdg-shell',
             'xdg-toplevel-icon-v1',
