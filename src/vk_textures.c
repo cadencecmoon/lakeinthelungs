@@ -128,12 +128,7 @@ void vulkan_texture_destroy(struct reznor_texture *restrict texture)
 
 FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, texture) 
 {
-    (void)device;
-    (void)texture_count;
-    (void)texture_configs;
-    (void)memory_requirements;
-    (void)out_assembly;
-    return result_error;
+    (void)work;
 }
 
 
@@ -144,10 +139,5 @@ void vulkan_sampler_destroy(struct reznor_sampler *restrict sampler)
 
 FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, sampler)
 {
-    (void)device;
-    (void)sampler_count;
-    (void)sampler_configs;
-    (void)memory_requirements;
-    (void)out_assembly;
-    return result_error;
+    (void)work;
 }

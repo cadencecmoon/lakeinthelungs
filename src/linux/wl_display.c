@@ -471,6 +471,31 @@ static b32 load_symbols(struct hadal *hadal, const char *fn)
     return true;
 }
 
+#ifdef REZNOR_VULKAN
+FN_HADAL_VULKAN_WRITE_INSTANCE_PROCEDURES(wayland)
+{
+    assert_debug(hadal && instance && vkGetInstanceProcAddr);
+
+    hadal->vulkan.instance = instance;
+    hadal->vulkan.vkCreateWaylandSurfaceKHR = (PFN_vkCreateWaylandSurfaceKHR)(void *)vkGetInstanceProcAddr(instance, "vkCreateWaylandSurfaceKHR");
+    hadal->vulkan.vkGetPhysicalDeviceWaylandPresentationSupportKHR = (PFN_vkGetPhysicalDeviceWaylandPresentationSupportKHR)(void *)vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceWaylandPresentationSupportKHR");
+
+    if (!hadal->vulkan.vkCreateWaylandSurfaceKHR ||
+        !hadal->vulkan.vkGetPhysicalDeviceWaylandPresentationSupportKHR)
+    {
+        log_error("Wayland can't load surface-related Vulkan procedures.");
+        return result_error;
+    }
+    return result_success;
+}
+
+FN_HADAL_VULKAN_PRESENTATION_SUPPORT(wayland)
+{
+    assert_debug(hadal->vulkan.vkGetPhysicalDeviceWaylandPresentationSupportKHR);
+    return (b32)hadal->vulkan.vkGetPhysicalDeviceWaylandPresentationSupportKHR(physical_device, queue_family, hadal->display);
+}
+#endif /* REZNOR_VULKAN */
+
 static void wayland_interface_fini(struct hadal *hadal)
 {
     if (!hadal) return;
@@ -509,7 +534,7 @@ RIVEN_ENCORE(hadal, wayland)
 
     /* we allow only one wayland backend at a time, so the interface will be shared */
     if (UNLIKELY(g_wayland != NULL)) {
-        *encore->header.interface = (riven_argument_t)g_wayland;
+        *encore->header.interface = (void *)g_wayland;
         return;
     }
 
@@ -604,6 +629,6 @@ disconnect:
     hadal->interface.vulkan_presentation_support = _hadal_wayland_vulkan_presentation_support;
 #endif
 
-    *encore->header.interface = (riven_argument_t)hadal;
+    *encore->header.interface = (void *)hadal;
     log_verbose("'%s' interface write.", hadal->interface.header.name.ptr);
 }

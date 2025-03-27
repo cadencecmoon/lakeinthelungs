@@ -7,12 +7,7 @@ void vulkan_swapchain_destroy(struct reznor_swapchain *restrict swapchain)
 
 FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, swapchain)
 {
-    (void)device;
-    (void)swapchain_count;
-    (void)swapchain_configs;
-    (void)memory_requirements;
-    (void)out_assembly;
-    return result_error;
+    (void)work;
 }
 
 FN_REZNOR_SWAPCHAIN_TRY_RECREATE(vulkan)
@@ -21,7 +16,8 @@ FN_REZNOR_SWAPCHAIN_TRY_RECREATE(vulkan)
     return result_success;
 }
 
-FN_REZNOR_SWAPCHAIN_NEXT_IMAGE(vulkan)
+FN_REZNOR_FRAME_NEXT_IMAGES(vulkan)
 {
-    (void)swapchain;
+    (void)swapchains;
+    (void)swapchain_count;
 }

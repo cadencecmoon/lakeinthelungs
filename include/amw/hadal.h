@@ -183,7 +183,7 @@ struct hadal_window_header {
 };
 
 /** Information needed to create a native window. */
-struct hadal_window_config {
+struct hadal_window_create_info {
     /** The display backend to communicate with the window compositor. */
     struct hadal               *hadal;
     /** Dimensions of the newly created window. */
@@ -194,11 +194,11 @@ struct hadal_window_config {
     u32                         flags;
 };
 
-#define ARGS_HADAL_WINDOW_CREATE                \
-    struct hadal                       *hadal,  \
-    const struct hadal_window_config   *config, \
-    struct memory_requirements         *memory, \
-    struct hadal_window               **window
+#define ARGS_HADAL_WINDOW_CREATE                            \
+    struct hadal                           *hadal,          \
+    const struct hadal_window_create_info  *create_info,    \
+    struct riven_memory                    *memory,         \
+    struct hadal_window                   **out_window
 /** Creates a native window. */
 typedef s32 (AMWCALL *PFN_hadal_window_create)(ARGS_HADAL_WINDOW_CREATE);
 #define FN_HADAL_WINDOW_CREATE(encore) \
@@ -450,9 +450,9 @@ typedef s32 (AMWCALL *PFN_hadal_vulkan_surface_create)(ARGS_HADAL_VULKAN_SURFACE
 #define FN_HADAL_VULKAN_SURFACE_CREATE(encore) \
     extern s32 AMWCALL _hadal_##encore##_vulkan_surface_create(ARGS_HADAL_VULKAN_SURFACE_CREATE)
 
-#define ARGS_HADAL_VULKAN_PRESENTATION_SUPPORT  \
-    const struct hadal_window          *window,                 \
-    struct VkPhysicalDevice_T          *physical_device,        \
+#define ARGS_HADAL_VULKAN_PRESENTATION_SUPPORT              \
+    const struct hadal                 *hadal,              \
+    struct VkPhysicalDevice_T          *physical_device,    \
     u32                                 queue_family
 /** Checks whether the physical device supports presentation for a given display backend.
  *  If a display backend has no dedicated vkGetPhysicalDevice*PresentationSupport procedure,

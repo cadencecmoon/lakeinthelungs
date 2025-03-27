@@ -20,39 +20,35 @@ struct riven;
  *  that the caller's thread joins to complete the work on the job queue. */
 typedef at_usize *riven_chain_t;
 
-/** An argument type, can be used to cast any pointer into a type valid for a pointer argument.
- *  It can represent any data type that is valid for the procedure callback. */
-typedef void *riven_argument_t;
-
 /** Defines a job function, that can be run in parallel. */
-typedef void (AMWCALL *PFN_riven_work)(riven_argument_t argument);
+typedef void (AMWCALL *PFN_riven_work)(void *argument);
 
 /** No operation, as a stub for NULL'ed out callback procedures. */
-AMWAPI void riven_work_nop(riven_argument_t argument);
+AMWAPI void riven_work_nop(void *argument);
 
 /** Defines a job that will be running within a fiber's context. Name is used for profilling, can be NULL. */
 struct riven_work {
-    PFN_riven_work      procedure;
-    riven_argument_t    argument;
-    struct str          name;
+    PFN_riven_work  procedure;
+    void           *argument;
+    struct str      name;
 };
 
 /** Applications entry point to the entire system. */
 typedef s32 (AMWCALL *PFN_riven_heart)(
-    struct riven          *riven, 
-    thread_t              *threads,
-    u32                    thread_count,
-    riven_argument_t       argument);
+    struct riven       *riven, 
+    thread_t           *threads,
+    u32                 thread_count,
+    void               *argument);
 
 /** Runs 'work_count' amount of jobs, passed in the flat array 'work'. This will return immediately, and the 
  *  provided jobs will be resolved in the background in parallel. If 'chain' is not NULL, it will be set to 
  *  a value that can be used to wait for the work to finish in the meantime. */
 AMWAPI attr_hot attr_nonnull(1,2) attr_acquire_shared_capability(4)
 void AMWCALL riven_split_work(
-    struct riven      *riven,
-    struct riven_work *work,
-    u32                work_count,
-    riven_chain_t     *chain);
+    struct riven       *riven,
+    struct riven_work  *work,
+    u32                 work_count,
+    riven_chain_t      *chain);
 
 /** If a chain is not NULL, then an implicit context switch is made for the calling thread, to the work that 
  *  was associated with the chain to be finished. If the chain is NULL, then this call may or may not be yield
@@ -60,16 +56,16 @@ void AMWCALL riven_split_work(
  *  that continue work with a context switch instead of busy-waiting for the work to finish. */
 AMWAPI attr_hot attr_nonnull(1) attr_release_shared_capability(2) 
 void AMWCALL riven_unchain(
-    struct riven *riven,
-    riven_chain_t chain);
+    struct riven       *riven,
+    riven_chain_t       chain);
 
 /** Combines the effects of 'rivens_split_work' and 'rivens_unchain', by providing a chain. 
  *  This function does not return until all submitted work has completed. */
 attr_inline attr_nonnull(1,2) 
 void AMWCALL riven_split_work_and_unchain(
-    struct riven      *riven,
-    struct riven_work *work,
-    u32                work_count)
+    struct riven       *riven,
+    struct riven_work  *work,
+    u32                 work_count)
 {
     riven_chain_t chain = NULL;
     riven_split_work(riven, work, work_count, &chain);
@@ -81,8 +77,8 @@ void AMWCALL riven_split_work_and_unchain(
  *  to 'rivens_unchain' will result in a context switch, until the chain has been released. */
 AMWAPI attr_hot attr_nonnull(1) attr_acquire_shared_capability(2)
 void AMWCALL riven_acquire_chained(
-    struct riven  *riven,
-    riven_chain_t *chain);
+    struct riven       *riven,
+    riven_chain_t      *chain);
 
 /** Releases a chain previously acquired by 'rivens_acquire_chained'. */
 attr_inline attr_release_shared_capability(1)
@@ -107,8 +103,9 @@ typedef u32 riven_tag_t;
 /** Predefined tags for expected lifetime frequencies of game resources. Tags of other values can be 
  *  used for other uses, like allocating memory for assets: scenes, textures, meshes, audio, etc. */
 enum riven_tag {
+    riven_tag_invalid = 0u,
     /** Resources under this tag cannot be freed, they will share the lifetime of Riven. */
-    riven_tag_roots = 0u,
+    riven_tag_roots,
     /** Scratch memory for the GPU execution stage. */
     riven_tag_gpuexec,
     /** Scratch memory for the rendering stage. */
@@ -137,8 +134,8 @@ enum riven_tag {
  *  that is expected by the system. The application can either pass a tag, so the allocation can be done 
  *  internally on a tagged heap, or the backend may query it's memory requirements, write this information 
  *  here, and expect a second call with the allocation done by the caller. */
-struct memory_requirements {
-    void       *memory;     /**< The allocated memory, written here after receiving results of a query. */
+struct riven_memory {
+    void       *data;       /**< The allocated memory, written here after receiving results of a query. */
     usize       size;       /**< Size requirements for the allocation, written to from a query. */
     u32         alignment;  /**< Alignment requirements for the allocation, written to from a query. */
     riven_tag_t tag;        /**< Optionally, a valid tag can be given for the backend to allocate his memory from riven. */
@@ -236,7 +233,7 @@ struct riven_encore_header {
     const struct amw_metadata *metadata;       /**< The metadata given by the application. */
     struct riven              *riven;          /**< The context of our framework. */
     riven_tag_t                tag;            /**< The lifetime of this interface. */
-    riven_argument_t          *interface;      /**< Write destination. */
+    void                     **interface;      /**< Write destination. */
 };
 
 /** Allows abstracting away the interface structures present within different engine systems.
@@ -252,7 +249,7 @@ struct riven_interface_header {
 
 /** Obtain the 'fini' procedure to close the interface implementation. */
 attr_inline attr_pure attr_nonnull_all
-PFN_riven_work AMWCALL riven_interface_fini(const riven_argument_t interface) {
+PFN_riven_work AMWCALL riven_interface_fini(const void *interface) {
     if (interface) {
         const struct riven_interface_header *header = (const struct riven_interface_header *)interface;
         return header->fini;
@@ -277,15 +274,15 @@ PFN_riven_work AMWCALL riven_interface_fini(const riven_argument_t interface) {
  *  Returns the value given by the main procedure, the application can do whatever it wants with this information. */
 AMWAPI attr_nonnull(8,9)
 s32 AMWCALL riven_moonlit_walk(
-    usize                   memory_budget_size,
-    usize                   fiber_stack_size,
-    u32                     fiber_count,
-    u32                     thread_count,
-    u32                     tagged_heap_count,
-    u32                     log2_work_count,
-    u32                     log2_memory_count,
-    PFN_riven_heart         main_procedure,
-    riven_argument_t        main_argument);
+    usize           memory_budget_size,
+    usize           fiber_stack_size,
+    u32             fiber_count,
+    u32             thread_count,
+    u32             tagged_heap_count,
+    u32             log2_work_count,
+    u32             log2_memory_count,
+    PFN_riven_heart main_procedure,
+    void           *main_argument);
 
 #ifdef __cplusplus
 }

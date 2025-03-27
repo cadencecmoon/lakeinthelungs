@@ -1019,13 +1019,6 @@ enum result {
     result_error,   /* TODO expand */
 };
 
-/** A way for jobs to return a result code. The index is there for padding and logging, 
- *  for when multiple jobs are writing to riven_work array in a loop anyways. */
-struct work_header {
-    s32 result; /**< enum result */
-    u32 index;  /**< argument index */
-};
-
 #ifdef __cplusplus
 }
 #endif

@@ -12,20 +12,10 @@ void vulkan_descriptor_set_destroy(struct reznor_descriptor_set *restrict descri
 
 FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, descriptor_set_layout)
 {
-    (void)device;
-    (void)descriptor_set_layout_count;
-    (void)descriptor_set_layout_configs;
-    (void)memory_requirements;
-    (void)out_assembly;
-    return result_error;
+    (void)work;
 }
 
 FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, descriptor_set)
 {
-    (void)device;
-    (void)descriptor_set_count;
-    (void)descriptor_set_configs;
-    (void)memory_requirements;
-    (void)out_assembly;
-    return result_error;
+    (void)work;
 }

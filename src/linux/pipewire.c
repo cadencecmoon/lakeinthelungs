@@ -218,7 +218,7 @@ RIVEN_ENCORE(soma, pipewire)
 
     /* we allow only one pipewire backend at a time, so the interface will be shared */
     if (UNLIKELY(g_pipewire != NULL)) {
-        *encore->header.interface = (riven_argument_t)g_pipewire;
+        *encore->header.interface = (void *)g_pipewire;
         return;
     }
 
@@ -273,6 +273,6 @@ RIVEN_ENCORE(soma, pipewire)
     soma->interface.device_close = _soma_pipewire_device_close;
     soma->interface.device_wait = _soma_pipewire_device_wait;
 
-    *encore->header.interface = (riven_argument_t)soma;
+    *encore->header.interface = (void *)soma;
     log_verbose("'%s' interface write.", soma->interface.header.name.ptr);
 }

@@ -1,7 +1,7 @@
 #include <amw/a_moonlit_walk.h>
 
 /* XXX delete later */
-#define DEBUG_CLOSE_COUNTER_MS 100
+#define DEBUG_CLOSE_COUNTER_MS 20
 
 #define FRAME_TIME_PRINT_INTERVAL_MS 1000
 
@@ -21,10 +21,10 @@ s32 amw_run_framework(PFN_riven_work (AMWCALL *entry)(struct amw_config *, s32, 
         .hadal_main_width = 1200,
         .hadal_main_height = 900,
         .reznor_force_primary_device_index = -1,
-        .reznor_target_device_count = 0,
-        .reznor_prefer_only_discrete_devices = true,
+        .reznor_target_device_count = AMW_MAX_RENDERING_DEVICE_COUNT,
+        .reznor_prefer_only_discrete_devices = false,
         .riven_memory_budget_size = 1lu*1024*1024*1024, /* 1 GB */
-        .riven_fiber_stack_size = 96*1024,
+        .riven_fiber_stack_size = 64lu*1024,
         .riven_thread_count = 0,
         .riven_tagged_heap_count = 0,
         .riven_log2_work_count = 11,
@@ -58,7 +58,7 @@ s32 amw_run_framework(PFN_riven_work (AMWCALL *entry)(struct amw_config *, s32, 
         config.riven_log2_work_count,
         config.riven_log2_memory_count,
         (PFN_riven_heart)a_moonlit_walk,
-        (riven_argument_t)&config);
+        (void *)&config);
     return res;
 }
 
@@ -75,6 +75,9 @@ static void AMWCALL engine_fini(struct a_moonlit_walk_engine *amw)
 
     /* destroy windows and swapchains */
     u32 window_count = atomic_load_explicit(&amw->window_count, memory_order_relaxed);
+    u32 swapchain_count = 0;
+    struct reznor_swapchain *swapchains[AMW_MAX_WINDOW_COUNT];
+
     for (s32 i = AMW_MAX_WINDOW_COUNT - 1u; i >= 0 && window_count; i--) {
         struct hadal_window_header *window = (struct hadal_window_header *)amw->windows[i];
         if (!window) continue;
@@ -82,11 +85,15 @@ static void AMWCALL engine_fini(struct a_moonlit_walk_engine *amw)
         struct hadal_interface *hadal = (struct hadal_interface *)window->hadal;
         struct reznor_swapchain *swapchain = window->swapchain;
         if (swapchain) {
-            hadal->window_attach_swapchain((struct hadal_window *)window, NULL);
-            reznor_destroy_resource((struct reznor_interface *)amw->reznor, swapchain);
+            hadal->window_attach_swapchain(amw->windows[i], NULL);
+            swapchains[swapchain_count++] = swapchain;
         }
         hadal->window_destroy((struct hadal_window *)window);
         amw->windows[i] = NULL;
+    }
+    if (swapchain_count) {
+        struct reznor_interface *reznor = (struct reznor_interface *)amw->reznor;
+        reznor->disassembly((void **)swapchains, swapchain_count);
     }
     atomic_store_explicit(&amw->window_count, 0, memory_order_relaxed);
     amw->active_window_count = 0;
@@ -108,12 +115,10 @@ static void AMWCALL engine_fini(struct a_moonlit_walk_engine *amw)
     }
     amw->render_device_count = 0;
 
-    /* destroy standalone interfaces */
+    /* destroy core interfaces */
     u32 o = 0;
-    riven_argument_t interfaces[] = {
-        (riven_argument_t)amw->soma,
-        (riven_argument_t)amw->reznor,
-        (riven_argument_t)amw->hadal,
+    void *interfaces[] = {
+        amw->soma, amw->reznor, amw->hadal,
     };
     PFN_riven_work finish[] = {
         riven_interface_fini(amw->soma),
@@ -139,14 +144,13 @@ static s32 AMWCALL engine_init(
     s32 res = result_success;
     struct riven *riven = amw->riven;
     const riven_tag_t tag = riven_tag_roots;
-    const b32 debug = config->debug_utilities;
     { /* create core interfaces */
         struct soma_encore soma = {
             /* TODO */
         };
         struct reznor_encore reznor = {
-            .debug_utils = debug,
-            /* TODO */
+            .thread_count = amw->thread_count,
+            .debug_utils = config->debug_utilities,
         };
         struct hadal_encore hadal = {
             .gamecontrollerdb = NULL,
@@ -154,12 +158,12 @@ static s32 AMWCALL engine_init(
         };
 
         struct {
-            riven_argument_t argument, *interface;
+            void *argument, **interface;
             PFN_riven_work encore;
         } interfaces[] = {
-            { &soma,   (riven_argument_t *)&amw->soma,   config->encores.soma },
-            { &reznor, (riven_argument_t *)&amw->reznor, config->encores.reznor },
-            { &hadal,  (riven_argument_t *)&amw->hadal,  config->encores.hadal },
+            { (void *)&soma,   (void **)&amw->soma,   config->encores.soma },
+            { (void *)&reznor, (void **)&amw->reznor, config->encores.reznor },
+            { (void *)&hadal,  (void **)&amw->hadal,  config->encores.hadal },
         };
         struct riven_work init_work[arraysize(interfaces)];
 
@@ -186,6 +190,21 @@ static s32 AMWCALL engine_init(
             return res;
     }
 
+    res = reznor_mgpu_assembly(
+        amw->reznor, amw->hadal, tag,
+        config->frames_in_flight,
+        config->reznor_target_device_count,
+        config->reznor_virtual_device_count,
+        config->reznor_prefer_only_discrete_devices,
+        config->reznor_force_primary_device_index,
+        &amw->render_device_count,
+        amw->render_devices);
+
+    if (res != result_success) {
+        log_fatal("AMW Engine early initialization failure.");
+        return res;
+    }
+
     return result_success;
 }
 
@@ -198,8 +217,9 @@ static void AMWCALL deferred_window_destroy(struct amw_deferred_work *work)
     struct hadal_interface *hadal = (struct hadal_interface *)window->hadal;
     struct reznor_swapchain *swapchain = window->swapchain;
     if (swapchain) {
+        struct reznor_interface *reznor = (struct reznor_interface *)amw->reznor;
         hadal->window_attach_swapchain((struct hadal_window *)window, NULL);
-        reznor_destroy_resource((struct reznor_interface *)amw->reznor, swapchain);
+        reznor->disassembly((void **)&swapchain, 1);
     }
     hadal->window_destroy((struct hadal_window *)window);
     atomic_fetch_sub_explicit(&amw->window_count, 1, memory_order_release);
@@ -345,10 +365,10 @@ s32 a_moonlit_walk(
                 deferred->chain = NULL;
 #ifndef NDEBUG
                 /* check fatal results of last stage (gpuexec) */
-                if (deferred->header.result == result_error) {
+                if (deferred->result == result_error) {
                     log_error("Frame '%lu' for '%s' returned an error, the game will exit now.", 
                               frame_index, work[AMW_GPUEXEC_WORK_IDX].name.ptr);
-                    res = deferred->header.result;
+                    res = deferred->result;
                     amw.exit_game = true;
                 }
 #endif /* NDEBUG */
@@ -370,10 +390,10 @@ s32 a_moonlit_walk(
                 gpuexec->chain = NULL;
 #ifndef NDEBUG
                 /* check fatal results of last stage (rendering) */
-                if (gpuexec->header.result == result_error) {
+                if (gpuexec->result == result_error) {
                     log_error("Frame '%lu' for '%s' returned an error, the game will exit now.", 
                               frame_index, work[AMW_RENDERING_WORK_IDX].name.ptr);
-                    res = gpuexec->header.result;
+                    res = gpuexec->result;
                     amw.exit_game = true;
                 }
 #endif /* NDEBUG */
@@ -388,10 +408,10 @@ s32 a_moonlit_walk(
                 rendering->chain = NULL;
 #ifndef NDEBUG
                 /* check fatal results of last stage (game) */
-                if (rendering->header.result == result_error) {
+                if (rendering->result == result_error) {
                     log_error("Frame '%lu' for '%s' returned an error, the game will exit now.", 
                               frame_index, work[AMW_GAME_WORK_IDX].name.ptr);
-                    res = rendering->header.result;
+                    res = rendering->result;
                     amw.exit_game = true;
                 }
 #endif /* NDEBUG */
@@ -403,7 +423,7 @@ s32 a_moonlit_walk(
             if (game) {
                 /* game stage has no dependency but on itself, which is resolved at frame N-1 */
                 game->chain = NULL;
-                game->header.index = frame_index;
+                game->frame_index = frame_index;
                 game->delta_time = delta_time;
                 game->game_to_rendering_tag = riven_tag_game_to_rendering + (frame_index % riven_tag_game_to_rendering_cycle);
                 game->game_to_gpuexec_tag = riven_tag_game_to_gpuexec + (frame_index % riven_tag_game_to_gpuexec_cycle);

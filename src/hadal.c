@@ -33,7 +33,7 @@ RIVEN_ENCORE(hadal, native)
     u32 encore_count = arraysize(encores);
 
     for (u32 i = 0; i < encore_count; i++) {
-        encores[i]((riven_argument_t)encore);
+        encores[i]((void *)encore);
 
         if (*encore->header.interface == NULL) 
             continue;
@@ -63,7 +63,7 @@ RIVEN_ENCORE(hadal, native)
 
         /* continue with the next encore */
         if (interface->header.fini)
-            interface->header.fini((riven_argument_t)interface);
+            interface->header.fini((void *)interface);
         *encore->header.interface = NULL;
     }
 }
@@ -81,7 +81,7 @@ RIVEN_ENCORE(hadal, headless)
     interface->header.tag = encore->header.tag;
     interface->header.fini = (PFN_riven_work)riven_work_nop;
 
-    *encore->header.interface = (riven_argument_t)(struct hadal *)interface;
+    *encore->header.interface = (void *)(struct hadal *)interface;
     log_verbose("'%s' interface write.", interface->header.name.ptr);
 }
 

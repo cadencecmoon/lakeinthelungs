@@ -116,6 +116,8 @@ b32 vulkan_load_instance_procedures(struct reznor *reznor, u32 api_version, u32 
         instance_proc_address(reznor, "vkEnumeratePhysicalDevices");
     reznor->vkEnumeratePhysicalDeviceGroups = (PFN_vkEnumeratePhysicalDeviceGroups)
         instance_proc_address(reznor, "vkEnumeratePhysicalDeviceGroups");
+    reznor->vkGetDeviceProcAddr = (PFN_vkGetDeviceProcAddr)
+        instance_proc_address(reznor, "vkGetDeviceProcAddr");
     reznor->vkGetPhysicalDeviceFeatures = (PFN_vkGetPhysicalDeviceFeatures)
         instance_proc_address(reznor, "vkGetPhysicalDeviceFeatures");
     reznor->vkGetPhysicalDeviceFeatures2 = (PFN_vkGetPhysicalDeviceFeatures2)
@@ -152,6 +154,7 @@ b32 vulkan_load_instance_procedures(struct reznor *reznor, u32 api_version, u32 
         !reznor->vkEnumerateDeviceExtensionProperties ||
         !reznor->vkEnumeratePhysicalDevices ||
         !reznor->vkEnumeratePhysicalDeviceGroups ||
+        !reznor->vkGetDeviceProcAddr ||
         !reznor->vkGetPhysicalDeviceFeatures ||
         !reznor->vkGetPhysicalDeviceFeatures2 ||
         !reznor->vkGetPhysicalDeviceFormatProperties ||
@@ -466,7 +469,7 @@ b32 vulkan_load_device_procedures(struct reznor_device *device, u32 api_version,
 	device->vkMapMemory = (PFN_vkMapMemory)
         device_proc_address(device, "vkMapMemory");
 	device->vkMergePipelineCaches = (PFN_vkMergePipelineCaches)
-        device_proc_address(device, "vkvkMergePipelineCaches");
+        device_proc_address(device, "vkMergePipelineCaches");
 	device->vkQueueBindSparse = (PFN_vkQueueBindSparse)
         device_proc_address(device, "vkQueueBindSparse");
 	device->vkQueueSubmit = (PFN_vkQueueSubmit)
@@ -1134,10 +1137,9 @@ static void *fn_allocation(
     /* add enough space for the header, then round up to alignment */
     uptr inner = ((uptr)outer + sizeof(struct allocation_header) + alignment - 1) & ~(alignment - 1);
 
-    struct allocation_header header = {
-        .outer = outer,
-        .size = size,
-    };
+    struct allocation_header header;
+    header.outer = outer;
+    header.size = size;
 
     /* store the header just before inner */
     memcpy((void *)(inner - sizeof(struct allocation_header)), &header, sizeof(struct allocation_header));
@@ -1231,16 +1233,6 @@ static void *fn_reallocation(
     }
 }
 
-static void vulkan_interface_fini(struct reznor *reznor)
-{
-    if (!reznor) return;
-
-    if (reznor->module)
-        process_close_dll(reznor->module);
-    zerop(reznor);
-    g_vulkan = NULL;
-}
-
 void vulkan_write_allocation_callbacks(VkAllocationCallbacks *allocator, const char *userdata)
 {
     allocator->pfnAllocation = fn_allocation;
@@ -1250,6 +1242,19 @@ void vulkan_write_allocation_callbacks(VkAllocationCallbacks *allocator, const c
     allocator->pfnInternalFree = NULL;
     allocator->pUserData = (void *)userdata;
 };
+
+static void vulkan_interface_fini(struct reznor *reznor)
+{
+    if (!reznor) return;
+
+    if (reznor->instance)
+        reznor->vkDestroyInstance(reznor->instance, &reznor->allocator);
+
+    if (reznor->module)
+        process_close_dll(reznor->module);
+    zerop(reznor);
+    g_vulkan = NULL;
+}
 
 RIVEN_ENCORE(reznor, vulkan)
 {
@@ -1265,7 +1270,7 @@ RIVEN_ENCORE(reznor, vulkan)
 
     /* only one vulkan backend at a time is allowed, so the interface will be shared */
     if (UNLIKELY(g_vulkan != NULL)) {
-        *encore->header.interface = (riven_argument_t)g_vulkan;
+        *encore->header.interface = (void *)g_vulkan;
         return;
     }
 #if defined(PLATFORM_WINDOWS)
@@ -1471,6 +1476,8 @@ RIVEN_ENCORE(reznor, vulkan)
     reznor->interface.header.riven = encore->header.riven;
     reznor->interface.header.tag = encore->header.tag;
     reznor->interface.header.fini = (PFN_riven_work)vulkan_interface_fini;
+    reznor->interface.thread_count = encore->thread_count;
+    reznor->interface.debug_utils = encore->debug_utils;
     g_vulkan = reznor;
 
     vulkan_write_allocation_callbacks(&reznor->allocator, reznor->interface.header.name.ptr);
@@ -1485,68 +1492,18 @@ RIVEN_ENCORE(reznor, vulkan)
     if (extension_bits & vulkan_ext_layer_validation_bit)
         create_validation_layers(reznor);
 
-    /* query physical devices */
+    /* check for physical devices */
     VERIFY_VK(reznor->vkEnumeratePhysicalDevices(reznor->instance, &physical_device_count, NULL));
     if (physical_device_count == 0) {
         log_error("%s no physical devices are available to Vulkan.", fn);
         vulkan_interface_fini(reznor);
         return;
     }
-    usize physical_devices_bytes = A8(sizeof(VkPhysicalDevice) * physical_device_count);
-    usize query_work_bytes = A8(sizeof(struct vulkan_physical_device_query_work) * physical_device_count);
-    usize riven_work_bytes = A8(sizeof(struct riven_work) * physical_device_count);
-    usize indices_bytes = A8(sizeof(u32) * physical_device_count);
-    usize total_bytes = physical_devices_bytes + query_work_bytes + riven_work_bytes + indices_bytes;
-
-    u8 *raw = (u8 *)riven_alloc(encore->header.riven, riven_tag_deferred, total_bytes, 8);
-    memset(raw, 0, total_bytes);
-
-    o = 0;
-    VkPhysicalDevice *physical_devices = (VkPhysicalDevice *)&raw[o];
-    o += physical_devices_bytes;
-    struct vulkan_physical_device_query_work *query_work = (struct vulkan_physical_device_query_work *)&raw[o];
-    o += query_work_bytes;
-    struct riven_work *riven_work = (struct riven_work *)&raw[o];
-    o += riven_work_bytes;
-    u32 *indices = (u32 *)&raw[o];
-    assert_debug(o + indices_bytes == total_bytes);
-
-    /* prepare the physical device query */
-    VERIFY_VK(reznor->vkEnumeratePhysicalDevices(reznor->instance, &physical_device_count, physical_devices));
-
-    for (u32 i = 0; i < physical_device_count; i++) {
-        query_work[i].header.index = i;
-        query_work[i].header.result = result_error;
-        query_work[i].physical.device = physical_devices[i];
-        query_work[i].reznor = reznor;
-        riven_work[i].procedure = (PFN_riven_work)vulkan_physical_device_query;
-        riven_work[i].argument = (riven_argument_t)&query_work[i];
-        riven_work[i].name = str_init("reznor_vulkan:physical_device_query");
-    }
-    riven_split_work_and_unchain(encore->header.riven, riven_work, physical_device_count);
-
-    o = 0;
-    /* collect indices of accepted physical devices */
-    for (u32 i = 0; i < physical_device_count; i++)
-        if (query_work[i].header.result == result_success)
-            indices[o++] = i;
-    if (o == 0) {
-        log_error("%s physical device query invalidated all of %u physical devices available to Vulkan.", fn, physical_device_count);
-        vulkan_interface_fini(reznor);
-        return;
-    }
-
-    /* copy the accepted physical devices */
-    struct vulkan_physical_device *devices = (struct vulkan_physical_device *)
-        riven_alloc(encore->header.riven, encore->header.tag, sizeof(struct vulkan_physical_device), _Alignof(struct vulkan_physical_device));
-    for (u32 i = 0; i < o; i++)
-        memcpy(&devices[i], &query_work[indices[i]].physical, sizeof(struct vulkan_physical_device));
-    reznor->physical_devices = devices;
-    reznor->physical_device_count = o;
+    reznor->physical_device_count = physical_device_count;
 
     /* write the interface */
     reznor->interface.device_query = _reznor_vulkan_device_query;
-    reznor->interface.device_create = _reznor_vulkan_device_create;
+    reznor->interface.device_assembly = _reznor_vulkan_device_assembly;
     reznor->interface.device_destroy = _reznor_vulkan_device_destroy;
     reznor->interface.device_memory_assembly = _reznor_vulkan_device_memory_assembly;
     reznor->interface.buffer_assembly = _reznor_vulkan_buffer_assembly;
@@ -1564,10 +1521,10 @@ RIVEN_ENCORE(reznor, vulkan)
     reznor->interface.query_pool_assembly = _reznor_vulkan_query_pool_assembly;
     reznor->interface.swapchain_assembly = _reznor_vulkan_swapchain_assembly;
     reznor->interface.swapchain_try_recreate = _reznor_vulkan_swapchain_try_recreate;
-    reznor->interface.swapchain_next_image = _reznor_vulkan_swapchain_next_image;
-    reznor->interface.disassembly = _reznor_vulkan_disassembly;
     reznor->interface.frame_begin = _reznor_vulkan_frame_begin;
+    reznor->interface.frame_next_images = _reznor_vulkan_frame_next_images;
     reznor->interface.frame_submit = _reznor_vulkan_frame_submit;
+    reznor->interface.disassembly = _reznor_vulkan_disassembly;
     reznor->interface.command_draw = _reznor_vulkan_command_draw;
     reznor->interface.command_draw_indexed = _reznor_vulkan_command_draw_indexed;
     reznor->interface.command_draw_indexed_indirect = _reznor_vulkan_command_draw_indexed_indirect;
@@ -1579,6 +1536,6 @@ RIVEN_ENCORE(reznor, vulkan)
     reznor->interface.command_begin_render_pass = _reznor_vulkan_command_begin_render_pass;
     reznor->interface.command_end_render_pass = _reznor_vulkan_command_end_render_pass;
 
-    *encore->header.interface = (riven_argument_t)reznor;
+    *encore->header.interface = (void *)reznor;
     log_verbose("'%s' interface write.", reznor->interface.header.name.ptr);
 }

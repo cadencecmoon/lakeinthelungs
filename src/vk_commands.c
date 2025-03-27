@@ -82,7 +82,7 @@ FN_REZNOR_COMMAND_BEGIN_RENDER_PASS(vulkan)
 {
     struct reznor_device *device = command_buffer->header.device;
     (void)device;
-    (void)config;
+    (void)params;
 }
 
 FN_REZNOR_COMMAND_END_RENDER_PASS(vulkan)

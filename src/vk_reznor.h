@@ -4,7 +4,7 @@
 #include <amw/reznor.h>
 
 FN_REZNOR_DEVICE_QUERY(vulkan);
-FN_REZNOR_DEVICE_CREATE(vulkan);
+FN_REZNOR_DEVICE_ASSEMBLY(vulkan);
 FN_REZNOR_DEVICE_DESTROY(vulkan);
 FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, device_memory);
 FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, buffer);
@@ -22,10 +22,10 @@ FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, top_level);
 FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, query_pool);
 FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, swapchain);
 FN_REZNOR_SWAPCHAIN_TRY_RECREATE(vulkan);
-FN_REZNOR_SWAPCHAIN_NEXT_IMAGE(vulkan);
-FN_REZNOR_DISASSEMBLY(vulkan);
 FN_REZNOR_FRAME_BEGIN(vulkan);
+FN_REZNOR_FRAME_NEXT_IMAGES(vulkan);
 FN_REZNOR_FRAME_SUBMIT(vulkan);
+FN_REZNOR_DISASSEMBLY(vulkan);
 FN_REZNOR_COMMAND_DRAW(vulkan);
 FN_REZNOR_COMMAND_DRAW_INDEXED(vulkan);
 FN_REZNOR_COMMAND_DRAW_INDEXED_INDIRECT(vulkan);
@@ -134,7 +134,7 @@ struct vulkan_physical_device {
     VkPhysicalDevice            device;
 
     u32                         score;
-    u32                         pelagia_features;
+    u32                         feats;
     u64                         extension_bits;
     usize                       total_vram;
 
@@ -280,6 +280,10 @@ struct reznor {
     PFN_vkGetPhysicalDeviceVideoFormatPropertiesKHR             vkGetPhysicalDeviceVideoFormatPropertiesKHR;
 };
 
+struct vulkan_memory_allocator {
+    u32 todo;
+};
+
 struct reznor_device {
     /** The public header of the rendering device. */
     struct reznor_device_header                                 header;
@@ -287,6 +291,10 @@ struct reznor_device {
     const struct vulkan_physical_device                        *physical;
     /** The Vulkan context of a rendering device, using the given physical device. */
     VkDevice                                                    logical;
+    /** Host allocation callbacks of this device. */
+    VkAllocationCallbacks                                       host_allocator;
+    /** GPU allocator. */
+    struct vulkan_memory_allocator                              gpu_allocator;
 
     /* Command queues, they are created from the information about queue families stored in the physical device structure. */
     VkQueue                                                     graphics_queue;
@@ -548,20 +556,6 @@ struct reznor_device {
     PFN_vkUpdateVideoSessionParametersKHR                       vkUpdateVideoSessionParametersKHR;
 };
 
-struct vulkan_command_pool {
-    VkCommandPool                       command_pool;
-    VkCommandBuffer                    *command_buffers;
-    u32                                 command_buffers_capacity;
-    u32                                 command_buffers_count;
-};
-
-struct vulkan_used_swapchain_info {
-    VkSwapchainKHR                      swapchains[REZNOR_MAX_SWAPCHAINS];
-    VkPipelineStageFlags                wait_stage_masks[REZNOR_MAX_SWAPCHAINS];
-    VkSemaphore                         image_available_semaphores[REZNOR_MAX_SWAPCHAINS];
-    u32                                 image_indices[REZNOR_MAX_SWAPCHAINS];
-};
-
 struct reznor_device_memory {
     struct reznor_resource_header       header;
     u32                                 memory_type_index;
@@ -707,6 +701,13 @@ struct reznor_swapchain {
     f64                                 last_presented_time;
 };
 
+struct vulkan_command_pool {
+    VkCommandPool                       command_pool;
+    VkCommandBuffer                    *command_buffers;
+    u32                                 command_buffers_capacity;
+    u32                                 command_buffers_count;
+};
+
 struct reznor_device_frame {
     struct reznor_device               *device;
     VkFence                             fence;
@@ -714,7 +715,6 @@ struct reznor_device_frame {
     struct vulkan_command_pool         *graphics_command_pools;
     VkCommandBuffer                     graphics_command_buffer;
     VkSemaphore                         rendering_finished_semaphore;
-    struct vulkan_used_swapchain_info   used_swapchain_info;
     struct vulkan_descriptor_pool      *descriptor_pool;
     b32                                 is_running;
 };
@@ -749,13 +749,6 @@ extern attr_const const char *AMWCALL vulkan_result_string(VkResult result);
 extern b32 AMWCALL vulkan_query_extension(VkExtensionProperties *properties, u32 count, const char *ext);
 extern b32 AMWCALL vulkan_load_instance_procedures(struct reznor *reznor, u32 api_version, u32 extension_bits);
 extern b32 AMWCALL vulkan_load_device_procedures(struct reznor_device *device, u32 api_version, u64 extension_bits);
-
-struct vulkan_physical_device_query_work {
-    struct work_header              header;
-    struct reznor                  *reznor;
-    struct vulkan_physical_device   physical;
-};
-extern void AMWCALL vulkan_physical_device_query(struct vulkan_physical_device_query_work *work);
 
 extern void AMWCALL vulkan_device_memory_destroy(struct reznor_device_memory *restrict device_memory);
 extern void AMWCALL vulkan_buffer_destroy(struct reznor_buffer *restrict buffer);

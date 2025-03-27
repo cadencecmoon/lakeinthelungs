@@ -99,7 +99,7 @@ typedef void (AMWCALL *PFN_soma_device_query)(ARGS_SOMA_DEVICE_QUERY);
 
 #define ARGS_SOMA_DEVICE_OPEN               \
     struct soma                    *soma,   \
-    struct memory_requirements     *memory, \
+    struct riven_memory            *memory, \
     struct soma_device            **out_device
 typedef s32 (AMWCALL *PFN_soma_device_open)(ARGS_SOMA_DEVICE_OPEN);
 #define FN_SOMA_DEVICE_OPEN(encore) \

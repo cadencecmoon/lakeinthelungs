@@ -26,7 +26,7 @@
 #define AMW_MAX_RENDERING_DEVICE_COUNT 4
 #endif
 #ifndef AMW_MAX_WINDOW_COUNT
-#define AMW_MAX_WINDOW_COUNT 8
+#define AMW_MAX_WINDOW_COUNT REZNOR_MAX_SWAPCHAINS
 #endif
 #ifndef AMW_MAX_DEFERRED_COUNT
 #define AMW_MAX_DEFERRED_COUNT 8
@@ -138,8 +138,9 @@ struct amw_deferred_work {
 /** Describes data for a single frame-worth of work. A frame is the result of such work,
  *  that we can show to the player in auditory and visual format. */
 struct amw_framedata {
-    /** Holds a frame index incremented every frame. */
-    struct work_header              header;
+    s32                             result;
+    /** The index of the current frame, always incrementing. */
+    u64                             frame_index;
     /** Delta time of the last frame, whatever it is. */
     f64                             delta_time;
 

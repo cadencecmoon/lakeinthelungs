@@ -338,7 +338,8 @@ attr_inline void make_fiber_context(
     *context = make_fcontext(stack, stack_bytes, procedure);
 }
 
-void riven_work_nop(riven_argument_t argument)
+/* an empty job for invalidating work */
+void riven_work_nop(void *argument)
 {
     (void)argument;
 }
@@ -510,7 +511,7 @@ struct tagged_heap {
 struct heart_data {
     struct riven               *riven;
     PFN_riven_heart             procedure;
-    riven_argument_t            argument;
+    void                       *argument;
     s32                         result;
 };
 
@@ -757,7 +758,7 @@ static void *dirty_deeds_done_dirt_cheap(void *raw_tls)
 }
 
 static attr_noreturn
-void d4c_love_train(riven_argument_t raw_riven)
+void d4c_love_train(void *raw_riven)
 {
     struct riven *riven = (struct riven *)raw_riven;
     struct tls *tls = get_thread_local_storage(riven);
@@ -784,10 +785,9 @@ void heart(void *raw_heart_data)
 
     data->result = data->procedure(riven, riven->threads, riven->thread_count, data->argument);
 
-    /* returned from main, tell all threads to kys */
     for (u32 i = 0; i < thread_count; i++) {
         riven->ends[i].procedure = d4c_love_train;
-        riven->ends[i].argument = (riven_argument_t)riven;
+        riven->ends[i].argument = (void *)riven;
         riven->ends[i].name = str_init("riven:d4c_love_train");
     }
     riven_split_work_and_unchain(riven, riven->ends, thread_count);
@@ -1381,15 +1381,15 @@ void riven_concatenate_strings(
 }
 
 s32 riven_moonlit_walk(
-    usize                   memory_budget_size,
-    usize                   fiber_stack_size,
-    u32                     fiber_count,
-    u32                     thread_count,
-    u32                     tagged_heap_count,
-    u32                     log2_work_count,
-    u32                     log2_memory_count,
-    PFN_riven_heart         main_procedure,
-    riven_argument_t        main_argument)
+    usize           memory_budget_size,
+    usize           fiber_stack_size,
+    u32             fiber_count,
+    u32             thread_count,
+    u32             tagged_heap_count,
+    u32             log2_work_count,
+    u32             log2_memory_count,
+    PFN_riven_heart main_procedure,
+    void           *main_argument)
 {
     usize ram_size, page_size, huge_page_size = 0;
     process_meminfo(&ram_size, &page_size);
@@ -1568,7 +1568,7 @@ s32 riven_moonlit_walk(
     };
     struct riven_work main_work = {
         .procedure = heart,
-        .argument = (riven_argument_t)&main_data,
+        .argument = (void *)&main_data,
         .name = str_init("riven:heart"),
     };
 
