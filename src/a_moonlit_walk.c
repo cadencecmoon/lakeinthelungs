@@ -65,6 +65,7 @@ s32 amw_run_framework(PFN_riven_work (AMWCALL *entry)(struct amw_config *, s32, 
 static void AMWCALL engine_fini(struct a_moonlit_walk_engine *amw)
 {
     struct riven *riven = amw->riven;
+    struct reznor_interface *reznor = (struct reznor_interface *)amw->reznor;
 
     /* destroy the game application */
     if (amw->moonlit) {
@@ -91,10 +92,10 @@ static void AMWCALL engine_fini(struct a_moonlit_walk_engine *amw)
         hadal->window_destroy((struct hadal_window *)window);
         amw->windows[i] = NULL;
     }
-    if (swapchain_count) {
-        struct reznor_interface *reznor = (struct reznor_interface *)amw->reznor;
-        reznor->disassembly((void **)swapchains, swapchain_count);
-    }
+
+    for (u32 i = 0; i < swapchain_count; i++)
+        reznor->disassembly_table[reznor_resource_type_swapchain](swapchains[i]);
+
     atomic_store_explicit(&amw->window_count, 0, memory_order_relaxed);
     amw->active_window_count = 0;
 
@@ -190,7 +191,7 @@ static s32 AMWCALL engine_init(
             return res;
     }
 
-    res = reznor_mgpu_assembly(
+    res = reznor_mgpu_create_devices(
         amw->reznor, amw->hadal, tag,
         config->frames_in_flight,
         config->reznor_target_device_count,
@@ -218,8 +219,9 @@ static void AMWCALL deferred_window_destroy(struct amw_deferred_work *work)
     struct reznor_swapchain *swapchain = window->swapchain;
     if (swapchain) {
         struct reznor_interface *reznor = (struct reznor_interface *)amw->reznor;
+
         hadal->window_attach_swapchain((struct hadal_window *)window, NULL);
-        reznor->disassembly((void **)&swapchain, 1);
+        reznor->disassembly_table[reznor_resource_type_swapchain](swapchain);
     }
     hadal->window_destroy((struct hadal_window *)window);
     atomic_fetch_sub_explicit(&amw->window_count, 1, memory_order_release);

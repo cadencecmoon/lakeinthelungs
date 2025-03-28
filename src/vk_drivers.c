@@ -1503,28 +1503,45 @@ RIVEN_ENCORE(reznor, vulkan)
 
     /* write the interface */
     reznor->interface.device_query = _reznor_vulkan_device_query;
-    reznor->interface.device_assembly = _reznor_vulkan_device_assembly;
+    reznor->interface.device_create = _reznor_vulkan_device_create;
     reznor->interface.device_destroy = _reznor_vulkan_device_destroy;
-    reznor->interface.device_memory_assembly = _reznor_vulkan_device_memory_assembly;
-    reznor->interface.buffer_assembly = _reznor_vulkan_buffer_assembly;
-    reznor->interface.texture_assembly = _reznor_vulkan_texture_assembly;
-    reznor->interface.sampler_assembly = _reznor_vulkan_sampler_assembly;
-    reznor->interface.descriptor_set_layout_assembly = _reznor_vulkan_descriptor_set_layout_assembly;
-    reznor->interface.descriptor_set_assembly = _reznor_vulkan_descriptor_set_assembly;
-    reznor->interface.pipeline_layout_assembly = _reznor_vulkan_pipeline_layout_assembly;
-    reznor->interface.graphics_pipeline_assembly = _reznor_vulkan_graphics_pipeline_assembly;
-    reznor->interface.compute_pipeline_assembly = _reznor_vulkan_compute_pipeline_assembly;
-    reznor->interface.raytracing_pipeline_assembly = _reznor_vulkan_raytracing_pipeline_assembly;
-    reznor->interface.shader_binding_table_assembly = _reznor_vulkan_shader_binding_table_assembly;
-    reznor->interface.bottom_level_assembly = _reznor_vulkan_bottom_level_assembly;
-    reznor->interface.top_level_assembly = _reznor_vulkan_top_level_assembly;
-    reznor->interface.query_pool_assembly = _reznor_vulkan_query_pool_assembly;
-    reznor->interface.swapchain_assembly = _reznor_vulkan_swapchain_assembly;
-    reznor->interface.swapchain_try_recreate = _reznor_vulkan_swapchain_try_recreate;
     reznor->interface.frame_begin = _reznor_vulkan_frame_begin;
     reznor->interface.frame_next_images = _reznor_vulkan_frame_next_images;
     reznor->interface.frame_submit = _reznor_vulkan_frame_submit;
-    reznor->interface.disassembly = _reznor_vulkan_disassembly;
+
+    reznor->interface.assembly_table[reznor_resource_type_device_memory] = (PFN_riven_work)_reznor_vulkan_device_memory_assembly;
+    reznor->interface.assembly_table[reznor_resource_type_buffer] = (PFN_riven_work)_reznor_vulkan_buffer_assembly;
+    reznor->interface.assembly_table[reznor_resource_type_texture] = (PFN_riven_work)_reznor_vulkan_texture_assembly;
+    reznor->interface.assembly_table[reznor_resource_type_sampler] = (PFN_riven_work)_reznor_vulkan_sampler_assembly;
+    reznor->interface.assembly_table[reznor_resource_type_descriptor_set_layout] = (PFN_riven_work)_reznor_vulkan_descriptor_set_layout_assembly;
+    reznor->interface.assembly_table[reznor_resource_type_descriptor_set] = (PFN_riven_work)_reznor_vulkan_descriptor_set_assembly;
+    reznor->interface.assembly_table[reznor_resource_type_pipeline_layout] = (PFN_riven_work)_reznor_vulkan_pipeline_layout_assembly;
+    reznor->interface.assembly_table[reznor_resource_type_graphics_pipeline] = (PFN_riven_work)_reznor_vulkan_graphics_pipeline_assembly;
+    reznor->interface.assembly_table[reznor_resource_type_compute_pipeline] = (PFN_riven_work)_reznor_vulkan_compute_pipeline_assembly;
+    reznor->interface.assembly_table[reznor_resource_type_raytracing_pipeline] = (PFN_riven_work)_reznor_vulkan_raytracing_pipeline_assembly;
+    reznor->interface.assembly_table[reznor_resource_type_shader_binding_table] = (PFN_riven_work)_reznor_vulkan_shader_binding_table_assembly;
+    reznor->interface.assembly_table[reznor_resource_type_bottom_level] = (PFN_riven_work)_reznor_vulkan_bottom_level_assembly;
+    reznor->interface.assembly_table[reznor_resource_type_top_level] = (PFN_riven_work)_reznor_vulkan_top_level_assembly;
+    reznor->interface.assembly_table[reznor_resource_type_query_pool] = (PFN_riven_work)_reznor_vulkan_query_pool_assembly;
+    reznor->interface.assembly_table[reznor_resource_type_swapchain] = (PFN_riven_work)_reznor_vulkan_swapchain_assembly;
+
+    reznor->interface.disassembly_table[reznor_resource_type_device_memory] = (PFN_riven_work)_reznor_vulkan_device_memory_disassembly;
+    reznor->interface.disassembly_table[reznor_resource_type_buffer] = (PFN_riven_work)_reznor_vulkan_buffer_disassembly;
+    reznor->interface.disassembly_table[reznor_resource_type_texture] = (PFN_riven_work)_reznor_vulkan_texture_disassembly;
+    reznor->interface.disassembly_table[reznor_resource_type_sampler] = (PFN_riven_work)_reznor_vulkan_sampler_disassembly;
+    reznor->interface.disassembly_table[reznor_resource_type_descriptor_set_layout] = (PFN_riven_work)_reznor_vulkan_descriptor_set_layout_disassembly;
+    reznor->interface.disassembly_table[reznor_resource_type_descriptor_set] = (PFN_riven_work)_reznor_vulkan_descriptor_set_disassembly;
+    reznor->interface.disassembly_table[reznor_resource_type_pipeline_layout] = (PFN_riven_work)_reznor_vulkan_pipeline_layout_disassembly;
+    reznor->interface.disassembly_table[reznor_resource_type_graphics_pipeline] = (PFN_riven_work)_reznor_vulkan_graphics_pipeline_disassembly;
+    reznor->interface.disassembly_table[reznor_resource_type_compute_pipeline] = (PFN_riven_work)_reznor_vulkan_compute_pipeline_disassembly;
+    reznor->interface.disassembly_table[reznor_resource_type_raytracing_pipeline] = (PFN_riven_work)_reznor_vulkan_raytracing_pipeline_disassembly;
+    reznor->interface.disassembly_table[reznor_resource_type_shader_binding_table] = (PFN_riven_work)_reznor_vulkan_shader_binding_table_disassembly;
+    reznor->interface.disassembly_table[reznor_resource_type_bottom_level] = (PFN_riven_work)_reznor_vulkan_bottom_level_disassembly;
+    reznor->interface.disassembly_table[reznor_resource_type_top_level] = (PFN_riven_work)_reznor_vulkan_top_level_disassembly;
+    reznor->interface.disassembly_table[reznor_resource_type_query_pool] = (PFN_riven_work)_reznor_vulkan_query_pool_disassembly;
+    reznor->interface.disassembly_table[reznor_resource_type_swapchain] = (PFN_riven_work)_reznor_vulkan_swapchain_disassembly;
+
+    reznor->interface.try_recreate_swapchain = _reznor_vulkan_try_recreate_swapchain;
     reznor->interface.command_draw = _reznor_vulkan_command_draw;
     reznor->interface.command_draw_indexed = _reznor_vulkan_command_draw_indexed;
     reznor->interface.command_draw_indexed_indirect = _reznor_vulkan_command_draw_indexed_indirect;

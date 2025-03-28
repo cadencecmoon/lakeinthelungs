@@ -60,6 +60,7 @@ FN_HADAL_WINDOW_ATTACH_SWAPCHAIN(wayland)
 {
     (void)window;
     (void)swapchain;
+    /* make sure that if NULL is passed to dettach the swapchain, that the old swapchain window pointer is zeroed too */
 }
 
 FN_HADAL_WINDOW_ACQUIRE_FRAMEBUFFER_EXTENT(wayland)

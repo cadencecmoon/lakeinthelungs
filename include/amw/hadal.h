@@ -176,6 +176,7 @@ enum hadal_window_flags {
  *  to include this header as its first struct member. */
 struct hadal_window_header {
     struct hadal               *hadal;
+    struct str                  title;
     /** A swapchain may be attached so the window can directly control it's state (flags). */
     struct reznor_swapchain    *swapchain;
     /** Flags describe the current state of a window. */
@@ -198,7 +199,7 @@ struct hadal_window_create_info {
     struct hadal                           *hadal,          \
     const struct hadal_window_create_info  *create_info,    \
     struct riven_memory                    *memory,         \
-    struct hadal_window                   **out_window
+    struct hadal_window                   **restrict out_window
 /** Creates a native window. */
 typedef s32 (AMWCALL *PFN_hadal_window_create)(ARGS_HADAL_WINDOW_CREATE);
 #define FN_HADAL_WINDOW_CREATE(encore) \

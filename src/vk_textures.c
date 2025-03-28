@@ -121,23 +121,8 @@ VkFormat vulkan_texture_format_translate(enum reznor_texture_format format)
     };
 }
 
-void vulkan_texture_destroy(struct reznor_texture *restrict texture)
-{
-    (void)texture;
-}
+FN_REZNOR_ASSEMBLY(vulkan, texture) { (void)work; }
+FN_REZNOR_DISASSEMBLY(vulkan, texture) { (void)texture; }
 
-FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, texture) 
-{
-    (void)work;
-}
-
-
-void vulkan_sampler_destroy(struct reznor_sampler *restrict sampler)
-{
-    (void)sampler;
-}
-
-FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, sampler)
-{
-    (void)work;
-}
+FN_REZNOR_ASSEMBLY(vulkan, sampler) { (void)work; }
+FN_REZNOR_DISASSEMBLY(vulkan, sampler) { (void)sampler; }

@@ -196,13 +196,14 @@ static void physical_device_query(struct physical_device_query_work *work)
 
     /* prepare the log buffer */
     log_offset += snprintf(log_buffer + log_offset, log_buffer_size - log_offset,
-            "\n%s accepted (internal idx %u):\n"
+            "Vulkan physical device accepted (internal idx %u):\n"
+            "    Name        %s\n"
             "    Type        %-10s id %X\n"
             "    Vendor      %-10s id %X\n"
             "    Driver ver. %u.%u.%u\n"
             "    API ver.    %u.%u.%u\n"
-            "Memory heaps (%u):\n",
-            name, work->index, 
+            "Memory heaps (%u):\n", 
+            work->index, physical->properties2.properties.deviceName,
             device_type_string(physical->properties2.properties.deviceType), physical->properties2.properties.deviceID,
             vendor_name_string(physical->properties2.properties.vendorID), physical->properties2.properties.vendorID,
             (physical->properties2.properties.driverVersion >> 22u),
@@ -736,7 +737,7 @@ FN_REZNOR_DEVICE_QUERY(vulkan)
     return result_success;
 }
 
-FN_REZNOR_DEVICE_ASSEMBLY(vulkan)
+FN_REZNOR_DEVICE_CREATE(vulkan)
 {
     struct reznor *reznor = work->reznor;
     assert_debug(reznor);
@@ -767,7 +768,7 @@ FN_REZNOR_DEVICE_ASSEMBLY(vulkan)
         assert_debug(work->memory.size == total_bytes);
         assert_debug(work->memory.alignment == alignment);
     }
-    assert_debug(work->device_assembly && work->physical_info);
+    assert_debug(work->out_device && work->physical_info);
 
     memset(work->memory.data, 0, total_bytes);
     u8 *raw = (u8 *)work->memory.data;
@@ -943,7 +944,7 @@ FN_REZNOR_DEVICE_ASSEMBLY(vulkan)
         VERIFY_VK(device->vkCreateSemaphore(device->logical, &sem_info, &device->host_allocator, &frame->rendering_finished_semaphore));
     }
 
-    *work->device_assembly = device;
+    *work->out_device = device;
     work->result = result_success;
 }
 
@@ -997,30 +998,7 @@ FN_REZNOR_FRAME_SUBMIT(vulkan)
     (void)frame;
 }
 
-static const PFN_riven_work disassembly_dispatch_table[] = {
-    riven_work_nop,
-    (PFN_riven_work)vulkan_device_memory_destroy,
-    (PFN_riven_work)vulkan_buffer_destroy,
-    (PFN_riven_work)vulkan_texture_destroy,
-    (PFN_riven_work)vulkan_sampler_destroy,
-    (PFN_riven_work)vulkan_descriptor_set_layout_destroy,
-    (PFN_riven_work)vulkan_descriptor_set_destroy,
-    (PFN_riven_work)vulkan_pipeline_layout_destroy,
-    (PFN_riven_work)vulkan_graphics_pipeline_destroy,
-    (PFN_riven_work)vulkan_compute_pipeline_destroy,
-    (PFN_riven_work)vulkan_raytracing_pipeline_destroy,
-    (PFN_riven_work)vulkan_shader_binding_table_destroy,
-    (PFN_riven_work)vulkan_bottom_level_destroy,
-    (PFN_riven_work)vulkan_top_level_destroy,
-    (PFN_riven_work)vulkan_query_pool_destroy,
-    (PFN_riven_work)vulkan_swapchain_destroy,
-};
-
-FN_REZNOR_DISASSEMBLY(vulkan)
+FN_REZNOR_MEMORY_REQUIREMENTS(vulkan)
 {
-    for (u32 i = 0; i < resource_count; i++) {
-        struct reznor_resource_header *header = (struct reznor_resource_header *)resources[i];
-        assert_debug(header->type != reznor_resource_type_invalid && header->type < reznor_resource_type_count);
-        disassembly_dispatch_table[header->type](header);
-    }
+    assert_debug(works && work_count && out_total_size && out_alignment);
 }

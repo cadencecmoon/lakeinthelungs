@@ -41,28 +41,22 @@ RIVEN_ENCORE(reznor, native)
 #define VALIDATE(fn) \
         if (interface->fn == NULL) { log_debug(fmt, interface->header.name.ptr, #fn); valid = false; }
         VALIDATE(device_query)
-        VALIDATE(device_assembly)
+        VALIDATE(device_create)
         VALIDATE(device_destroy)
-        VALIDATE(device_memory_assembly)
-        VALIDATE(buffer_assembly)
-        VALIDATE(texture_assembly)
-        VALIDATE(sampler_assembly)
-        VALIDATE(descriptor_set_layout_assembly)
-        VALIDATE(descriptor_set_assembly)
-        VALIDATE(pipeline_layout_assembly)
-        VALIDATE(graphics_pipeline_assembly)
-        VALIDATE(compute_pipeline_assembly)
-        VALIDATE(raytracing_pipeline_assembly)
-        VALIDATE(shader_binding_table_assembly)
-        VALIDATE(bottom_level_assembly)
-        VALIDATE(top_level_assembly)
-        VALIDATE(query_pool_assembly)
-        VALIDATE(swapchain_assembly)
-        VALIDATE(swapchain_try_recreate)
-        VALIDATE(disassembly)
         VALIDATE(frame_begin)
         VALIDATE(frame_next_images)
         VALIDATE(frame_submit)
+        for (u32 i = 0; i < reznor_resource_type_count; i++) {
+            if (interface->assembly_table[i] == NULL || interface->disassembly_table[i] == NULL) {
+                struct str debug = str_null;
+                reznor_string_from_resource_type(i, &debug);
+
+                log_debug("'%s' is missing interface assembly/disassembly dispatch table procedure: %u of '%s'.", 
+                    interface->header.name.ptr, i, debug.ptr);
+                valid = false;
+            }
+        }
+        VALIDATE(try_recreate_swapchain)
         VALIDATE(command_draw)
         VALIDATE(command_draw_indexed)
         VALIDATE(command_draw_indexed_indirect)
@@ -80,6 +74,31 @@ RIVEN_ENCORE(reznor, native)
         if (interface->header.fini)
             interface->header.fini((void *)interface);
         *encore->header.interface = NULL;
+    }
+}
+
+void reznor_string_from_resource_type(enum reznor_resource_type type, struct str *write)
+{
+    switch (type) {
+#define RESTYPE(name) \
+        case reznor_resource_type_##name: *write = str_init(#name); break;
+        RESTYPE(device_memory)
+        RESTYPE(buffer)
+        RESTYPE(texture)
+        RESTYPE(sampler)
+        RESTYPE(descriptor_set_layout)
+        RESTYPE(descriptor_set)
+        RESTYPE(pipeline_layout)
+        RESTYPE(graphics_pipeline)
+        RESTYPE(compute_pipeline)
+        RESTYPE(raytracing_pipeline)
+        RESTYPE(shader_binding_table)
+        RESTYPE(bottom_level)
+        RESTYPE(top_level)
+        RESTYPE(query_pool)
+        RESTYPE(swapchain)
+        default: *write = str_null; break;
+#undef RESTYPE
     }
 }
 
@@ -112,7 +131,7 @@ RIVEN_ENCORE_STUB(reznor, metal)
 RIVEN_ENCORE_STUB(reznor, webgpu)
 #endif
 
-AMWAPI s32 AMWCALL reznor_mgpu_assembly(
+s32 reznor_mgpu_create_devices(
     struct reznor          *reznor,
     struct hadal           *hadal,
     riven_tag_t             tag,
@@ -148,7 +167,7 @@ AMWAPI s32 AMWCALL reznor_mgpu_assembly(
     interface->device_query(reznor, hadal, &physical_device_count, physical_devices);
 
     /* query memory requirements */
-    struct reznor_device_assembly_work query_work = {
+    struct reznor_device_create_work query_work = {
         /* we assume that any physical device will have the same memory requirements,
          * other parameters (frames in flight, thread count) are more important */
         .reznor = reznor,
@@ -158,9 +177,9 @@ AMWAPI s32 AMWCALL reznor_mgpu_assembly(
             .data = NULL,
             .tag = riven_tag_invalid,
         },
-        .device_assembly = NULL,
+        .out_device = NULL,
     };
-    interface->device_assembly(&query_work);
+    interface->device_create(&query_work);
     usize total_bytes = query_work.memory.size * device_count;
 
     if (out_devices == NULL)
@@ -171,7 +190,7 @@ AMWAPI s32 AMWCALL reznor_mgpu_assembly(
     memset(devices_memory, 0, total_bytes);
 
     usize indices_bytes = A8(sizeof(u32) * device_count);
-    usize devices_bytes = A8(sizeof(struct reznor_device_assembly_work) * device_count);
+    usize devices_bytes = A8(sizeof(struct reznor_device_create_work) * device_count);
     usize riven_work_bytes = A8(sizeof(struct riven_work) * device_count);
 
     usize o = 0;
@@ -179,7 +198,7 @@ AMWAPI s32 AMWCALL reznor_mgpu_assembly(
 
     u32 *indices = (u32 *)&raw[o];
     o += indices_bytes;
-    struct reznor_device_assembly_work *devices_work = (struct reznor_device_assembly_work *)&raw[o];
+    struct reznor_device_create_work *devices_work = (struct reznor_device_create_work *)&raw[o];
     o += devices_bytes;
     struct riven_work *riven_work = (struct riven_work *)&raw[o];
 
@@ -225,14 +244,14 @@ AMWAPI s32 AMWCALL reznor_mgpu_assembly(
         devices_work[i].result = result_error;
         devices_work[i].physical_info = &physical_devices[indices[i]];
         devices_work[i].frames_in_flight = frames_in_flight;
-        devices_work[i].device_assembly = &out_devices[i];
+        devices_work[i].out_device = &out_devices[i];
         devices_work[i].memory.size = query_work.memory.size;
         devices_work[i].memory.alignment = query_work.memory.alignment;
         devices_work[i].memory.tag = riven_tag_invalid;
         devices_work[i].memory.data = &raw[o];
         o += query_work.memory.size;
 
-        riven_work[i].procedure = (PFN_riven_work)interface->device_assembly;
+        riven_work[i].procedure = (PFN_riven_work)interface->device_create;
         riven_work[i].argument = &devices_work[i];
         riven_work[i].name = str_init("reznor:mgpu:device_assembly");
     }

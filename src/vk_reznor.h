@@ -4,28 +4,45 @@
 #include <amw/reznor.h>
 
 FN_REZNOR_DEVICE_QUERY(vulkan);
-FN_REZNOR_DEVICE_ASSEMBLY(vulkan);
+FN_REZNOR_DEVICE_CREATE(vulkan);
 FN_REZNOR_DEVICE_DESTROY(vulkan);
-FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, device_memory);
-FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, buffer);
-FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, texture);
-FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, sampler);
-FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, descriptor_set_layout);
-FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, descriptor_set);
-FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, pipeline_layout);
-FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, graphics_pipeline);
-FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, compute_pipeline);
-FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, raytracing_pipeline);
-FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, shader_binding_table);
-FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, bottom_level);
-FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, top_level);
-FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, query_pool);
-FN_REZNOR_RESOURCE_ASSEMBLY(vulkan, swapchain);
-FN_REZNOR_SWAPCHAIN_TRY_RECREATE(vulkan);
 FN_REZNOR_FRAME_BEGIN(vulkan);
 FN_REZNOR_FRAME_NEXT_IMAGES(vulkan);
 FN_REZNOR_FRAME_SUBMIT(vulkan);
-FN_REZNOR_DISASSEMBLY(vulkan);
+
+FN_REZNOR_MEMORY_REQUIREMENTS(vulkan);
+FN_REZNOR_ASSEMBLY(vulkan, device_memory);
+FN_REZNOR_ASSEMBLY(vulkan, buffer);
+FN_REZNOR_ASSEMBLY(vulkan, texture);
+FN_REZNOR_ASSEMBLY(vulkan, sampler);
+FN_REZNOR_ASSEMBLY(vulkan, descriptor_set_layout);
+FN_REZNOR_ASSEMBLY(vulkan, descriptor_set);
+FN_REZNOR_ASSEMBLY(vulkan, pipeline_layout);
+FN_REZNOR_ASSEMBLY(vulkan, graphics_pipeline);
+FN_REZNOR_ASSEMBLY(vulkan, compute_pipeline);
+FN_REZNOR_ASSEMBLY(vulkan, raytracing_pipeline);
+FN_REZNOR_ASSEMBLY(vulkan, shader_binding_table);
+FN_REZNOR_ASSEMBLY(vulkan, bottom_level);
+FN_REZNOR_ASSEMBLY(vulkan, top_level);
+FN_REZNOR_ASSEMBLY(vulkan, query_pool);
+FN_REZNOR_ASSEMBLY(vulkan, swapchain);
+FN_REZNOR_DISASSEMBLY(vulkan, device_memory);
+FN_REZNOR_DISASSEMBLY(vulkan, buffer);
+FN_REZNOR_DISASSEMBLY(vulkan, texture);
+FN_REZNOR_DISASSEMBLY(vulkan, sampler);
+FN_REZNOR_DISASSEMBLY(vulkan, descriptor_set_layout);
+FN_REZNOR_DISASSEMBLY(vulkan, descriptor_set);
+FN_REZNOR_DISASSEMBLY(vulkan, pipeline_layout);
+FN_REZNOR_DISASSEMBLY(vulkan, graphics_pipeline);
+FN_REZNOR_DISASSEMBLY(vulkan, compute_pipeline);
+FN_REZNOR_DISASSEMBLY(vulkan, raytracing_pipeline);
+FN_REZNOR_DISASSEMBLY(vulkan, shader_binding_table);
+FN_REZNOR_DISASSEMBLY(vulkan, bottom_level);
+FN_REZNOR_DISASSEMBLY(vulkan, top_level);
+FN_REZNOR_DISASSEMBLY(vulkan, query_pool);
+FN_REZNOR_DISASSEMBLY(vulkan, swapchain);
+
+FN_REZNOR_TRY_RECREATE_SWAPCHAIN(vulkan);
 FN_REZNOR_COMMAND_DRAW(vulkan);
 FN_REZNOR_COMMAND_DRAW_INDEXED(vulkan);
 FN_REZNOR_COMMAND_DRAW_INDEXED_INDIRECT(vulkan);
@@ -749,22 +766,6 @@ extern attr_const const char *AMWCALL vulkan_result_string(VkResult result);
 extern b32 AMWCALL vulkan_query_extension(VkExtensionProperties *properties, u32 count, const char *ext);
 extern b32 AMWCALL vulkan_load_instance_procedures(struct reznor *reznor, u32 api_version, u32 extension_bits);
 extern b32 AMWCALL vulkan_load_device_procedures(struct reznor_device *device, u32 api_version, u64 extension_bits);
-
-extern void AMWCALL vulkan_device_memory_destroy(struct reznor_device_memory *restrict device_memory);
-extern void AMWCALL vulkan_buffer_destroy(struct reznor_buffer *restrict buffer);
-extern void AMWCALL vulkan_texture_destroy(struct reznor_texture *restrict texture);
-extern void AMWCALL vulkan_sampler_destroy(struct reznor_sampler *restrict sampler);
-extern void AMWCALL vulkan_descriptor_set_layout_destroy(struct reznor_descriptor_set_layout *restrict descriptor_set_layout);
-extern void AMWCALL vulkan_descriptor_set_destroy(struct reznor_descriptor_set *restrict descriptor_set);
-extern void AMWCALL vulkan_pipeline_layout_destroy(struct reznor_pipeline_layout *restrict pipeline_layout);
-extern void AMWCALL vulkan_graphics_pipeline_destroy(struct reznor_graphics_pipeline *restrict pipeline);
-extern void AMWCALL vulkan_compute_pipeline_destroy(struct reznor_compute_pipeline *restrict pipeline);
-extern void AMWCALL vulkan_raytracing_pipeline_destroy(struct reznor_raytracing_pipeline *restrict pipeline);
-extern void AMWCALL vulkan_shader_binding_table_destroy(struct reznor_shader_binding_table *restrict shader_binding_table);
-extern void AMWCALL vulkan_bottom_level_destroy(struct reznor_bottom_level *restrict bottom_level);
-extern void AMWCALL vulkan_top_level_destroy(struct reznor_top_level *restrict top_level);
-extern void AMWCALL vulkan_query_pool_destroy(struct reznor_query_pool *restrict query_pool);
-extern void AMWCALL vulkan_swapchain_destroy(struct reznor_swapchain *restrict swapchain);
 
 extern attr_const VkFormat AMWCALL vulkan_texture_format_translate(enum reznor_texture_format format);
 

@@ -9,7 +9,7 @@ extern "C" {
 /** Combines a string/buffer with information about it's length and ownership. */
 struct str {
     const char *ptr;
-    usize length;
+    usize       length;
 };
 
 /** NULL string. */
