@@ -51,7 +51,6 @@ RIVEN_ENCORE(hadal, native)
 
         VALIDATE(window_create)
         VALIDATE(window_destroy)
-        VALIDATE(window_attach_swapchain)
         VALIDATE(window_acquire_framebuffer_extent)
 #ifdef REZNOR_VULKAN
         VALIDATE(vulkan_write_instance_procedures)

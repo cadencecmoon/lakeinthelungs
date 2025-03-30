@@ -84,9 +84,9 @@ static void AMWCALL engine_fini(struct a_moonlit_walk_engine *amw)
         if (!window) continue;
 
         struct hadal_interface *hadal = (struct hadal_interface *)window->hadal;
-        struct reznor_swapchain *swapchain = window->swapchain;
+        struct reznor_swapchain *swapchain = (struct reznor_swapchain *)window->swapchain;
         if (swapchain) {
-            hadal->window_attach_swapchain(amw->windows[i], NULL);
+            window->swapchain = NULL;
             swapchains[swapchain_count++] = swapchain;
         }
         hadal->window_destroy((struct hadal_window *)window);
@@ -216,22 +216,20 @@ static void AMWCALL deferred_window_destroy(struct amw_deferred_work *work)
 
     struct hadal_window_header *window = (struct hadal_window_header *)amw->windows[work->context];
     struct hadal_interface *hadal = (struct hadal_interface *)window->hadal;
-    struct reznor_swapchain *swapchain = window->swapchain;
+    struct reznor_swapchain *swapchain = (struct reznor_swapchain *)window->swapchain;
     if (swapchain) {
         struct reznor_interface *reznor = (struct reznor_interface *)amw->reznor;
-
-        hadal->window_attach_swapchain((struct hadal_window *)window, NULL);
         reznor->disassembly_table[reznor_resource_type_swapchain](swapchain);
     }
     hadal->window_destroy((struct hadal_window *)window);
     atomic_fetch_sub_explicit(&amw->window_count, 1, memory_order_release);
 };
 
-static void AMWCALL framedata_prepare_swapchains(struct amw_framedata *frame) 
+static void prepare_framedata_windows(struct amw_framedata *frame) 
 {
     struct a_moonlit_walk_engine *amw = frame->amw;
 
-    u32 index = 0, sc = 0;
+    u32 index = 0;
     u32 window_count = amw->active_window_count;
     while (index < window_count) {
         struct hadal_window_header *window = (struct hadal_window_header *)amw->windows[index];
@@ -267,16 +265,13 @@ static void AMWCALL framedata_prepare_swapchains(struct amw_framedata *frame)
 
                 frame->deferred_work[defer].procedure = (PFN_riven_work)deferred_window_destroy;
                 frame->deferred_work[defer].context = inactive;
-                continue; /* don't increment the index, don't grab the swapchain */
+                continue; /* don't grab the window from this frame on, it will be destroyed later */
             }
         }
+        frame->windows[index] = (struct hadal_window *)window;
         index++;
-
-        /* this window is active, so let's try to grab the swapchain handle */
-        if (flags & hadal_window_flag_visible || window->swapchain)
-            frame->swapchains[sc++] = window->swapchain;
     }
-    frame->swapchain_count = sc;
+    frame->window_count = index;
 }
 
 s32 a_moonlit_walk(
@@ -354,10 +349,9 @@ s32 a_moonlit_walk(
                 if (cleanup->deferred_count)
                     riven_unchain(riven, cleanup->chain);
                 cleanup->chain = NULL; 
-                zeroa(cleanup->deferred_work);
-                zeroa(cleanup->render_frames);
-                zeroa(cleanup->swapchains);
-                cleanup->swapchain_count = 0;
+                cleanup->render_swapchain_info = NULL;
+                cleanup->deferred_count = 0;
+                cleanup->window_count = 0;
             }
 
             /* frame N-3, deferred */
@@ -434,7 +428,7 @@ s32 a_moonlit_walk(
                 for (u32 i = 0; i < amw.render_device_count; i++)
                     game->render_frames[i] = reznor_frame_acquire(frame_index, amw.render_devices[i]);
                 /* resolve the visible windows for this frame */
-                framedata_prepare_swapchains(game);
+                prepare_framedata_windows(game);
 
                 work[AMW_GAME_WORK_IDX].argument = game;
                 riven_split_work(riven, &work[AMW_GAME_WORK_IDX], !amw.exit_game, &game->chain);

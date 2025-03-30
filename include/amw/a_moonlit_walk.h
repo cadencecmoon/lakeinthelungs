@@ -148,9 +148,10 @@ struct amw_framedata {
     struct amw_deferred_work        deferred_work[AMW_MAX_DEFERRED_COUNT];
     u32                             deferred_count;
 
-    struct reznor_device_frame     *render_frames[AMW_MAX_RENDERING_DEVICE_COUNT];
-    struct reznor_swapchain        *swapchains[AMW_MAX_WINDOW_COUNT];
-    u32                             swapchain_count;
+    struct reznor_device_frame         *render_frames[AMW_MAX_RENDERING_DEVICE_COUNT];
+    struct reznor_swapchain_frame_info *render_swapchain_info;
+    struct hadal_window                *windows[AMW_MAX_WINDOW_COUNT];
+    u32                                 window_count;
 
     riven_tag_t                     game_to_rendering_tag;
     riven_tag_t                     game_to_gpuexec_tag;

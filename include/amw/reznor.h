@@ -159,13 +159,18 @@ typedef void (AMWCALL *PFN_reznor_device_destroy)(struct reznor_device *restrict
 #define FN_REZNOR_DEVICE_DESTROY(encore) \
     extern void AMWCALL _reznor_##encore##_device_destroy(struct reznor_device *restrict device)
 
+#define ARGS_REZNOR_FRAME_NEXT_IMAGES \
+    u64                         frame_index, \
+    struct reznor              *reznor, \
+    u32                         swapchain_count, \
+    struct reznor_swapchain   **swapchains
+typedef struct reznor_swapchain_frame_info *(AMWCALL *PFN_reznor_frame_next_images)(ARGS_REZNOR_FRAME_NEXT_IMAGES);
+#define FN_REZNOR_FRAME_NEXT_IMAGES(encore) \
+    extern struct reznor_swapchain_frame_info *AMWCALL _reznor_##encore##_frame_next_images(ARGS_REZNOR_FRAME_NEXT_IMAGES)
+
 typedef void (AMWCALL *PFN_reznor_frame_begin)(struct reznor_device_frame *frame);
 #define FN_REZNOR_FRAME_BEGIN(encore) \
     extern void AMWCALL _reznor_##encore##_frame_begin(struct reznor_device_frame *frame)
-
-typedef s32 (AMWCALL *PFN_reznor_frame_next_images)(struct reznor_swapchain **swapchains, u32 swapchain_count);
-#define FN_REZNOR_FRAME_NEXT_IMAGES(encore) \
-    extern s32 AMWCALL _reznor_##encore##_frame_next_images(struct reznor_swapchain **swapchains, u32 swapchain_count)
 
 typedef void (AMWCALL *PFN_reznor_frame_submit)(struct reznor_device_frame *frame);
 #define FN_REZNOR_FRAME_SUBMIT(encore) \
@@ -410,7 +415,6 @@ union reznor_resource {
 
 struct reznor_resource_assembly_header {
     struct str                                          debug_name;
-    usize                                               size;
     union reznor_resource                               output;
 };
 
@@ -437,15 +441,19 @@ struct reznor_assembly_work {
     s32                                                 result;
     enum reznor_resource_type                           type;
     struct reznor_device                               *device;
+    struct riven_memory                                 memory;
     u32                                                 assembly_count;
     union reznor_resource_assembly                      assembly;
 };
 
+/** Writes the size and alignment rules for opaque resources, valid for the given configuration,
+ *  for every object to be assembled. This procedure does not perform any allocation. Device can be NULL,
+ *  but reznor_resource_type, assembly and assembly_count must be set. */
 #define ARGS_REZNOR_MEMORY_REQUIREMENTS \
-    struct reznor_assembly_work *works, u32 work_count, usize *out_total_size, usize *out_alignment
-typedef void (AMWCALL *PFN_reznor_memory_requirements)(ARGS_REZNOR_MEMORY_REQUIREMENTS);
+    u32 work_count, struct reznor_assembly_work *works
+typedef usize (AMWCALL *PFN_reznor_memory_requirements)(ARGS_REZNOR_MEMORY_REQUIREMENTS);
 #define FN_REZNOR_MEMORY_REQUIREMENTS(encore) \
-    extern void AMWCALL _reznor_##encore##_memory_requirements(ARGS_REZNOR_MEMORY_REQUIREMENTS)
+    extern usize AMWCALL _reznor_##encore##_memory_requirements(ARGS_REZNOR_MEMORY_REQUIREMENTS)
 
 #define FN_REZNOR_ASSEMBLY(encore, __type) \
     extern void AMWCALL _reznor_##encore##_##__type##_assembly(struct reznor_assembly_work *restrict work)
@@ -936,10 +944,17 @@ struct reznor_query_pool_assembly {
     /* TODO */
 };
 
+struct reznor_swapchain_frame_info {
+    struct reznor_swapchain                    *swapchains[REZNOR_MAX_SWAPCHAINS];
+    u32                                         semaphore_indices[REZNOR_MAX_SWAPCHAINS];
+    u32                                         image_indices[REZNOR_MAX_SWAPCHAINS];
+    u32                                         swapchain_count;
+};
+
 /** Flags that control the state of a swapchain. */
 enum reznor_swapchain_flags {
-    /** True if the swapchain is currently connected to a system window. */
-    reznor_swapchain_flag_attached_to_window       = (1u << 0),
+    /** True for a valid swapchain object. */
+    reznor_swapchain_flag_is_valid                 = (1u << 0),
     /** True whenever presentation fails due to a lost surface or destroyed window. */
     reznor_swapchain_flag_surface_was_lost         = (1u << 1),
     /** True whenever the present queue timed out for some reason. */
@@ -958,7 +973,6 @@ struct reznor_swapchain_assembly {
     struct reznor_resource_assembly_header      header;
     struct hadal_window                        *window;
     enum reznor_texture_format                  preferred_format;
-    u32                                         presentation_interval;
     b32                                         enable_vsync;
 };
 
@@ -1098,6 +1112,8 @@ struct reznor_interface {
 
     u32                                             thread_count;
     b32                                             debug_utils;
+
+    struct reznor_swapchain_frame_info              swapchain_frame_info[REZNOR_MAX_FRAMES_IN_FLIGHT];
 
     PFN_reznor_device_query                         device_query;
     PFN_reznor_device_create                        device_create;

@@ -172,27 +172,30 @@ enum hadal_window_flags {
     hadal_window_flag_metal             = (1u << 16),
 };
 
+struct reznor_swapchain;
+struct reznor_resource_header;
+
 /** The public interface to a native window. A window implementation is expected 
  *  to include this header as its first struct member. */
 struct hadal_window_header {
-    struct hadal               *hadal;
-    struct str                  title;
+    struct hadal                   *hadal;
+    struct str                      title;
     /** A swapchain may be attached so the window can directly control it's state (flags). */
-    struct reznor_swapchain    *swapchain;
+    struct reznor_resource_header  *swapchain;
     /** Flags describe the current state of a window. */
-    at_u32                      flags;
+    at_u32                          flags;
 };
 
 /** Information needed to create a native window. */
 struct hadal_window_create_info {
     /** The display backend to communicate with the window compositor. */
-    struct hadal               *hadal;
+    struct hadal                   *hadal;
     /** Dimensions of the newly created window. */
-    u32                         width, height; 
+    u32                             width, height; 
     /** The title of the newly created window. */
-    struct str                  title;
+    struct str                      title;
     /** Optional flags to setup a window state. Some flags may be ignored. */
-    u32                         flags;
+    u32                             flags;
 };
 
 #define ARGS_HADAL_WINDOW_CREATE                            \
@@ -209,21 +212,6 @@ typedef s32 (AMWCALL *PFN_hadal_window_create)(ARGS_HADAL_WINDOW_CREATE);
 typedef void (AMWCALL *PFN_hadal_window_destroy)(struct hadal_window *restrict window);
 #define FN_HADAL_WINDOW_DESTROY(encore) \
     extern void AMWCALL _hadal_##encore##_window_destroy(struct hadal_window *restrict window)
-
-struct reznor_swapchain;
-
-#define ARGS_HADAL_WINDOW_ATTACH_SWAPCHAIN \
-    struct hadal_window *window, \
-    struct reznor_swapchain *swapchain
-/** Connects a swapchain to the window, the window will control flags of the swapchain 
- *  whenever the window state changes in a way that is relevant for rendering. NULL can be 
- *  passed as the swapchain argument, to detach any current swapchain from the window state.
- *  This dettachment does not imply destroying a surface the swapchain can draw to, but it 
- *  prevents window events from controling the swapchain. The surface must be destroyed by
- *  external means within the renderer. */
-typedef void (AMWCALL *PFN_hadal_window_attach_swapchain)(ARGS_HADAL_WINDOW_ATTACH_SWAPCHAIN);
-#define FN_HADAL_WINDOW_ATTACH_SWAPCHAIN(encore) \
-    extern void AMWCALL _hadal_##encore##_window_attach_swapchain(ARGS_HADAL_WINDOW_ATTACH_SWAPCHAIN)
 
 #define ARGS_HADAL_WINDOW_ACQUIRE_FRAMEBUFFER_EXTENT \
     const struct hadal_window *window, \
@@ -486,7 +474,6 @@ struct hadal_interface {
 
     PFN_hadal_window_create                         window_create;
     PFN_hadal_window_destroy                        window_destroy;
-    PFN_hadal_window_attach_swapchain               window_attach_swapchain;
     PFN_hadal_window_acquire_framebuffer_extent     window_acquire_framebuffer_extent;
 #ifdef REZNOR_VULKAN
     PFN_hadal_vulkan_write_instance_procedures      vulkan_write_instance_procedures;
@@ -494,21 +481,6 @@ struct hadal_interface {
     PFN_hadal_vulkan_presentation_support           vulkan_presentation_support;
 #endif
 };
-
-/** Acquires the framebuffer extent/resolution, may be different from the window size. */
-attr_inline attr_nonnull(1)
-void hadal_acquire_framebuffer_extent(
-    const struct hadal_window *window,
-    u32                       *out_width, 
-    u32                       *out_height)
-{
-    struct hadal_interface *interface = *(struct hadal_interface **)window;
-    u32 width = 0, height = 0;
-
-    interface->window_acquire_framebuffer_extent(window, &width, &height);
-    if (out_width) *out_width = width;
-    if (out_height) *out_height = height;
-}
 
 #ifdef __cplusplus
 }

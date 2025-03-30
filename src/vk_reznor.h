@@ -706,16 +706,14 @@ struct reznor_swapchain {
     VkImage                             images[REZNOR_MAX_SWAPCHAIN_IMAGES];
     /** An image view for each image in the swapchain. */
     VkImageView                         image_views[REZNOR_MAX_SWAPCHAIN_IMAGES];
-    /** Synchronization semaphores used for presentation, one per image. */
+    /** Synchronization semaphores used for presentation, one per frame in flight. */
     VkSemaphore                         image_available_semaphores[REZNOR_MAX_FRAMES_IN_FLIGHT];
-    /** The current index to the semaphores, cycled by frames_in_flight. */
+    /** The current index to the semaphores, cycled by devices' frames_in_flight. */
     u32                                 image_available_semaphore_index;
+    /** The current index of the image and view, cycled by image_count. */
+    u32                                 image_index;
     /** Number of images in the swapchain. */
     u32                                 image_count;
-    /** If a non-zero value, will limit the framerate to a given interval. */
-    u32                                 presentation_interval;
-    /** Counts the last time an image was presented to the surface. */
-    f64                                 last_presented_time;
 };
 
 struct vulkan_command_pool {

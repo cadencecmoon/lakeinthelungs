@@ -135,7 +135,11 @@ enum riven_tag {
  *  internally on a tagged heap, or the backend may query it's memory requirements, write this information 
  *  here, and expect a second call with the allocation done by the caller. */
 struct riven_memory {
-    void       *data;       /**< The allocated memory, written here after receiving results of a query. */
+    /** The allocated memory, written here after receiving results of a query. */
+    union {
+        void   *data;
+        u8     *raw;
+    };
     usize       size;       /**< Size requirements for the allocation, written to from a query. */
     u32         alignment;  /**< Alignment requirements for the allocation, written to from a query. */
     riven_tag_t tag;        /**< Optionally, a valid tag can be given for the backend to allocate his memory from riven. */

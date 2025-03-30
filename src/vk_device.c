@@ -946,6 +946,7 @@ FN_REZNOR_DEVICE_CREATE(vulkan)
 
     *work->out_device = device;
     work->result = result_success;
+    log_info("Created Vulkan device: %s.", device->physical->properties2.properties.deviceName);
 }
 
 FN_REZNOR_DEVICE_DESTROY(vulkan)
@@ -988,6 +989,52 @@ FN_REZNOR_DEVICE_DESTROY(vulkan)
     zerop(device);
 }
 
+FN_REZNOR_FRAME_NEXT_IMAGES(vulkan)
+{
+    struct reznor_swapchain_frame_info *frame_info = &reznor->interface.swapchain_frame_info[frame_index % REZNOR_MAX_FRAMES_IN_FLIGHT];
+
+    u32 swapchain_index = 0;
+    assert_debug(swapchain_count <= REZNOR_MAX_SWAPCHAINS);
+
+    for (u32 i = 0; i < swapchain_count; i++) {
+        struct reznor_swapchain *swapchain = swapchains[i];
+        struct reznor_device *device = swapchain->header.device;
+
+        VkResult res = device->vkAcquireNextImageKHR(
+            device->logical, 
+            swapchain->swapchain, 
+            UINT32_MAX, /* TIMEOUT */
+            swapchain->image_available_semaphores[swapchain->image_available_semaphore_index],
+            VK_NULL_HANDLE, /* FENCE */ 
+            &swapchain->image_index);
+
+        frame_info->swapchains[swapchain_index] = swapchain;
+        frame_info->semaphore_indices[swapchain_index] = swapchain->image_available_semaphore_index;
+        frame_info->image_indices[swapchain_index] = swapchain->image_index;
+
+        swapchain->image_available_semaphore_index = (swapchain->image_available_semaphore_index + 1) % device->header.frames_in_flight;
+
+        if (res == VK_ERROR_OUT_OF_DATE_KHR || res == VK_SUBOPTIMAL_KHR) {
+            atomic_fetch_or_explicit(&swapchain->header.flags, reznor_swapchain_flag_timed_out, memory_order_release);
+        } else if (res == VK_ERROR_SURFACE_LOST_KHR) {
+            atomic_fetch_or_explicit(&swapchain->header.flags, reznor_swapchain_flag_surface_was_lost, memory_order_release);
+        } else if (res != VK_SUCCESS) {
+            log_error("Unexpected error after vkAcquireNextImageKHR: %s. Swapchain '%s' will be destroyed.", vulkan_result_string(res), swapchain->header.debug_name.ptr);
+            _reznor_vulkan_swapchain_disassembly(swapchain);
+            continue;
+        }
+
+        if (atomic_load_explicit(&swapchain->header.flags, memory_order_acquire) & 
+              (reznor_swapchain_flag_surface_was_lost | reznor_swapchain_flag_framebuffer_resized | reznor_swapchain_flag_timed_out))
+        {
+            _reznor_vulkan_try_recreate_swapchain(swapchain);
+        }
+        swapchain_index++;
+    }
+    frame_info->swapchain_count = swapchain_index;
+    return frame_info;
+}
+
 FN_REZNOR_FRAME_BEGIN(vulkan)
 {
     (void)frame;
@@ -996,9 +1043,4 @@ FN_REZNOR_FRAME_BEGIN(vulkan)
 FN_REZNOR_FRAME_SUBMIT(vulkan)
 {
     (void)frame;
-}
-
-FN_REZNOR_MEMORY_REQUIREMENTS(vulkan)
-{
-    assert_debug(works && work_count && out_total_size && out_alignment);
 }

@@ -621,7 +621,6 @@ disconnect:
 
     hadal->interface.window_create = _hadal_wayland_window_create;
     hadal->interface.window_destroy = _hadal_wayland_window_destroy;
-    hadal->interface.window_attach_swapchain = _hadal_wayland_window_attach_swapchain;
     hadal->interface.window_acquire_framebuffer_extent = _hadal_wayland_window_acquire_framebuffer_extent;
 #ifdef REZNOR_VULKAN
     hadal->interface.vulkan_write_instance_procedures = _hadal_wayland_vulkan_write_instance_procedures;
