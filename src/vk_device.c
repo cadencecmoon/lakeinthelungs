@@ -777,6 +777,7 @@ FN_REZNOR_DEVICE_CREATE(vulkan)
     struct reznor_device *device = (struct reznor_device *)&raw[bytes];
     bytes += device_bytes;
 
+    device->header.name = work->physical_info->name;
     device->header.reznor = reznor;
     device->header.features = physical->feats;
     device->header.frames_in_flight = work->frames_in_flight;
@@ -918,7 +919,6 @@ FN_REZNOR_DEVICE_CREATE(vulkan)
         struct reznor_device_frame *frame = device->header.frames[i];
 
         frame->device = device;
-        frame->is_running = false;
         frame->descriptor_pool = NULL; /* TODO */
         frame->graphics_command_buffer = VK_NULL_HANDLE;
 
@@ -929,8 +929,24 @@ FN_REZNOR_DEVICE_CREATE(vulkan)
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO_KHR,
             .queueFamilyIndex = physical->graphics_queue_family_index,
         };
-        for (u32 j = 0; j < reznor->interface.thread_count; j++)
-            VERIFY_VK(device->vkCreateCommandPool(device->logical, &cmd_pool_info, &device->host_allocator, &frame->graphics_command_pools[j].command_pool));
+        VkCommandBufferAllocateInfo cmd_buffer_info = {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+            .pNext = NULL,
+            .level = VK_COMMAND_BUFFER_LEVEL_SECONDARY,
+            .commandBufferCount = 1,
+        };
+        for (u32 j = 0; j < reznor->interface.thread_count; j++) {
+            struct vulkan_command_pool *pool = &frame->graphics_command_pools[j];
+            VERIFY_VK(device->vkCreateCommandPool(device->logical, &cmd_pool_info, &device->host_allocator, &pool->command_pool));
+
+            cmd_buffer_info.commandPool = pool->command_pool;
+            VERIFY_VK(device->vkAllocateCommandBuffers(device->logical, &cmd_buffer_info, pool->command_buffers));
+            pool->command_buffer_count = cmd_buffer_info.commandBufferCount;
+        }
+        cmd_buffer_info.commandBufferCount = 1;
+        cmd_buffer_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        cmd_buffer_info.commandPool = frame->graphics_command_pools[0].command_pool;
+        VERIFY_VK(device->vkAllocateCommandBuffers(device->logical, &cmd_buffer_info, &frame->graphics_command_buffer));
 
         VkFenceCreateInfo fence_info = {
             .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
@@ -946,7 +962,7 @@ FN_REZNOR_DEVICE_CREATE(vulkan)
 
     *work->out_device = device;
     work->result = result_success;
-    log_info("Created Vulkan device: %s.", device->physical->properties2.properties.deviceName);
+    log_info("Created Vulkan device: %s.", device->header.name.ptr);
 }
 
 FN_REZNOR_DEVICE_DESTROY(vulkan)
@@ -984,63 +1000,151 @@ FN_REZNOR_DEVICE_DESTROY(vulkan)
     assert_debug(atomic_load_explicit(&device->query_pool_count, memory_order_relaxed) == 0);
 #endif
     device->vkDestroyDevice(device->logical, &device->host_allocator);
-    log_info("Destroyed Vulkan device: %s.", device->physical->properties2.properties.deviceName);
+    log_info("Destroyed Vulkan device: %s.", device->header.name.ptr);
 
     zerop(device);
 }
 
+static b32 resolve_swapchain_state(struct reznor_swapchain *swapchain, VkResult result)
+{
+    /* check result */
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+        atomic_fetch_or_explicit(&swapchain->header.flags, reznor_swapchain_flag_timed_out, memory_order_release);
+    } else if (result == VK_ERROR_SURFACE_LOST_KHR) {
+        atomic_fetch_or_explicit(&swapchain->header.flags, reznor_swapchain_flag_surface_was_lost, memory_order_release);
+    } else if (result != VK_SUCCESS) {
+        log_error("Unexpected error after vkAcquireNextImageKHR: %s. Swapchain '%s' will be destroyed.", vulkan_result_string(result), swapchain->header.debug_name.ptr);
+        _reznor_vulkan_swapchain_disassembly(swapchain);
+        return false;
+    }
+
+    /* ensure the swapchain is fine */
+    if (atomic_load_explicit(&swapchain->header.flags, memory_order_acquire) & 
+          (reznor_swapchain_flag_surface_was_lost | reznor_swapchain_flag_framebuffer_resized | reznor_swapchain_flag_timed_out))
+    {
+        _reznor_vulkan_try_recreate_swapchain(swapchain);
+        if (swapchain->swapchain == VK_NULL_HANDLE)
+            return false;
+    }
+    return true; /* the swapchain is fine */
+}
+
 FN_REZNOR_FRAME_NEXT_IMAGES(vulkan)
 {
-    struct reznor_swapchain_frame_info *frame_info = &reznor->interface.swapchain_frame_info[frame_index % REZNOR_MAX_FRAMES_IN_FLIGHT];
-
-    u32 swapchain_index = 0;
     assert_debug(swapchain_count <= REZNOR_MAX_SWAPCHAINS);
 
     for (u32 i = 0; i < swapchain_count; i++) {
         struct reznor_swapchain *swapchain = swapchains[i];
         struct reznor_device *device = swapchain->header.device;
 
-        VkResult res = device->vkAcquireNextImageKHR(
+        VkSemaphore image_available_semaphore = swapchain->image_available_semaphores[swapchain->image_available_semaphore_index];
+
+        VkResult result = device->vkAcquireNextImageKHR(
             device->logical, 
             swapchain->swapchain, 
             UINT32_MAX, /* TIMEOUT */
-            swapchain->image_available_semaphores[swapchain->image_available_semaphore_index],
+            image_available_semaphore,
             VK_NULL_HANDLE, /* FENCE */ 
             &swapchain->image_index);
 
-        frame_info->swapchains[swapchain_index] = swapchain;
-        frame_info->semaphore_indices[swapchain_index] = swapchain->image_available_semaphore_index;
-        frame_info->image_indices[swapchain_index] = swapchain->image_index;
+        if (!resolve_swapchain_state(swapchain, result))
+            continue;
+
+        struct reznor_device_frame *frame = device->header.frames[frame_index % device->header.frames_in_flight];
+        frame->swapchains[frame->swapchain_count] = swapchain;
+        frame->swapchain_image_available_semaphores[frame->swapchain_count] = image_available_semaphore;
+        frame->swapchain_image_indices[frame->swapchain_count] = swapchain->image_index;
+        frame->swapchain_count++;
 
         swapchain->image_available_semaphore_index = (swapchain->image_available_semaphore_index + 1) % device->header.frames_in_flight;
-
-        if (res == VK_ERROR_OUT_OF_DATE_KHR || res == VK_SUBOPTIMAL_KHR) {
-            atomic_fetch_or_explicit(&swapchain->header.flags, reznor_swapchain_flag_timed_out, memory_order_release);
-        } else if (res == VK_ERROR_SURFACE_LOST_KHR) {
-            atomic_fetch_or_explicit(&swapchain->header.flags, reznor_swapchain_flag_surface_was_lost, memory_order_release);
-        } else if (res != VK_SUCCESS) {
-            log_error("Unexpected error after vkAcquireNextImageKHR: %s. Swapchain '%s' will be destroyed.", vulkan_result_string(res), swapchain->header.debug_name.ptr);
-            _reznor_vulkan_swapchain_disassembly(swapchain);
-            continue;
-        }
-
-        if (atomic_load_explicit(&swapchain->header.flags, memory_order_acquire) & 
-              (reznor_swapchain_flag_surface_was_lost | reznor_swapchain_flag_framebuffer_resized | reznor_swapchain_flag_timed_out))
-        {
-            _reznor_vulkan_try_recreate_swapchain(swapchain);
-        }
-        swapchain_index++;
     }
-    frame_info->swapchain_count = swapchain_index;
-    return frame_info;
 }
 
 FN_REZNOR_FRAME_BEGIN(vulkan)
 {
-    (void)frame;
+    struct reznor_device *device = frame->device;
+    struct reznor *reznor = device->header.reznor;
+
+    /* TODO do rendering work */
+    //VERIFY_VK(device->vkWaitForFences(device->logical, 1, &frame->fence, VK_TRUE, UINT32_MAX));
+    VERIFY_VK(device->vkResetFences(device->logical, 1, &frame->fence));
+
+    for (u32 i = 0; i < reznor->interface.thread_count; i++)
+        VERIFY_VK(device->vkResetCommandPool(device->logical, frame->graphics_command_pools[i].command_pool, 0));
 }
 
 FN_REZNOR_FRAME_SUBMIT(vulkan)
 {
-    (void)frame;
+    struct reznor_device *device = frame->device;
+    struct reznor *reznor = device->header.reznor;
+
+    /* setup the command buffer for drawing */
+    VkCommandBufferBeginInfo command_buffer_begin_info = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .pNext = NULL,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+        .pInheritanceInfo = NULL,
+    };
+    VERIFY_VK(device->vkBeginCommandBuffer(frame->graphics_command_buffer, &command_buffer_begin_info));
+
+    /* execute secondary command buffers */
+    for (u32 i = 0; i < reznor->interface.thread_count; i++) {
+        struct vulkan_command_pool *pool = &frame->graphics_command_pools[i];
+        device->vkCmdExecuteCommands(frame->graphics_command_buffer, pool->command_buffer_count, pool->command_buffers);
+    }
+    VERIFY_VK(device->vkEndCommandBuffer(frame->graphics_command_buffer));
+
+    /* TODO do rendering work */
+    return;
+
+    /* submit to the graphics queue */
+    VkPipelineStageFlags wait_stages = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    VkSubmitInfo graphics_submit_info = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .pNext = NULL,
+        .waitSemaphoreCount = frame->swapchain_count,
+        .pWaitSemaphores = frame->swapchain_image_available_semaphores,
+        .signalSemaphoreCount = 1,
+        .pSignalSemaphores = &frame->rendering_finished_semaphore,
+        .pWaitDstStageMask = &wait_stages,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &frame->graphics_command_buffer,
+    };
+    VERIFY_VK(device->vkQueueSubmit(device->graphics_queue, 1, &graphics_submit_info, frame->fence));
+
+    /* skip presentation if there are no swapchains */
+    if (!frame->swapchain_count)
+        return;
+
+    VkResult swapchain_results[REZNOR_MAX_SWAPCHAINS];
+    VkSwapchainKHR swapchains[REZNOR_MAX_SWAPCHAINS];
+    for (u32 i = 0; i < frame->swapchain_count; i++)
+        swapchains[i] = frame->swapchains[i]->swapchain;
+
+    /* present the image */
+    VkPresentInfoKHR present_info = {
+        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+        .waitSemaphoreCount = frame->swapchain_count,
+        .pWaitSemaphores = frame->swapchain_image_available_semaphores,
+        .swapchainCount = frame->swapchain_count,
+        .pSwapchains = swapchains,
+        .pImageIndices = frame->swapchain_image_indices,
+        .pResults = swapchain_results,
+    };
+    VkResult present_result = device->vkQueuePresentKHR(device->present_queue, &present_info);
+
+    /* check results per swapchain */
+    if (present_result != VK_SUCCESS) {
+        for (u32 i = 0; i < frame->swapchain_count; i++) {
+            struct reznor_swapchain *swapchain = frame->swapchains[i];
+            VkResult result = swapchain_results[i];
+
+            b32 resolved = resolve_swapchain_state(swapchain, result);
+
+            if (!resolved) {
+                log_error("Presentation failed without recovery for swapchain '%s' and rendering device '%s': %s.", 
+                    swapchain->header.debug_name.ptr, device->header.name.ptr, vulkan_result_string(result));
+            }
+        }
+    }
 }

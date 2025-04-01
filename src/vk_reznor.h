@@ -579,11 +579,6 @@ struct reznor_device_memory {
     VkDeviceMemory                      memory;
 };
 
-struct reznor_command_buffer {
-    struct reznor_resource_header       header;
-    VkCommandBuffer                     command_buffer;
-};
-
 struct reznor_buffer {
     struct reznor_resource_header       header;
     VkBuffer                            buffer;
@@ -716,11 +711,24 @@ struct reznor_swapchain {
     u32                                 image_count;
 };
 
+struct reznor_swapchain_frame_info {
+    struct reznor_swapchain            *swapchains[REZNOR_MAX_SWAPCHAINS];
+    u32                                 semaphore_indices[REZNOR_MAX_SWAPCHAINS];
+    u32                                 image_indices[REZNOR_MAX_SWAPCHAINS];
+    u32                                 swapchain_count;
+};
+
+struct reznor_command_buffer {
+    struct reznor_device               *device;
+    VkCommandBuffer                     buffer;
+};
+
+
+#define VULKAN_COMMAND_POOL_MAX_BUFFERS 4
 struct vulkan_command_pool {
     VkCommandPool                       command_pool;
-    VkCommandBuffer                    *command_buffers;
-    u32                                 command_buffers_capacity;
-    u32                                 command_buffers_count;
+    VkCommandBuffer                     command_buffers[VULKAN_COMMAND_POOL_MAX_BUFFERS];
+    u32                                 command_buffer_count;
 };
 
 struct reznor_device_frame {
@@ -731,7 +739,11 @@ struct reznor_device_frame {
     VkCommandBuffer                     graphics_command_buffer;
     VkSemaphore                         rendering_finished_semaphore;
     struct vulkan_descriptor_pool      *descriptor_pool;
-    b32                                 is_running;
+    /* presentation info of this frame */
+    struct reznor_swapchain            *swapchains[REZNOR_MAX_SWAPCHAINS];
+    VkSemaphore                         swapchain_image_available_semaphores[REZNOR_MAX_SWAPCHAINS];
+    u32                                 swapchain_image_indices[REZNOR_MAX_SWAPCHAINS];
+    u32                                 swapchain_count;
 };
 
 struct vulkan_memory_barrier {

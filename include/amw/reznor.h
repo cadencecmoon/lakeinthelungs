@@ -135,6 +135,7 @@ enum reznor_device_flag {
 
 struct reznor_device_header {
     struct reznor                          *reznor;
+    struct str                              name;
     at_u32                                  flags;
     u32                                     features;
     u32                                     frames_in_flight;
@@ -160,13 +161,12 @@ typedef void (AMWCALL *PFN_reznor_device_destroy)(struct reznor_device *restrict
     extern void AMWCALL _reznor_##encore##_device_destroy(struct reznor_device *restrict device)
 
 #define ARGS_REZNOR_FRAME_NEXT_IMAGES \
-    u64                         frame_index, \
-    struct reznor              *reznor, \
-    u32                         swapchain_count, \
-    struct reznor_swapchain   **swapchains
-typedef struct reznor_swapchain_frame_info *(AMWCALL *PFN_reznor_frame_next_images)(ARGS_REZNOR_FRAME_NEXT_IMAGES);
+    u64                       frame_index, \
+    u32                       swapchain_count, \
+    struct reznor_swapchain **swapchains
+typedef void (AMWCALL *PFN_reznor_frame_next_images)(ARGS_REZNOR_FRAME_NEXT_IMAGES);
 #define FN_REZNOR_FRAME_NEXT_IMAGES(encore) \
-    extern struct reznor_swapchain_frame_info *AMWCALL _reznor_##encore##_frame_next_images(ARGS_REZNOR_FRAME_NEXT_IMAGES)
+    extern void AMWCALL _reznor_##encore##_frame_next_images(ARGS_REZNOR_FRAME_NEXT_IMAGES)
 
 typedef void (AMWCALL *PFN_reznor_frame_begin)(struct reznor_device_frame *frame);
 #define FN_REZNOR_FRAME_BEGIN(encore) \
@@ -249,20 +249,17 @@ enum reznor_winding_order {
     reznor_winding_order_clockwise,
 };
 
-enum reznor_stencil_face {
-    reznor_stencil_face_front = 0u,
-    reznor_stencil_face_back,
+enum reznor_load_operation {
+    reznor_load_operation_load = 0u,
+    reznor_load_operation_clear,
+    reznor_load_operation_dont_care,
+    reznor_load_operation_none,
 };
 
-enum reznor_stencil_operation {
-    reznor_stencil_operation_keep = 0u,
-    reznor_stencil_operation_zero,
-    reznor_stencil_operation_replace,
-    reznor_stencil_operation_increment,
-    reznor_stencil_operation_decrement,
-    reznor_stencil_operation_increment_wrap,
-    reznor_stencil_operation_decrement_wrap,
-    reznor_stencil_operation_invert,
+enum reznor_store_operation {
+    reznor_store_operation_store = 0u,
+    reznor_store_operation_dont_care,
+    reznor_store_operation_none,
 };
 
 enum reznor_color_write {
@@ -278,6 +275,22 @@ enum reznor_dynamic_state_flag {
     reznor_dynamic_state_flag_stencil_reference     = (1u << 2),
     reznor_dynamic_state_flag_stencil_write_mask    = (1u << 3),
     reznor_dynamic_state_flag_stencil_compare_mask  = (1u << 4),
+};
+
+enum reznor_stencil_face {
+    reznor_stencil_face_front = 0u,
+    reznor_stencil_face_back,
+};
+
+enum reznor_stencil_operation {
+    reznor_stencil_operation_keep = 0u,
+    reznor_stencil_operation_zero,
+    reznor_stencil_operation_replace,
+    reznor_stencil_operation_increment,
+    reznor_stencil_operation_decrement,
+    reznor_stencil_operation_increment_wrap,
+    reznor_stencil_operation_decrement_wrap,
+    reznor_stencil_operation_invert,
 };
 
 struct reznor_stencil_config {
@@ -944,13 +957,6 @@ struct reznor_query_pool_assembly {
     /* TODO */
 };
 
-struct reznor_swapchain_frame_info {
-    struct reznor_swapchain                    *swapchains[REZNOR_MAX_SWAPCHAINS];
-    u32                                         semaphore_indices[REZNOR_MAX_SWAPCHAINS];
-    u32                                         image_indices[REZNOR_MAX_SWAPCHAINS];
-    u32                                         swapchain_count;
-};
-
 /** Flags that control the state of a swapchain. */
 enum reznor_swapchain_flags {
     /** True for a valid swapchain object. */
@@ -1088,15 +1094,29 @@ struct reznor_rendering_attachment {
     const struct reznor_texture        *resolve_texture;
     enum reznor_texture_layout          texture_layout;
     enum reznor_texture_layout          resolve_texture_layout;
-    /* XXX load action, store action ? clear value ? */
+    enum reznor_load_operation          load_op;
+    enum reznor_store_operation         store_op;
+    union {
+        union {
+            f32                         f32x4[4]; /* don't use vec4 for alignment rules */
+            s32                         s32x4[4];
+            u32                         u32x4[4];
+        } color;
+        struct {
+            f32                         depth;
+            u32                         stencil;
+        } depth_stencil;
+    } clear_value;
 };
 
 struct reznor_rendering_params {
     struct str                          debug_name;
-    struct reznor_rendering_attachment  color_attachment[REZNOR_MAX_COLOR_TARGET_COUNT];
+    u32                                 render_area_offset[2];
+    u32                                 render_area_extent[2];
+    struct reznor_rendering_attachment *color_attachments;
     u32                                 color_attachment_count;
-    struct reznor_rendering_attachment  depth_attachment;
-    struct reznor_rendering_attachment  stencil_attachment;
+    struct reznor_rendering_attachment *depth_attachment;
+    struct reznor_rendering_attachment *stencil_attachment;
 };
 
 typedef void (AMWCALL *PFN_reznor_command_begin_render_pass)(struct reznor_command_buffer *command_buffer, struct reznor_rendering_params *params);
@@ -1112,8 +1132,6 @@ struct reznor_interface {
 
     u32                                             thread_count;
     b32                                             debug_utils;
-
-    struct reznor_swapchain_frame_info              swapchain_frame_info[REZNOR_MAX_FRAMES_IN_FLIGHT];
 
     PFN_reznor_device_query                         device_query;
     PFN_reznor_device_create                        device_create;

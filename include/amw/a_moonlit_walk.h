@@ -148,8 +148,7 @@ struct amw_framedata {
     struct amw_deferred_work        deferred_work[AMW_MAX_DEFERRED_COUNT];
     u32                             deferred_count;
 
-    struct reznor_device_frame         *render_frames[AMW_MAX_RENDERING_DEVICE_COUNT];
-    struct reznor_swapchain_frame_info *render_swapchain_info;
+    struct reznor_device_frame         *render_device_frames[AMW_MAX_RENDERING_DEVICE_COUNT];
     struct hadal_window                *windows[AMW_MAX_WINDOW_COUNT];
     u32                                 window_count;
 

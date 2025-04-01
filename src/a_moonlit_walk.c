@@ -349,9 +349,8 @@ s32 a_moonlit_walk(
                 if (cleanup->deferred_count)
                     riven_unchain(riven, cleanup->chain);
                 cleanup->chain = NULL; 
-                cleanup->render_swapchain_info = NULL;
-                cleanup->deferred_count = 0;
                 cleanup->window_count = 0;
+                cleanup->deferred_count = 0;
             }
 
             /* frame N-3, deferred */
@@ -425,8 +424,10 @@ s32 a_moonlit_walk(
                 game->game_to_gpuexec_tag = riven_tag_game_to_gpuexec + (frame_index % riven_tag_game_to_gpuexec_cycle);
                 game->rendering_to_gpuexec_tag = riven_tag_rendering_to_gpuexec + (frame_index % riven_tag_rendering_to_gpuexec_cycle);
 
+                /* prepare render device work for this frame */
                 for (u32 i = 0; i < amw.render_device_count; i++)
-                    game->render_frames[i] = reznor_frame_acquire(frame_index, amw.render_devices[i]);
+                    game->render_device_frames[i] = reznor_frame_acquire(frame_index, amw.render_devices[i]);
+
                 /* resolve the visible windows for this frame */
                 prepare_framedata_windows(game);
 

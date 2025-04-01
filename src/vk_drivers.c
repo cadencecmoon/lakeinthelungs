@@ -1254,68 +1254,29 @@ FN_REZNOR_MEMORY_REQUIREMENTS(vulkan)
         struct reznor_assembly_work *work = &works[i];
 
         switch (work->type) {
-            case reznor_resource_type_device_memory:
-                work->memory.size = sizeof(struct reznor_device_memory) * work->assembly_count;
-                work->memory.alignment = _Alignof(struct reznor_device_memory);
+#define VKMEMINFO(__type) \
+            case reznor_resource_type_##__type: \
+                work->memory.size = sizeof(struct reznor_##__type) * work->assembly_count; \
+                work->memory.alignment = _Alignof(struct reznor_##__type); \
                 break;
-            case reznor_resource_type_buffer:
-                work->memory.size = sizeof(struct reznor_buffer) * work->assembly_count;
-                work->memory.alignment = _Alignof(struct reznor_buffer);
-                break;
-            case reznor_resource_type_texture:
-                work->memory.size = sizeof(struct reznor_texture) * work->assembly_count;
-                work->memory.alignment = _Alignof(struct reznor_texture);
-                break;
-            case reznor_resource_type_sampler:
-                work->memory.size = sizeof(struct reznor_sampler) * work->assembly_count;
-                work->memory.alignment = _Alignof(struct reznor_sampler);
-                break;
-            case reznor_resource_type_descriptor_set_layout:
-                work->memory.size = sizeof(struct reznor_descriptor_set_layout) * work->assembly_count;
-                work->memory.alignment = _Alignof(struct reznor_descriptor_set_layout);
-                break;
-            case reznor_resource_type_descriptor_set:
-                work->memory.size = sizeof(struct reznor_descriptor_set) * work->assembly_count;
-                work->memory.alignment = _Alignof(struct reznor_descriptor_set);
-                break;
-            case reznor_resource_type_pipeline_layout:
-                work->memory.size = sizeof(struct reznor_pipeline_layout) * work->assembly_count;
-                work->memory.alignment = _Alignof(struct reznor_pipeline_layout);
-                break;
-            case reznor_resource_type_graphics_pipeline:
-                work->memory.size = sizeof(struct reznor_graphics_pipeline) * work->assembly_count;
-                work->memory.alignment = _Alignof(struct reznor_graphics_pipeline);
-                break;
-            case reznor_resource_type_compute_pipeline:
-                work->memory.size = sizeof(struct reznor_compute_pipeline) * work->assembly_count;
-                work->memory.alignment = _Alignof(struct reznor_compute_pipeline);
-                break;
-            case reznor_resource_type_raytracing_pipeline:
-                work->memory.size = sizeof(struct reznor_raytracing_pipeline) * work->assembly_count;
-                work->memory.alignment = _Alignof(struct reznor_raytracing_pipeline);
-                break;
-            case reznor_resource_type_shader_binding_table:
-                work->memory.size = sizeof(struct reznor_shader_binding_table) * work->assembly_count;
-                work->memory.alignment = _Alignof(struct reznor_shader_binding_table);
-                break;
-            case reznor_resource_type_bottom_level:
-                work->memory.size = sizeof(struct reznor_bottom_level) * work->assembly_count;
-                work->memory.alignment = _Alignof(struct reznor_bottom_level);
-                break;
-            case reznor_resource_type_top_level:
-                work->memory.size = sizeof(struct reznor_top_level) * work->assembly_count;
-                work->memory.alignment = _Alignof(struct reznor_top_level);
-                break;
-            case reznor_resource_type_query_pool:
-                work->memory.size = sizeof(struct reznor_query_pool) * work->assembly_count;
-                work->memory.alignment = _Alignof(struct reznor_query_pool);
-                break;
-            case reznor_resource_type_swapchain:
-                work->memory.size = sizeof(struct reznor_swapchain) * work->assembly_count;
-                work->memory.alignment = _Alignof(struct reznor_swapchain);
-                break;
-            default: 
-                break;
+
+            VKMEMINFO(device_memory)
+            VKMEMINFO(buffer)
+            VKMEMINFO(texture)
+            VKMEMINFO(sampler)
+            VKMEMINFO(descriptor_set_layout)
+            VKMEMINFO(descriptor_set)
+            VKMEMINFO(pipeline_layout)
+            VKMEMINFO(graphics_pipeline)
+            VKMEMINFO(compute_pipeline)
+            VKMEMINFO(raytracing_pipeline)
+            VKMEMINFO(shader_binding_table)
+            VKMEMINFO(bottom_level)
+            VKMEMINFO(top_level)
+            VKMEMINFO(query_pool)
+            VKMEMINFO(swapchain)
+#undef VKMEMINFO
+            default: break;
         }
         out += work->memory.size;
     }
