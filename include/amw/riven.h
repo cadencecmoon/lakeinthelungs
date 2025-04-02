@@ -1,8 +1,8 @@
 #pragma once
 
-#include <amw/bedrock.h>
-#include <amw/string.h>
-#include <amw/threads.h>
+#include <amw/bedrock/defines.h>
+#include <amw/bedrock/string.h>
+#include <amw/bedrock/threads.h>
 
 #ifdef __cplusplus
 extern "C" {

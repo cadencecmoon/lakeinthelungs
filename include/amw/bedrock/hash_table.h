@@ -1,6 +1,6 @@
 #pragma once
 
-#include <amw/bedrock.h>
+#include <amw/bedrock/defines.h>
 #include <amw/riven.h>
 
 #ifdef __cplusplus

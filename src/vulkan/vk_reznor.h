@@ -1,6 +1,5 @@
 #pragma once
 
-#include <amw/bedrock.h>
 #include <amw/reznor.h>
 
 FN_REZNOR_DEVICE_QUERY(vulkan);
@@ -51,8 +50,8 @@ FN_REZNOR_COMMAND_DISPATCH(vulkan);
 FN_REZNOR_COMMAND_DISPATCH_INDIRECT(vulkan);
 FN_REZNOR_COMMAND_COPY_BUFFER(vulkan);
 FN_REZNOR_COMMAND_COPY_TEXTURE(vulkan);
-FN_REZNOR_COMMAND_BEGIN_RENDER_PASS(vulkan);
-FN_REZNOR_COMMAND_END_RENDER_PASS(vulkan);
+FN_REZNOR_COMMAND_BEGIN_RENDERING(vulkan);
+FN_REZNOR_COMMAND_END_RENDERING(vulkan);
 
 #ifndef VK_NO_PROTOTYPES
     #define VK_NO_PROTOTYPES
@@ -334,7 +333,7 @@ struct reznor_device {
     at_u32                                                      descriptor_pool_count;
     at_u32                                                      query_pool_count;
     at_u32                                                      swapchain_count;
-#endif
+#endif /* REZNOR_ENABLE_GPU_PROFILER */
 
     /* core 1.0 */
 	PFN_vkAllocateCommandBuffers                                vkAllocateCommandBuffers;
@@ -575,6 +574,7 @@ struct reznor_device {
 
 struct reznor_device_memory {
     struct reznor_resource_header       header;
+    b32                                 is_dedicated_allocation;
     u32                                 memory_type_index;
     VkDeviceMemory                      memory;
 };
@@ -586,7 +586,7 @@ struct reznor_buffer {
 };
 
 struct reznor_texture {
-    struct reznor_resource_header       header;
+    struct reznor_texture_header        header;
     VkImage                             image;
     VkImageView                         image_view;
     struct reznor_device_memory        *allocation;
@@ -778,10 +778,19 @@ extern b32 AMWCALL vulkan_load_instance_procedures(struct reznor *reznor, u32 ap
 extern b32 AMWCALL vulkan_load_device_procedures(struct reznor_device *device, u32 api_version, u64 extension_bits);
 
 extern attr_const VkFormat AMWCALL vulkan_texture_format_translate(enum reznor_texture_format format);
+extern attr_const VkImageLayout AMWCALL vulkan_texture_layout_translate(enum reznor_texture_layout layout);
+
+attr_inline b32 attr_const vulkan_texture_format_has_stencil(enum reznor_texture_format format) 
+{
+    return (format == reznor_texture_format_d0s8_unorm ||
+        format == reznor_texture_format_d16s8_unorm ||
+        format == reznor_texture_format_d24s8_unorm);
+}
 
 /** Computes the number of mipmap levels needed to get from a resource of the 
  *  given size to one texel. This is the max number of mipmapc that can be created. */
-attr_inline u32 vulkan_get_mipmap_count_1d(u32 width) {
+attr_inline u32 attr_const vulkan_get_mipmap_count_1d(u32 width) 
+{
 	s32 padded_width = (s32)(2 * width - 1);
 	u32 mipmap_count = 0;
 	while (padded_width > 0) {
@@ -793,7 +802,8 @@ attr_inline u32 vulkan_get_mipmap_count_1d(u32 width) {
 }
 
 /** The maximum of 'get_mipmap_count_1d' for all given extents. */
-attr_inline u32 vulkan_get_mipmap_count_3d(VkExtent3D *extent) {
+attr_inline u32 vulkan_get_mipmap_count_3d(VkExtent3D *extent) 
+{
 	u32 counts[3] = {
 		vulkan_get_mipmap_count_1d(extent->width),
 		vulkan_get_mipmap_count_1d(extent->height),
@@ -803,4 +813,59 @@ attr_inline u32 vulkan_get_mipmap_count_3d(VkExtent3D *extent) {
 	result = (result < counts[1]) ? counts[1] : result;
 	result = (result < counts[2]) ? counts[2] : result;
 	return result;
+}
+
+extern VkImageSubresourceRange AMWCALL vulkan_get_image_subresource_range(const struct reznor_texture *texture);
+
+attr_inline b32 vulkan_find_memory_type(
+    u32                        *type_index, 
+    const struct reznor_device *device, 
+    u32                         memory_type_bits, 
+    VkMemoryPropertyFlagBits    property_mask)
+{
+    const VkPhysicalDeviceMemoryProperties *memory_properties = &device->physical->memory_properties2.memoryProperties;
+    for (u32 i = 0; i < memory_properties->memoryTypeCount; i++) {
+        if (memory_type_bits & (1 << i)) {
+            if ((memory_properties->memoryTypes[i].propertyFlags & property_mask) == property_mask) {
+                *type_index = i;
+                return true;
+            }
+        }
+    } 
+    return false;
+}
+
+attr_inline VkFilter attr_const vulkan_get_filter(enum reznor_sampler_filter_mode mode)
+{
+    assert_debug((VkFilter)reznor_sampler_filter_mode_nearest == VK_FILTER_NEAREST &&
+                 (VkFilter)reznor_sampler_filter_mode_linear == VK_FILTER_LINEAR);
+    return (VkFilter)mode;
+}
+
+attr_inline VkSamplerMipmapMode attr_const vulkan_get_sampler_mipmap_mode(enum reznor_sampler_filter_mode mode)
+{
+    assert_debug((VkSamplerMipmapMode)reznor_sampler_filter_mode_nearest == VK_SAMPLER_MIPMAP_MODE_NEAREST &&
+                 (VkSamplerMipmapMode)reznor_sampler_filter_mode_linear == VK_SAMPLER_MIPMAP_MODE_LINEAR);
+    return (VkSamplerMipmapMode)mode;
+}
+
+extern VkSamplerAddressMode attr_const AMWCALL vulkan_get_sampler_address_mode(enum reznor_sampler_address_mode mode);
+
+extern VkCompareOp attr_const AMWCALL vulkan_get_compare_operation(enum reznor_comparison_function fn);
+
+attr_inline VkAttachmentLoadOp attr_const vulkan_get_attachment_load_operation(enum reznor_load_operation op)
+{
+    assert_debug((VkAttachmentLoadOp)reznor_load_operation_load == VK_ATTACHMENT_LOAD_OP_LOAD &&
+                 (VkAttachmentLoadOp)reznor_load_operation_clear == VK_ATTACHMENT_LOAD_OP_CLEAR &&
+                 (VkAttachmentLoadOp)reznor_load_operation_dont_care == VK_ATTACHMENT_LOAD_OP_DONT_CARE &&
+                 (VkAttachmentLoadOp)reznor_load_operation_none == VK_ATTACHMENT_LOAD_OP_NONE);
+    return (VkAttachmentLoadOp)op;
+}
+
+attr_inline VkAttachmentStoreOp attr_const vulkan_get_attachment_store_operation(enum reznor_store_operation op)
+{
+    assert_debug((VkAttachmentStoreOp)reznor_store_operation_store == VK_ATTACHMENT_STORE_OP_STORE &&
+                 (VkAttachmentStoreOp)reznor_store_operation_dont_care == VK_ATTACHMENT_STORE_OP_DONT_CARE &&
+                 (VkAttachmentStoreOp)reznor_store_operation_none == VK_ATTACHMENT_STORE_OP_NONE);
+    return (VkAttachmentStoreOp)op;
 }

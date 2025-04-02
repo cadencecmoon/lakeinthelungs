@@ -1,9 +1,9 @@
 #include "vk_reznor.h"
 
 #include <amw/hadal.h>
-#include <amw/bits.h>
+#include <amw/aria/bits.h>
 
-static const char *device_type_string(VkPhysicalDeviceType type)
+static const char *attr_const device_type_string(VkPhysicalDeviceType type)
 {
     switch (type) {
         case VK_PHYSICAL_DEVICE_TYPE_OTHER:          return "other";
@@ -15,7 +15,7 @@ static const char *device_type_string(VkPhysicalDeviceType type)
     }
 }
 
-static const char *vendor_name_string(u32 vendor_id)
+static const char *attr_const vendor_name_string(u32 vendor_id)
 {
     switch (vendor_id) {
         case 0x1002: return "AMD";
@@ -803,7 +803,7 @@ FN_REZNOR_DEVICE_CREATE(vulkan)
     }
 
     u32 o = 0;
-    u32 extension_count = bits_popcnt_lookup((const u8 *)&physical->extension_bits, sizeof(u64));
+    u32 extension_count = aria_bits_popcnt_lookup((const u8 *)&physical->extension_bits, sizeof(u64));
     const char **extensions = riven_alloc(reznor->interface.header.riven, riven_tag_deferred, sizeof(const char *) * extension_count, _Alignof(const char *));
     if (physical->extension_bits & vulkan_ext_swapchain_bit)
         extensions[o++] = VK_KHR_SWAPCHAIN_EXTENSION_NAME;

@@ -1,6 +1,5 @@
 #pragma once
 
-#include <amw/bedrock.h>
 #include <amw/hadal.h>
 
 FN_HADAL_WINDOW_CREATE(wayland);

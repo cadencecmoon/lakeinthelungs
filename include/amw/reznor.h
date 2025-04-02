@@ -1,7 +1,8 @@
 #pragma once
 
-#include <amw/bedrock.h>
-#include <amw/log.h>
+#include <amw/bedrock/defines.h>
+#include <amw/bedrock/log.h>
+#include <amw/aria/core.h>
 #include <amw/riven.h>
 
 struct hadal;
@@ -229,7 +230,7 @@ enum reznor_comparison_function {
     reznor_comparison_function_less_equal,
     reznor_comparison_function_not_equal,
     reznor_comparison_function_greater,
-    reznor_comparison_function_greate_equal,
+    reznor_comparison_function_greater_equal,
     reznor_comparison_function_always,
 };
 
@@ -739,16 +740,27 @@ struct reznor_texture_assembly {
     u32                                         width;
     u32                                         height;
     u32                                         depth;          /* 1 default */
-    u32                                         usage;          /**< enum reznor_texture_usage */
+    u32                                         usage_mask;     /**< enum reznor_texture_usage */
     u16                                         layer_count;    /* 1 default */
     u8                                          level_count;    /* 1 default */
     u8                                          sample_count;   /* 1 default */
     u8                                          format;         /**< enum reznor_texture_format */
-    u8                                          owner_queue;    /**< enum reznor_queue_type */
+    u8                                          queue_mask;     /**< enum reznor_queue_type */
     b8                                          allocate_memory;
     u8                                          view_format_count;
     const u8                                   *view_formats;
     enum reznor_comparison_function             preferred_comparison_function;
+};
+
+struct reznor_texture_header {
+    struct reznor_resource_header               resource;
+    u32                                         usage_mask;
+    u16                                         layer_count;
+    u16                                         first_array_layer;
+    u8                                          level_count;
+    u8                                          first_level;
+    u8                                          base_mip_level;
+    u8                                          format;
 };
 
 enum reznor_sampler_filter_mode {
@@ -759,14 +771,8 @@ enum reznor_sampler_filter_mode {
 enum reznor_sampler_address_mode {
     reznor_sampler_address_mode_wrap = 0u,
     reznor_sampler_address_mode_mirror,
-    reznor_sampler_address_mode_clamp,
-    reznor_sampler_address_mode_clamp_zo,
-};
-
-enum reznor_sampler_reduction_mode {
-    reznor_sampler_reduction_mode_disabled = 0u,
-    reznor_sampler_reduction_mode_min,
-    reznor_sampler_reduction_mode_max,
+    reznor_sampler_address_mode_clamp_edge,
+    reznor_sampler_address_mode_clamp_border,
 };
 
 struct reznor_sampler_assembly {
@@ -775,14 +781,14 @@ struct reznor_sampler_assembly {
     f32                                         min_lod;
     f32                                         max_lod;
     f32                                         max_anisotrophy_level;
-    u8                                          min_filter;             /**< enum reznor_sampler_filter_mode */
     u8                                          mag_filter;             /**< enum reznor_sampler_filter_mode */
+    u8                                          min_filter;             /**< enum reznor_sampler_filter_mode */
     u8                                          mip_filter;             /**< enum reznor_sampler_filter_mode */
-    u8                                          address_u;              /**< enum reznor_sampler_address_mode*/
-    u8                                          address_v;              /**< enum reznor_sampler_address_mode*/
-    u8                                          address_w;              /**< enum reznor_sampler_address_mode*/
+    u8                                          address_u;              /**< enum reznor_sampler_address_mode */
+    u8                                          address_v;              /**< enum reznor_sampler_address_mode */
+    u8                                          address_w;              /**< enum reznor_sampler_address_mode */
     u8                                          comparison_function;    /**< enum reznor_comparison_function */
-    u8                                          reduction_mode;         /**< enum reznor_sampler_reduction_mode */
+    u8                                          enable_comparison;
 };
 
 struct reznor_shader_source {
@@ -1098,9 +1104,9 @@ struct reznor_rendering_attachment {
     enum reznor_store_operation         store_op;
     union {
         union {
-            f32                         f32x4[4]; /* don't use vec4 for alignment rules */
-            s32                         s32x4[4];
-            u32                         u32x4[4];
+            f32                         vec[4]; /* don't use vec4 because 16/32 bytes alignment rules */
+            s32                         sint[4];
+            u32                         uint[4];
         } color;
         struct {
             f32                         depth;
@@ -1119,13 +1125,13 @@ struct reznor_rendering_params {
     struct reznor_rendering_attachment *stencil_attachment;
 };
 
-typedef void (AMWCALL *PFN_reznor_command_begin_render_pass)(struct reznor_command_buffer *command_buffer, struct reznor_rendering_params *params);
-#define FN_REZNOR_COMMAND_BEGIN_RENDER_PASS(encore) \
-    extern void AMWCALL _reznor_##encore##_command_begin_render_pass(struct reznor_command_buffer *command_buffer, struct reznor_rendering_params *params)
+typedef void (AMWCALL *PFN_reznor_command_begin_rendering)(struct reznor_command_buffer *command_buffer, struct reznor_rendering_params *params);
+#define FN_REZNOR_COMMAND_BEGIN_RENDERING(encore) \
+    extern void AMWCALL _reznor_##encore##_command_begin_rendering(struct reznor_command_buffer *command_buffer, struct reznor_rendering_params *params)
 
-typedef void (AMWCALL *PFN_reznor_command_end_render_pass)(struct reznor_command_buffer *command_buffer);
-#define FN_REZNOR_COMMAND_END_RENDER_PASS(encore) \
-    extern void AMWCALL _reznor_##encore##_command_end_render_pass(struct reznor_command_buffer *command_buffer)
+typedef void (AMWCALL *PFN_reznor_command_end_rendering)(struct reznor_command_buffer *command_buffer);
+#define FN_REZNOR_COMMAND_END_RENDERING(encore) \
+    extern void AMWCALL _reznor_##encore##_command_end_rendering(struct reznor_command_buffer *command_buffer)
 
 struct reznor_interface {
     struct riven_interface_header                   header;
@@ -1155,39 +1161,9 @@ struct reznor_interface {
     PFN_reznor_command_dispatch_indirect            command_dispatch_indirect;
     PFN_reznor_command_copy_buffer                  command_copy_buffer;
     PFN_reznor_command_copy_texture                 command_copy_texture;
-    PFN_reznor_command_begin_render_pass            command_begin_render_pass;
-    PFN_reznor_command_end_render_pass              command_end_render_pass;
+    PFN_reznor_command_begin_rendering              command_begin_rendering;
+    PFN_reznor_command_end_rendering                command_end_rendering;
 };
-
-AMWAPI attr_nonnull_all void 
-reznor_string_from_resource_type(enum reznor_resource_type type, struct str *write);
-
-/** Creates a bunch of rendering devices and per-device work structures for frames in flight.
- *  Performs a physical devices query and selects best, for the given configuration.
- *  The allocation structure can be used for querying memory requirements and performing
- *  a single allocation for devices and internal structures of per-frame data, or it can 
- *  reference a single riven_tag_t so this function can allocate memory by itself
- *  under a tagged heap. Can be run as a job. The work to create a device and related 
- *  per-frame structures is run as jobs too, for every device to be created. */
-AMWAPI attr_nonnull_all s32 AMWCALL 
-reznor_mgpu_create_devices(
-    struct reznor          *reznor,
-    struct hadal           *hadal,
-    riven_tag_t             tag,
-    u32                     frames_in_flight,
-    u32                     max_device_count,
-    u32                     virtual_device_count,
-    b32                     only_discrete,
-    s32                     force_primary_index,
-    u32                    *out_device_count,
-    struct reznor_device  **out_devices_array);
-
-attr_inline struct reznor_device_frame *attr_nonnull_all 
-reznor_frame_acquire(u64 frame_index, struct reznor_device *device)
-{
-    struct reznor_device_header *header = (struct reznor_device_header *)device;    
-    return header->frames[frame_index % header->frames_in_flight];
-}
 
 #ifdef __cplusplus
 }

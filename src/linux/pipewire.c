@@ -1,6 +1,6 @@
+#include <amw/bedrock/log.h>
+#include <amw/bedrock/process.h>
 #include <amw/soma.h>
-#include <amw/log.h>
-#include <amw/process.h>
 
 FN_SOMA_DEVICE_QUERY(pipewire);
 FN_SOMA_DEVICE_OPEN(pipewire);

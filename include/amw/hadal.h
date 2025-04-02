@@ -1,8 +1,8 @@
 #pragma once
 
-#include <amw/bedrock.h>
-#include <amw/keycodes.h>
-#include <amw/scancodes.h>
+#include <amw/bedrock/defines.h>
+#include <amw/bedrock/keycodes.h>
+#include <amw/bedrock/scancodes.h>
 #include <amw/riven.h>
 
 #ifdef __cplusplus

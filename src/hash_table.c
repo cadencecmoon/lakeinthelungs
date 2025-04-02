@@ -1,5 +1,5 @@
-#include <amw/hash_table.h>
-#include <amw/log.h>
+#include <amw/bedrock/hash_table.h>
+#include <amw/bedrock/log.h>
 
 attr_hot attr_pure u32 meiyan(const void *key, usize length)
 {

@@ -1,5 +1,5 @@
+#include <amw/bedrock/log.h>
 #include <amw/hadal.h>
-#include <amw/log.h>
 
 RIVEN_ENCORE(hadal, native)
 {

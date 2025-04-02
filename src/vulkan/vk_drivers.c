@@ -1421,7 +1421,7 @@ RIVEN_ENCORE(reznor, vulkan)
         extension_bits |= vulkan_ext_debug_utils_bit;
 
     u32 o = 0;
-    extension_count = bits_popcnt_lookup((const u8 *)&extension_bits, sizeof(extension_bits));
+    extension_count = aria_bits_popcnt_lookup((const u8 *)&extension_bits, sizeof(extension_bits));
     const char **extensions = (const char **)
         riven_alloc(encore->header.riven, riven_tag_deferred, sizeof(const char *) * extension_count, _Alignof(const char *));
     if (extension_bits & vulkan_ext_surface_bit)
@@ -1590,8 +1590,8 @@ RIVEN_ENCORE(reznor, vulkan)
     reznor->interface.command_dispatch_indirect = _reznor_vulkan_command_dispatch_indirect;
     reznor->interface.command_copy_buffer = _reznor_vulkan_command_copy_buffer;
     reznor->interface.command_copy_texture = _reznor_vulkan_command_copy_texture;
-    reznor->interface.command_begin_render_pass = _reznor_vulkan_command_begin_render_pass;
-    reznor->interface.command_end_render_pass = _reznor_vulkan_command_end_render_pass;
+    reznor->interface.command_begin_rendering = _reznor_vulkan_command_begin_rendering;
+    reznor->interface.command_end_rendering = _reznor_vulkan_command_end_rendering;
 
     *encore->header.interface = (void *)reznor;
     log_verbose("'%s' interface write.", reznor->interface.header.name.ptr);

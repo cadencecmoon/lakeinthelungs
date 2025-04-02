@@ -2,7 +2,7 @@
 #define _DEFAULT_SOURCE /* for strncasecmp() */
 #endif
 
-#include <amw/string.h>
+#include <amw/bedrock/string.h>
 
 void str_swap(struct str * const s1, struct str * const s2)
 {

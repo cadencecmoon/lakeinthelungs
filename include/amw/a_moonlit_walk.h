@@ -1,24 +1,33 @@
 #pragma once
 
-#include <amw/bedrock.h>
-
-#include <amw/bits.h>
-#include <amw/hadal.h>
-#include <amw/hash_table.h>
-#include <amw/keycodes.h>
-#include <amw/log.h>
-#include <amw/process.h>
-#include <amw/reznor.h>
+#include <amw/bedrock/defines.h>
+#include <amw/aria/core.h>
 #include <amw/riven.h>
-#include <amw/scancodes.h>
+
+/* in order: */
+
+#include <amw/aria/bits.h>
+#include <amw/aria/matrix.h>
+#include <amw/aria/quaternion.h>
+#include <amw/aria/vector.h>
+
+#include <amw/bedrock/hash_table.h>
+#include <amw/bedrock/keycodes.h>
+#include <amw/bedrock/log.h>
+#include <amw/bedrock/process.h>
+#include <amw/bedrock/scancodes.h>
+#include <amw/bedrock/string.h>
+#include <amw/bedrock/threads.h>
+#include <amw/bedrock/time.h>
+#include <amw/bedrock/unicode.h>
+
+#include <amw/hadal.h>
+#include <amw/reznor.h>
 #include <amw/soma.h>
-#include <amw/string.h>
-#include <amw/threads.h>
-#include <amw/time.h>
 
 #define AMW_VERSION_MAJOR 0
 #define AMW_VERSION_MINOR 1
-#define AMW_VERSION_REVISION 4
+#define AMW_VERSION_REVISION 5
 
 #define AMW_VERSION (VERSION_NUM(AMW_VERSION_MAJOR, AMW_VERSION_MINOR, AMW_VERSION_REVISION))
 

@@ -1,6 +1,6 @@
-#include <amw/threads.h>
-#include <amw/process.h>
-#include <amw/log.h>
+#include <amw/bedrock/log.h>
+#include <amw/bedrock/process.h>
+#include <amw/bedrock/threads.h>
 
 #include <pthread.h>
 #include <sys/types.h>

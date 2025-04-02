@@ -1,8 +1,8 @@
+#include <amw/bedrock/hash_table.h>
+#include <amw/bedrock/log.h>
+#include <amw/bedrock/process.h>
+#include <amw/aria/bits.h>
 #include <amw/riven.h>
-#include <amw/hash_table.h>
-#include <amw/process.h>
-#include <amw/bits.h>
-#include <amw/log.h>
 
 /** This fiber-based job system is implemented based on ideas presented by Naughty Dog 
  *  in the GDC2015 talk "Parallelizing the Naughty Dog Engine using Fibers". 
@@ -934,7 +934,7 @@ usize find_first_set(
     const u8 *raw = (const u8 *)bitmap;
 
     for (;;) {
-        usize bits = bits_ffs(&raw[index], count);
+        usize bits = aria_bits_ffs(&raw[index], count);
 
         /* bits_ffs returns a 1-based value, or 0 if no bits are set
          * this is also why we must decrement the bits value by one */
@@ -1045,7 +1045,7 @@ usize riven_advise(
             const usize bits = (count+1) * 8    /* full bytes of free blocks */
                 - (index & 0x07)                /* trim head index bits out of range */
                 - ((index + count) & 0x07);     /* trim tail index bits out of range */
-            const usize popcnt = bits_popcnt((const u8 *)riven->bitmap + index, count);
+            const usize popcnt = aria_bits_popcnt((const u8 *)riven->bitmap + index, count);
 
             b32 res = false;
             if (popcnt >= bits)
@@ -1539,7 +1539,7 @@ s32 riven_moonlit_walk(
     riven->reserved_heaps[riven_tag_roots].arena.head->size = roots_allocation_size;
     riven->reserved_heaps[riven_tag_roots].arena.head->count = total_bytes;
     /* now we can safely call riven_alloc() with riven_tag_roots */
-    hash_table_init(&riven->table, riven, riven_tag_roots, bits_log2_next_pow2(thread_count));
+    hash_table_init(&riven->table, riven, riven_tag_roots, aria_log2_next_pow2(thread_count));
 
     riven->tls[0].riven = riven;
     riven->tls[0].fiber_in_use = (u32)get_free_fiber(riven);

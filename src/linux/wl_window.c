@@ -1,6 +1,6 @@
 #include "wl_hadal.h"
 
-#include <amw/log.h>
+#include <amw/bedrock/log.h>
 
 #if 0
 static void handle_surface_enter(

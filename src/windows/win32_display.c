@@ -1,5 +1,5 @@
-#include <amw/log.h>
-#include <amw/process.h>
+#include <amw/bedrock/process.h>
+#include <amw/bedrock/log.h>
 
 #include "win32_hadal.h"
 

@@ -1,4 +1,4 @@
-#include <amw/log.h>
+#include <amw/bedrock/log.h>
 #include <amw/soma.h>
 
 RIVEN_ENCORE(soma, native)

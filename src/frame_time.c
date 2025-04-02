@@ -1,5 +1,5 @@
-#include <amw/time.h>
-#include <amw/log.h>
+#include <amw/bedrock/log.h>
+#include <amw/bedrock/time.h>
 
 #include <stdlib.h>
 

@@ -234,16 +234,19 @@ surface_done:
 }
 
 FN_REZNOR_ASSEMBLY(vulkan, swapchain) { 
-    assert_debug(work->assembly.swapchain && work->memory.data);
-    work->result = result_success;
-
+    assert_debug(work && work->assembly.swapchain && work->memory.data && work->type == reznor_resource_type_swapchain && work->device);
     struct reznor_device *device = work->device;
+
+    work->result = result_success;
     if (device->present_queue == NULL || !(device->header.features & reznor_device_feature_swapchain_support)) {
         log_error("Requested to create a Vulkan swapchain, but the device '%s' has no swapchain support.", 
             device->physical->properties2.properties.deviceName);
         work->result = result_error;
         return;
     }
+#if REZNOR_ENABLE_GPU_PROFILER
+    atomic_fetch_add_explicit(&device->swapchain_count, work->assembly_count, memory_order_acquire);
+#endif /* REZNOR_ENABLE_GPU_PROFILER */
 
     for (u32 i = 0; i < work->assembly_count; i++) {
         struct reznor_swapchain_assembly *assembly = &work->assembly.swapchain[i];
@@ -254,9 +257,7 @@ FN_REZNOR_ASSEMBLY(vulkan, swapchain) {
         swapchain->header.type = reznor_resource_type_swapchain;
         swapchain->window = assembly->window;
         assert_debug(swapchain->window != NULL);
-#if REZNOR_ENABLE_GPU_PROFILER
-        atomic_fetch_add_explicit(&device->swapchain_count, 1u, memory_order_release);
-#endif
+
         VkResult res = swapchain_assembly(device, swapchain, NULL, assembly->preferred_format, assembly->enable_vsync, true);
 
         if (res != VK_SUCCESS) {
@@ -276,7 +277,6 @@ FN_REZNOR_ASSEMBLY(vulkan, swapchain) {
 FN_REZNOR_TRY_RECREATE_SWAPCHAIN(vulkan)
 {
     assert_debug(swapchain && swapchain->header.device);
-
     struct reznor_device *device = swapchain->header.device;
     u32 flags = atomic_load_explicit(&swapchain->header.flags, memory_order_acquire);
     assert_debug(flags & reznor_swapchain_flag_is_valid);
@@ -308,6 +308,7 @@ FN_REZNOR_TRY_RECREATE_SWAPCHAIN(vulkan)
 }
 
 FN_REZNOR_DISASSEMBLY(vulkan, swapchain) { 
+    assert_debug(swapchain && swapchain->header.device);
     struct reznor_device *device = swapchain->header.device;
     if (!device)
         return;
@@ -338,8 +339,8 @@ FN_REZNOR_DISASSEMBLY(vulkan, swapchain) {
         device->vkDestroySwapchainKHR(device->logical, swapchain->swapchain, &device->host_allocator);
     if (swapchain->surface != VK_NULL_HANDLE)
         device->header.reznor->vkDestroySurfaceKHR(device->header.reznor->instance, swapchain->surface, NULL);
-    zerop(swapchain);
 #if REZNOR_ENABLE_GPU_PROFILER
     atomic_fetch_sub_explicit(&device->swapchain_count, 1u, memory_order_release);
-#endif
+#endif /* REZNOR_ENABLE_GPU_PROFILER */
+    zerop(swapchain);
 }

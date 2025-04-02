@@ -1,6 +1,6 @@
 #pragma once
 
-#include <amw/bedrock.h>
+#include <amw/bedrock/defines.h>
 
 #ifdef __cplusplus
 extern "C" {
