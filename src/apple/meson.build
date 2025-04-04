@@ -9,7 +9,12 @@ if sys == 'darwin'
         '-framework', 'IOKit',
         '-framework', 'CoreFoundation' ])
 
-    if host_machine.subsystem() == 'ios'
+    iphone_check = '''#include <TargetConditionals.h>
+    #if !TARGET_OS_IPHONE
+    #error not iphone
+    #endif'''
+
+    if cc.compiles(iphone_check, name: 'iPhone target')
         defs += '-DPLATFORM_APPLE_IOS=1'
         deps += declare_dependency(link_args: [ '-framework', 'UIKit' ])
     else

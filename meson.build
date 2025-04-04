@@ -10,12 +10,15 @@ project('lakeinthelungs', 'c',
 cc = meson.get_compiler('c')
 sys = host_machine.system()
 
-defs = [
-  '-Wall',
-  '-Wno-pedantic',
-  '-Werror=implicit-function-declaration',
-  '-Werror=incompatible-pointer-types',
-  '-Werror=return-type' ]
+defs = ['-Wall']
+if cc.get_id() != 'msvc'
+    defs += [
+        '-Wno-pedantic',
+        '-Werror=implicit-function-declaration',
+        '-Werror=incompatible-pointer-types',
+        '-Werror=return-type' ]
+endif
+
 deps = []
 engine_sources = []
 main_sources = []
@@ -54,7 +57,7 @@ dep_amwengine = declare_dependency(
 
 main_sources += 'lake.c'
 
-lakeinthelungs = executable(
+executable(
     'lakeinthelungs',
     main_sources,
     c_args : defs,
@@ -75,7 +78,7 @@ if doxygen.found()
         install : false)
     docs_datadir = join_paths(get_option('datadir'), 'docs', 'lake')
 
-    html_target = custom_target(
+    custom_target(
         'lakeinthelungs_docs',
         input : doxyfile,
         output : 'html',
