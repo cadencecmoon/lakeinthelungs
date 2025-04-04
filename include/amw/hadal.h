@@ -136,8 +136,7 @@ struct hadal_output_header {
 
 /** Flags that describe a window state. */
 enum hadal_window_flags {
-    /** Set on exit events from sources outside of the application.  */
-    hadal_window_flag_should_close      = (1u << 0),
+    hadal_window_flag_is_valid          = (1u << 0),
     /** Window is visible and the user can interact with it. */
     hadal_window_flag_visible           = (1u << 1),
     /** Window is in exclusive fullscreen mode. When true, some other flags may be ignored. */
@@ -162,14 +161,18 @@ enum hadal_window_flags {
     hadal_window_flag_occluded          = (1u << 11),
     /** Window should always be above other windows. */
     hadal_window_flag_always_on_top     = (1u << 12),
+    /** Window will always minimize when leaving fullscreen. */
+    hadal_window_flag_auto_minimize     = (1u << 13),
     /** Window is shell activated, available only on some platforms. */
-    hadal_window_flag_shell_activated   = (1u << 13),
+    hadal_window_flag_shell_activated   = (1u << 14),
     /** Window has a transparent buffer. */
-    hadal_window_flag_transparent       = (1u << 14),
+    hadal_window_flag_transparent       = (1u << 15),
     /** Window usable for Vulkan surface. */
-    hadal_window_flag_vulkan            = (1u << 15),
+    hadal_window_flag_vulkan            = (1u << 16),
     /** Window usable for Metal view. */
-    hadal_window_flag_metal             = (1u << 16),
+    hadal_window_flag_metal             = (1u << 17),
+    /** Set on exit events from sources outside of the application.  */
+    hadal_window_flag_should_close      = (1u << 18),
 };
 
 struct reznor_swapchain;
@@ -181,32 +184,32 @@ struct hadal_window_header {
     struct hadal                   *hadal;
     struct str                      title;
     /** A swapchain may be attached so the window can directly control it's state (flags). */
-    struct reznor_resource_header  *swapchain;
+    union {
+        struct reznor_resource_header  *swapchain_header;
+        struct reznor_swapchain        *swapchain;
+    };
     /** Flags describe the current state of a window. */
     at_u32                          flags;
 };
 
 /** Information needed to create a native window. */
-struct hadal_window_create_info {
-    /** The display backend to communicate with the window compositor. */
+struct hadal_window_create_work {
+    s32                             result;
+    u32                             flags;
     struct hadal                   *hadal;
     /** Dimensions of the newly created window. */
     u32                             width, height; 
     /** The title of the newly created window. */
     struct str                      title;
+    struct riven_memory             memory;
     /** Optional flags to setup a window state. Some flags may be ignored. */
-    u32                             flags;
+    struct hadal_window           **out_window;
 };
 
-#define ARGS_HADAL_WINDOW_CREATE                            \
-    struct hadal                           *hadal,          \
-    const struct hadal_window_create_info  *create_info,    \
-    struct riven_memory                    *memory,         \
-    struct hadal_window                   **restrict out_window
 /** Creates a native window. */
-typedef s32 (AMWCALL *PFN_hadal_window_create)(ARGS_HADAL_WINDOW_CREATE);
+typedef void (AMWCALL *PFN_hadal_window_create)(struct hadal_window_create_work *restrict work);
 #define FN_HADAL_WINDOW_CREATE(encore) \
-    extern s32 AMWCALL _hadal_##encore##_window_create(ARGS_HADAL_WINDOW_CREATE)
+    extern void AMWCALL _hadal_##encore##_window_create(struct hadal_window_create_work *restrict work)
 
 /** Destroys a native window. */
 typedef void (AMWCALL *PFN_hadal_window_destroy)(struct hadal_window *restrict window);
@@ -221,6 +224,11 @@ typedef void (AMWCALL *PFN_hadal_window_destroy)(struct hadal_window *restrict w
 typedef void (AMWCALL *PFN_hadal_window_acquire_framebuffer_extent)(ARGS_HADAL_WINDOW_ACQUIRE_FRAMEBUFFER_EXTENT);
 #define FN_HADAL_WINDOW_ACQUIRE_FRAMEBUFFER_EXTENT(encore) \
     extern void AMWCALL _hadal_##encore##_window_acquire_framebuffer_extent(ARGS_HADAL_WINDOW_ACQUIRE_FRAMEBUFFER_EXTENT)
+
+/** Returns the window flags before visibility was changed. */
+typedef u32 (AMWCALL *PFN_hadal_window_visibility)(struct hadal_window *window, b32 visible);
+#define FN_HADAL_WINDOW_VISIBILITY(encore) \
+    extern u32 AMWCALL _hadal_##encore##_window_visibility(struct hadal_window *window, b32 visible)
 
 /** The header of a 'hadal_keyboard' device implemented by the backend. */
 struct hadal_keyboard_header {
@@ -407,6 +415,12 @@ struct hadal_finger {
     f32 pressure;
 };
 
+#define ARGS_HADAL_EVENT_POLL \
+    struct hadal *hadal, f64 *timeout
+typedef void (AMWCALL *PFN_hadal_event_poll)(ARGS_HADAL_EVENT_POLL);
+#define FN_HADAL_EVENT_POLL(encore) \
+    void AMWCALL _hadal_##encore##_event_poll(ARGS_HADAL_EVENT_POLL)
+
 #ifdef REZNOR_VULKAN
 /* to avoid including the Vulkan header */
 struct VkInstance_T;
@@ -475,6 +489,8 @@ struct hadal_interface {
     PFN_hadal_window_create                         window_create;
     PFN_hadal_window_destroy                        window_destroy;
     PFN_hadal_window_acquire_framebuffer_extent     window_acquire_framebuffer_extent;
+    PFN_hadal_window_visibility                     window_visibility;
+    PFN_hadal_event_poll                            event_poll;
 #ifdef REZNOR_VULKAN
     PFN_hadal_vulkan_write_instance_procedures      vulkan_write_instance_procedures;
     PFN_hadal_vulkan_surface_create                 vulkan_surface_create;

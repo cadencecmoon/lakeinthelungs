@@ -504,7 +504,7 @@ struct fiber {
 
 struct tagged_heap {
     _Atomic riven_tag_t         tag;
-    riven_chain_t               chain;
+    atomic_flag                 spinlock; /* the no-lock method fucked up */
     struct tagged_heap_arena    arena;
 };
 
@@ -840,14 +840,6 @@ void riven_unchain(
         update_free_and_waiting(tls);
     }
     if (counter) atomic_store_explicit(counter, RIVEN_FIBER_INVALID, memory_order_release);
-}
-
-void riven_acquire_chained(
-    struct riven  *riven,
-    riven_chain_t *chain)
-{
-    at_usize **counters = chain;
-    if (counters) *counters = get_lock(riven, 1);
 }
 
 u32 riven_thread_index(struct riven *riven)
@@ -1201,16 +1193,15 @@ void *acquire_tagged_resources(
 }
 
 attr_inline attr_nonnull(1,2)
-void *chained_allocation(
+void *locked_allocation(
     struct riven       *riven,
     struct tagged_heap *heap,
     usize               size,
     usize               alignment)
 {
-    riven_unchain(riven, heap->chain);
-    riven_acquire_chained(riven, &heap->chain);
+    do {} while (atomic_flag_test_and_set_explicit(&heap->spinlock, memory_order_acquire));
     void *result = acquire_tagged_resources(riven, &heap->arena, size, alignment);
-    riven_release_chained(heap->chain);
+    atomic_flag_clear_explicit(&heap->spinlock, memory_order_release);
     return result;
 }
 
@@ -1226,7 +1217,7 @@ void *riven_alloc(
 
     if (tag < riven_tag_reserved_count) {
         struct tagged_heap *heap = &riven->reserved_heaps[tag];
-        return chained_allocation(riven, heap, size, alignment);
+        return locked_allocation(riven, heap, size, alignment);
     } else if (tag == riven_tag_deferred) {
         struct tls *tls = get_thread_local_storage(riven);
         struct tagged_heap_arena *arena = &tls->deferred[riven->deferred_index];
@@ -1238,7 +1229,7 @@ void *riven_alloc(
         struct tagged_heap *heap = riven->tagged_heaps[i];
         riven_tag_t owner = atomic_load_explicit(&heap->tag, memory_order_relaxed);
         if (owner == tag)
-            return chained_allocation(riven, heap, size, alignment);
+            return locked_allocation(riven, heap, size, alignment);
     }
 
     for (;;) {
@@ -1254,7 +1245,7 @@ void *riven_alloc(
             memory_order_acquire, memory_order_relaxed))
         {
             atomic_fetch_add_explicit(&riven->tagged_heap_tail, 1lu, memory_order_release);
-            return chained_allocation(riven, heap, size, alignment);
+            return locked_allocation(riven, heap, size, alignment);
         }
         tail = atomic_load_explicit(&riven->tagged_heap_tail, memory_order_acquire);
     }
@@ -1289,7 +1280,7 @@ void riven_free(
         struct tagged_heap *heap = &riven->reserved_heaps[tag];
         if (heap->arena.head) 
             release_tagged_resources(riven, &heap->arena);
-        heap->chain = NULL;
+        atomic_flag_clear_explicit(&heap->spinlock, memory_order_release);
         return;
     } else if (tag == riven_tag_deferred) {
         /* For free, we want to clean the current deferred_index of tagged heaps, 
@@ -1313,7 +1304,7 @@ void riven_free(
             riven->tagged_heaps[i] = riven->tagged_heaps[tail];
             riven->tagged_heaps[tail] = heap;
             release_tagged_resources(riven, &heap->arena);
-            heap->chain = NULL;
+            atomic_flag_clear_explicit(&heap->spinlock, memory_order_release);
             return;
         }
     }

@@ -1,6 +1,8 @@
+#ifdef REZNOR_VULKAN
 #include "vk_reznor.h"
 
-FN_REZNOR_ASSEMBLY(vulkan, descriptor_set_layout) {
+FN_REZNOR_ASSEMBLY(vulkan, descriptor_set_layout) 
+{
     assert_debug(work && work->assembly.descriptor_set_layout && work->memory.data && work->type == reznor_resource_type_descriptor_set_layout && work->device);
     struct reznor_device *device = work->device;
 
@@ -9,7 +11,8 @@ FN_REZNOR_ASSEMBLY(vulkan, descriptor_set_layout) {
 #endif /* REZNOR_ENABLE_GPU_PROFILER */
 }
 
-FN_REZNOR_DISASSEMBLY(vulkan, descriptor_set_layout) {
+FN_REZNOR_DISASSEMBLY(vulkan, descriptor_set_layout) 
+{
     assert_debug(descriptor_set_layout && descriptor_set_layout->header.device);
     struct reznor_device *device = descriptor_set_layout->header.device;
 
@@ -19,14 +22,16 @@ FN_REZNOR_DISASSEMBLY(vulkan, descriptor_set_layout) {
     zerop(descriptor_set_layout);
 }
 
-FN_REZNOR_ASSEMBLY(vulkan, descriptor_set) {
+FN_REZNOR_ASSEMBLY(vulkan, descriptor_set) 
+{
     assert_debug(work && work->assembly.descriptor_set && work->memory.data && work->type == reznor_resource_type_descriptor_set && work->device);
     struct reznor_device *device = work->device;
 
     (void)device;
 }
 
-FN_REZNOR_DISASSEMBLY(vulkan, descriptor_set) {
+FN_REZNOR_DISASSEMBLY(vulkan, descriptor_set) 
+{
     assert_debug(descriptor_set && descriptor_set->header.device);
     struct reznor_device *device = descriptor_set->header.device;
 
@@ -34,3 +39,5 @@ FN_REZNOR_DISASSEMBLY(vulkan, descriptor_set) {
 
     zerop(descriptor_set);
 }
+
+#endif /* REZNOR_VULKAN */

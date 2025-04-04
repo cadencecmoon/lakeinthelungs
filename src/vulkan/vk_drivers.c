@@ -1,3 +1,4 @@
+#ifdef REZNOR_VULKAN
 #include <amw/a_moonlit_walk.h>
 
 #include "vk_reznor.h"
@@ -11,53 +12,53 @@ const char *vulkan_result_string(VkResult result)
 {
     switch (result) {
 		case VK_ERROR_OUT_OF_HOST_MEMORY:
-			return "host memory allocation has failed.";
+			return "host memory allocation has failed";
 		case VK_ERROR_OUT_OF_DEVICE_MEMORY:
-			return "device memory allocation has failed.";
+			return "device memory allocation has failed";
 		case VK_ERROR_INITIALIZATION_FAILED:
-			return "initialization of an object could not be completed for implementation-specific reasons.";
+			return "initialization of an object could not be completed for implementation-specific reasons";
 		case VK_ERROR_DEVICE_LOST:
-			return "the logical or physical device has been lost.";
+			return "the logical or physical device has been lost";
 		case VK_ERROR_MEMORY_MAP_FAILED:
-			return "mapping of a memory object has failed.";
+			return "mapping of a memory object has failed";
 		case VK_ERROR_LAYER_NOT_PRESENT:
-			return "a requested layer is not present or could not be loaded.";
+			return "a requested layer is not present or could not be loaded";
 		case VK_ERROR_EXTENSION_NOT_PRESENT:
-			return "a requested extension is not supported.";
+			return "a requested extension is not supported";
 		case VK_ERROR_FEATURE_NOT_PRESENT:
-			return "a requested feature is not supported.";
+			return "a requested feature is not supported";
 		case VK_ERROR_INCOMPATIBLE_DRIVER:
 			return "the requested version of Vulkan is not supported by the driver or is otherwise "
-			       "incompatible for implementation-specific reasons.";
+			       "incompatible for implementation-specific reasons";
 		case VK_ERROR_TOO_MANY_OBJECTS:
-			return "too many objects of the type have already been created.";
+			return "too many objects of the type have already been created";
 		case VK_ERROR_FORMAT_NOT_SUPPORTED:
-			return "a requested format is not supported on this device.";
+			return "a requested format is not supported on this device";
 		case VK_ERROR_FRAGMENTED_POOL:
-			return "a pool allocation has failed due to fragmentation of the pool's memory.";
+			return "a pool allocation has failed due to fragmentation of the pool's memory";
 		case VK_ERROR_OUT_OF_POOL_MEMORY:
-			return "a pool memory allocation has failed.";
+			return "a pool memory allocation has failed";
 		case VK_ERROR_INVALID_EXTERNAL_HANDLE:
-			return "an external handle is not a valid handle of the specified type.";
+			return "an external handle is not a valid handle of the specified type";
 		case VK_ERROR_FRAGMENTATION:
-			return "a descriptor pool creation has failed due to fragmentation.";
+			return "a descriptor pool creation has failed due to fragmentation";
 		case VK_ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS:
-			return "a buffer creation or memory allocation failed because the requested address is not available.";
+			return "a buffer creation or memory allocation failed because the requested address is not available";
 		case VK_PIPELINE_COMPILE_REQUIRED:
-			return "a requested pipeline creation would have required compilation, but the application requested compilation to not be performed.";
+			return "a requested pipeline creation would have required compilation, but the application requested compilation to not be performed";
 		case VK_ERROR_SURFACE_LOST_KHR:
-			return "a surface is no longer available.";
+			return "a surface is no longer available";
 		case VK_ERROR_NATIVE_WINDOW_IN_USE_KHR:
-			return "the requested window is already in use by Vulkan or another API in a manner which prevents it from being used again.";
+			return "the requested window is already in use by Vulkan or another API in a manner which prevents it from being used again";
 		case VK_SUBOPTIMAL_KHR:
 			return "a swapchain no longer matches the surface properties exactly, but can still be used to present"
-			       "to the surface successfully.";
+			       "to the surface successfully";
 		case VK_ERROR_OUT_OF_DATE_KHR:
 			return "a surface has changed in such a way that it is no longer compatible with the swapchain, "
-			       "any further presentation requests using the swapchain will fail.";
+			       "any further presentation requests using the swapchain will fail";
 		case VK_ERROR_INCOMPATIBLE_DISPLAY_KHR:
 			return "the display used by a swapchain does not use the same presentable image layout, or is "
-			       "incompatible in a way that prevents sharing an image.";
+			       "incompatible in a way that prevents sharing an image";
 		case VK_ERROR_VALIDATION_FAILED_EXT:
 			return "VK_ERROR_VALIDATION_FAILED_EXT";
 		case VK_ERROR_INVALID_SHADER_NV:
@@ -68,20 +69,24 @@ const char *vulkan_result_string(VkResult result)
 			return "VK_ERROR_NOT_PERMITTED_KHR";
 		case VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT:
 			return "an operation on a swapchain created with VK_FULL_SCREEN_EXCLUSIVE_APPLICATION_CONTROLLED_EXT failed as "
-			       "it did not have exlusive full-screen access.";
+			       "it did not have exlusive full-screen access";
 		case VK_THREAD_IDLE_KHR:
-			return "a deferred operation is not complete but there is currently no work for this thread to do at the time of this call.";
+			return "a deferred operation is not complete but there is currently no work for this thread to do at the time of this call";
 		case VK_THREAD_DONE_KHR:
-			return "a deferred operation is not complete but there is no work remaining to assign to additional threads.";
+			return "a deferred operation is not complete but there is no work remaining to assign to additional threads";
 		case VK_OPERATION_DEFERRED_KHR:
-			return "a deferred operation was requested and at least some of the work was deferred.";
+			return "a deferred operation was requested and at least some of the work was deferred";
 		case VK_OPERATION_NOT_DEFERRED_KHR:
-			return "a deferred operation was requested and no operations were deferred.";
+			return "a deferred operation was requested and no operations were deferred";
 		case VK_ERROR_COMPRESSION_EXHAUSTED_EXT:
 			return "an image creation failed because internal resources required for compression are exhausted."
-			       "this must only be returned when fixed-rate compression is requested.";
+			       "this must only be returned when fixed-rate compression is requested";
+        case VK_INCOMPLETE:
+            return "incomplete";
+        case VK_SUCCESS:
+            return "success";
         default:
-            return "an unknown error has occured.";
+            return "an unknown error has occured";
     }
 }
 
@@ -1243,7 +1248,7 @@ void vulkan_write_allocation_callbacks(VkAllocationCallbacks *allocator, const c
     allocator->pUserData = (void *)userdata;
 };
 
-FN_REZNOR_MEMORY_REQUIREMENTS(vulkan)
+FN_REZNOR_HOST_MEMORY_REQUIREMENTS(vulkan)
 {
     usize out = 0;
 
@@ -1549,6 +1554,8 @@ RIVEN_ENCORE(reznor, vulkan)
     reznor->interface.frame_next_images = _reznor_vulkan_frame_next_images;
     reznor->interface.frame_submit = _reznor_vulkan_frame_submit;
 
+    reznor->interface.host_memory_requirements = _reznor_vulkan_host_memory_requirements;
+    reznor->interface.device_memory_requirements = _reznor_vulkan_device_memory_requirements;
     reznor->interface.assembly_table[reznor_resource_type_device_memory] = (PFN_riven_work)_reznor_vulkan_device_memory_assembly;
     reznor->interface.assembly_table[reznor_resource_type_buffer] = (PFN_riven_work)_reznor_vulkan_buffer_assembly;
     reznor->interface.assembly_table[reznor_resource_type_texture] = (PFN_riven_work)_reznor_vulkan_texture_assembly;
@@ -1588,11 +1595,11 @@ RIVEN_ENCORE(reznor, vulkan)
     reznor->interface.command_draw_indirect = _reznor_vulkan_command_draw_indirect;
     reznor->interface.command_dispatch = _reznor_vulkan_command_dispatch;
     reznor->interface.command_dispatch_indirect = _reznor_vulkan_command_dispatch_indirect;
-    reznor->interface.command_copy_buffer = _reznor_vulkan_command_copy_buffer;
-    reznor->interface.command_copy_texture = _reznor_vulkan_command_copy_texture;
     reznor->interface.command_begin_rendering = _reznor_vulkan_command_begin_rendering;
     reznor->interface.command_end_rendering = _reznor_vulkan_command_end_rendering;
 
     *encore->header.interface = (void *)reznor;
     log_verbose("'%s' interface write.", reznor->interface.header.name.ptr);
 }
+
+#endif /* REZNOR_VULKAN */

@@ -161,6 +161,10 @@ typedef void (AMWCALL *PFN_reznor_device_destroy)(struct reznor_device *restrict
 #define FN_REZNOR_DEVICE_DESTROY(encore) \
     extern void AMWCALL _reznor_##encore##_device_destroy(struct reznor_device *restrict device)
 
+typedef void (AMWCALL *PFN_reznor_frame_begin)(struct reznor_device_frame *frame);
+#define FN_REZNOR_FRAME_BEGIN(encore) \
+    extern void AMWCALL _reznor_##encore##_frame_begin(struct reznor_device_frame *frame)
+
 #define ARGS_REZNOR_FRAME_NEXT_IMAGES \
     u64                       frame_index, \
     u32                       swapchain_count, \
@@ -168,10 +172,6 @@ typedef void (AMWCALL *PFN_reznor_device_destroy)(struct reznor_device *restrict
 typedef void (AMWCALL *PFN_reznor_frame_next_images)(ARGS_REZNOR_FRAME_NEXT_IMAGES);
 #define FN_REZNOR_FRAME_NEXT_IMAGES(encore) \
     extern void AMWCALL _reznor_##encore##_frame_next_images(ARGS_REZNOR_FRAME_NEXT_IMAGES)
-
-typedef void (AMWCALL *PFN_reznor_frame_begin)(struct reznor_device_frame *frame);
-#define FN_REZNOR_FRAME_BEGIN(encore) \
-    extern void AMWCALL _reznor_##encore##_frame_begin(struct reznor_device_frame *frame)
 
 typedef void (AMWCALL *PFN_reznor_frame_submit)(struct reznor_device_frame *frame);
 #define FN_REZNOR_FRAME_SUBMIT(encore) \
@@ -427,13 +427,7 @@ union reznor_resource {
     u8                                                 *raw;
 };
 
-struct reznor_resource_assembly_header {
-    struct str                                          debug_name;
-    union reznor_resource                               output;
-};
-
 union reznor_resource_assembly {
-    struct reznor_resource_assembly_header             *header;
     struct reznor_device_memory_assembly               *device_memory;
     struct reznor_buffer_assembly                      *buffer;
     struct reznor_texture_assembly                     *texture;
@@ -463,11 +457,17 @@ struct reznor_assembly_work {
 /** Writes the size and alignment rules for opaque resources, valid for the given configuration,
  *  for every object to be assembled. This procedure does not perform any allocation. Device can be NULL,
  *  but reznor_resource_type, assembly and assembly_count must be set. */
-#define ARGS_REZNOR_MEMORY_REQUIREMENTS \
+#define ARGS_REZNOR_HOST_MEMORY_REQUIREMENTS \
     u32 work_count, struct reznor_assembly_work *works
-typedef usize (AMWCALL *PFN_reznor_memory_requirements)(ARGS_REZNOR_MEMORY_REQUIREMENTS);
-#define FN_REZNOR_MEMORY_REQUIREMENTS(encore) \
-    extern usize AMWCALL _reznor_##encore##_memory_requirements(ARGS_REZNOR_MEMORY_REQUIREMENTS)
+typedef usize (AMWCALL *PFN_reznor_host_memory_requirements)(ARGS_REZNOR_HOST_MEMORY_REQUIREMENTS);
+#define FN_REZNOR_HOST_MEMORY_REQUIREMENTS(encore) \
+    extern usize AMWCALL _reznor_##encore##_host_memory_requirements(ARGS_REZNOR_HOST_MEMORY_REQUIREMENTS)
+
+#define ARGS_REZNOR_DEVICE_MEMORY_REQUIREMENTS \
+    u32 TODO
+typedef usize (AMWCALL *PFN_reznor_device_memory_requirements)(ARGS_REZNOR_DEVICE_MEMORY_REQUIREMENTS);
+#define FN_REZNOR_DEVICE_MEMORY_REQUIREMENTS(encore) \
+    extern usize AMWCALL _reznor_##encore##_device_memory_requirements(ARGS_REZNOR_DEVICE_MEMORY_REQUIREMENTS)
 
 #define FN_REZNOR_ASSEMBLY(encore, __type) \
     extern void AMWCALL _reznor_##encore##_##__type##_assembly(struct reznor_assembly_work *restrict work)
@@ -505,7 +505,8 @@ struct reznor_device_memory_range {
 };
 
 struct reznor_device_memory_assembly {
-    struct reznor_resource_assembly_header      header;
+    struct str                                  debug_name;
+    struct reznor_device_memory               **output;
     usize                                       size;
     u32                                         memory_type_index;
     b32                                         map_memory;
@@ -554,7 +555,8 @@ struct reznor_buffer_memory_binding {
 };
 
 struct reznor_buffer_assembly {
-    struct reznor_resource_assembly_header      header;
+    struct str                                  debug_name;
+    struct reznor_buffer                      **output;
     u32                                         usage;      /**< enum reznor_buffer_usage */
 };
 
@@ -736,7 +738,8 @@ struct reznor_texture_memory_binding {
 };
 
 struct reznor_texture_assembly {
-    struct reznor_resource_assembly_header      header;
+    struct str                                  debug_name;
+    struct reznor_texture                     **output;
     u32                                         width;
     u32                                         height;
     u32                                         depth;          /* 1 default */
@@ -776,7 +779,8 @@ enum reznor_sampler_address_mode {
 };
 
 struct reznor_sampler_assembly {
-    struct reznor_resource_assembly_header      header;
+    struct str                                  debug_name;
+    struct reznor_sampler                     **output;
     f32                                         mip_lod_bias;
     f32                                         min_lod;
     f32                                         max_lod;
@@ -819,18 +823,21 @@ enum reznor_shader_stage {
 };
 
 struct reznor_descriptor_set_layout_assembly {
-    struct reznor_resource_assembly_header      header;
+    struct str                                  debug_name;
+    struct reznor_descriptor_set_layout       **output;
     /* TODO descriptor layout bindings */
 };
 
 struct reznor_descriptor_set_assembly {
-    struct reznor_resource_assembly_header      header;
+    struct str                                  debug_name;
+    struct reznor_descriptor_set              **output;
     const struct reznor_descriptor_set_layout  *descriptor_set_layout;
     /* TODO descriptor data */
 };
     
 struct reznor_pipeline_layout_assembly {
-    struct reznor_resource_assembly_header      header;
+    struct str                                  debug_name;
+    struct reznor_pipeline_layout             **output;
     const struct pelagia_descriptor_set_layout *descriptor_set_layouts[REZNOR_MAX_DESCRIPTOR_SET_SLOT_COUNT];
     u32                                         descriptor_set_layout_count;
     u16                                         push_constants_stage_mask;          /**< enum reznor_pipeline_stage */
@@ -839,7 +846,8 @@ struct reznor_pipeline_layout_assembly {
 };
 
 struct reznor_graphics_pipeline_assembly {
-    struct reznor_resource_assembly_header      header;
+    struct str                                  debug_name;
+    struct reznor_graphics_pipeline           **output;
     struct reznor_shader_source                 vertex_shader;
     struct reznor_shader_source                 tesselation_control_shader; 
     struct reznor_shader_source                 tesselation_evaluation_shader; 
@@ -878,13 +886,15 @@ struct reznor_graphics_pipeline_assembly {
 };
 
 struct reznor_compute_pipeline_assembly {
-    struct reznor_resource_assembly_header      header;
+    struct str                                  debug_name;
+    struct reznor_compute_pipeline            **output;
     struct reznor_shader_source                 shader;
     const struct reznor_pipeline_layout        *pipeline_layout;
 };
 
 struct reznor_raytracing_pipeline_assembly {
-    struct reznor_resource_assembly_header      header;
+    struct str                                  debug_name;
+    struct reznor_raytracing_pipeline         **output;
     struct reznor_shader_source                 shader;
     const struct reznor_pipeline_layout        *pipeline_layout;
     const u8                                   *shader_group_handle_storage;
@@ -900,7 +910,8 @@ struct reznor_raytracing_pipeline_assembly {
 };
 
 struct reznor_shader_binding_table_assembly { 
-    struct reznor_resource_assembly_header      header;
+    struct str                                  debug_name;
+    struct reznor_shader_binding_table        **output;
     struct reznor_buffer_strided_range          raygen_shader_entry;
     struct reznor_buffer_strided_range          miss_shader_entry;
     struct reznor_buffer_strided_range          hit_shader_entry;
@@ -914,7 +925,8 @@ enum reznor_raytracing_vertex_format {
 };
 
 struct reznor_bottom_level_assembly {
-    struct reznor_resource_assembly_header      header;
+    struct str                                  debug_name;
+    struct reznor_bottom_level                **output;
     struct reznor_buffer_range                  scratch_buffer;
     struct reznor_buffer_range                  vertex_buffer;
     struct reznor_buffer_range                  index_buffer;
@@ -945,7 +957,8 @@ struct attr_aligned(16) reznor_top_level_instance {
 static_assert(sizeof(struct reznor_top_level_instance) == 64u, "Reznor top-level instance is a GPU/hardware format, must be 64 bytes.");
 
 struct reznor_top_level_assembly {
-    struct reznor_resource_assembly_header      header;
+    struct str                                  debug_name;
+    struct reznor_top_level                   **output;
     struct reznor_buffer_range                  scratch_buffer;
     struct reznor_buffer_range                  instance_buffer;
     u32                                         instance_mask;
@@ -959,7 +972,8 @@ enum reznor_query_type {
 };
 
 struct reznor_query_pool_assembly {
-    struct reznor_resource_assembly_header      header;
+    struct str                                  debug_name;
+    struct reznor_query_pool                  **output;
     /* TODO */
 };
 
@@ -982,7 +996,8 @@ enum reznor_swapchain_flags {
 };
 
 struct reznor_swapchain_assembly {
-    struct reznor_resource_assembly_header      header;
+    struct str                                  debug_name;
+    struct reznor_swapchain                   **output;
     struct hadal_window                        *window;
     enum reznor_texture_format                  preferred_format;
     b32                                         enable_vsync;
@@ -1075,6 +1090,9 @@ typedef void (AMWCALL *PFN_reznor_command_dispatch_indirect)(ARGS_REZNOR_COMMAND
 #define FN_REZNOR_COMMAND_DISPATCH_INDIRECT(encore) \
     extern void AMWCALL _reznor_##encore##_command_dispatch_indirect(ARGS_REZNOR_COMMAND_DISPATCH_INDIRECT)
 
+/* TODO refactor the 'copy' commands to accept arrays, and to handle ranges 
+ * of buffers/textures instead of the entire given buffer/texture range. */
+#if 0
 #define ARGS_REZNOR_COMMAND_COPY_BUFFER                 \
     struct reznor_command_buffer       *command_buffer, \
     struct reznor_buffer               *src_buffer,     \
@@ -1094,6 +1112,7 @@ typedef void (AMWCALL *PFN_reznor_command_copy_buffer)(ARGS_REZNOR_COMMAND_COPY_
 typedef void (AMWCALL *PFN_reznor_command_copy_texture)(ARGS_REZNOR_COMMAND_COPY_TEXTURE);
 #define FN_REZNOR_COMMAND_COPY_TEXTURE(encore) \
     extern void AMWCALL _reznor_##encore##_command_copy_texture(ARGS_REZNOR_COMMAND_COPY_TEXTURE)
+#endif
 
 struct reznor_rendering_attachment {
     const struct reznor_texture        *texture;
@@ -1147,7 +1166,8 @@ struct reznor_interface {
     PFN_reznor_frame_next_images                    frame_next_images;
     PFN_reznor_frame_submit                         frame_submit;
 
-    PFN_reznor_memory_requirements                  memory_requirements;
+    PFN_reznor_host_memory_requirements             host_memory_requirements;
+    PFN_reznor_device_memory_requirements           device_memory_requirements;
     PFN_riven_work                                  assembly_table[reznor_resource_type_count];
     PFN_riven_work                                  disassembly_table[reznor_resource_type_count];
 
@@ -1159,8 +1179,6 @@ struct reznor_interface {
     PFN_reznor_command_draw_indirect                command_draw_indirect;
     PFN_reznor_command_dispatch                     command_dispatch;
     PFN_reznor_command_dispatch_indirect            command_dispatch_indirect;
-    PFN_reznor_command_copy_buffer                  command_copy_buffer;
-    PFN_reznor_command_copy_texture                 command_copy_texture;
     PFN_reznor_command_begin_rendering              command_begin_rendering;
     PFN_reznor_command_end_rendering                command_end_rendering;
 };

@@ -1,3 +1,4 @@
+#ifdef PLATFORM_UNIX
 #include <amw/bedrock/log.h>
 #include <amw/bedrock/process.h>
 
@@ -26,3 +27,5 @@ void *process_get_address(void *module, const char *procedure)
         log_error("dlsym '%s' failed: %s.", procedure, err);
     return addr;
 }
+
+#endif /* PLATFORM_UNIX */

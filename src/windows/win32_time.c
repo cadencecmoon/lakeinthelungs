@@ -1,3 +1,4 @@
+#ifdef PLATFORM_WINDOWS
 #include <amw/bedrock/time.h>
 
 #include "win32_hadal.h"
@@ -20,3 +21,4 @@ u64 rtc_frequency(void)
         QueryPerformanceFrequency((LARGE_INTEGER *)&timer_frequency);
     return timer_frequency;
 }
+#endif /* PLATFORM_WINDOWS */

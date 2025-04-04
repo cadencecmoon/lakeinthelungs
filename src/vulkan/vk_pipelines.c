@@ -1,3 +1,4 @@
+#ifdef REZNOR_VULKAN
 #include "vk_reznor.h"
 
 static char g_vulkan_pipeline_cache_header_magic[4] = "AMWE";
@@ -17,7 +18,8 @@ struct vulkan_pipeline_cache_header {
     u8  uuid[VK_UUID_SIZE]; /**< Equal to VkPhysicalDeviceProperties::pipelineCacheUUID */
 };
 
-FN_REZNOR_ASSEMBLY(vulkan, pipeline_layout) {
+FN_REZNOR_ASSEMBLY(vulkan, pipeline_layout) 
+{
     assert_debug(work && work->assembly.pipeline_layout && work->memory.data && work->type == reznor_resource_type_pipeline_layout && work->device);
     struct reznor_device *device = work->device;
 
@@ -26,7 +28,8 @@ FN_REZNOR_ASSEMBLY(vulkan, pipeline_layout) {
 #endif /* REZNOR_ENABLE_GPU_PROFILER */
 }
 
-FN_REZNOR_DISASSEMBLY(vulkan, pipeline_layout) {
+FN_REZNOR_DISASSEMBLY(vulkan, pipeline_layout) 
+{
     assert_debug(pipeline_layout && pipeline_layout->header.device);
     struct reznor_device *device = pipeline_layout->header.device;
 
@@ -35,7 +38,8 @@ FN_REZNOR_DISASSEMBLY(vulkan, pipeline_layout) {
 #endif /* REZNOR_ENABLE_GPU_PROFILER */
 }
 
-FN_REZNOR_ASSEMBLY(vulkan, graphics_pipeline) { 
+FN_REZNOR_ASSEMBLY(vulkan, graphics_pipeline) 
+{
     assert_debug(work && work->assembly.graphics_pipeline && work->memory.data && work->type == reznor_resource_type_graphics_pipeline && work->device);
     struct reznor_device *device = work->device;
 
@@ -44,7 +48,8 @@ FN_REZNOR_ASSEMBLY(vulkan, graphics_pipeline) {
 #endif /* REZNOR_ENABLE_GPU_PROFILER */
 }
 
-FN_REZNOR_DISASSEMBLY(vulkan, graphics_pipeline) {
+FN_REZNOR_DISASSEMBLY(vulkan, graphics_pipeline) 
+{
     assert_debug(graphics_pipeline && graphics_pipeline->header.device);
     struct reznor_device *device = graphics_pipeline->header.device;
 
@@ -53,7 +58,8 @@ FN_REZNOR_DISASSEMBLY(vulkan, graphics_pipeline) {
 #endif /* REZNOR_ENABLE_GPU_PROFILER */
 }
 
-FN_REZNOR_ASSEMBLY(vulkan, compute_pipeline) {
+FN_REZNOR_ASSEMBLY(vulkan, compute_pipeline) 
+{
     assert_debug(work && work->assembly.compute_pipeline && work->memory.data && work->type == reznor_resource_type_compute_pipeline && work->device);
     struct reznor_device *device = work->device;
 
@@ -62,7 +68,8 @@ FN_REZNOR_ASSEMBLY(vulkan, compute_pipeline) {
 #endif /* REZNOR_ENABLE_GPU_PROFILER */
 }
 
-FN_REZNOR_DISASSEMBLY(vulkan, compute_pipeline) {
+FN_REZNOR_DISASSEMBLY(vulkan, compute_pipeline) 
+{
     assert_debug(compute_pipeline && compute_pipeline->header.device);
     struct reznor_device *device = compute_pipeline->header.device;
 
@@ -71,7 +78,8 @@ FN_REZNOR_DISASSEMBLY(vulkan, compute_pipeline) {
 #endif /* REZNOR_ENABLE_GPU_PROFILER */
 }
 
-FN_REZNOR_ASSEMBLY(vulkan, raytracing_pipeline) {
+FN_REZNOR_ASSEMBLY(vulkan, raytracing_pipeline) 
+{
     assert_debug(work && work->assembly.raytracing_pipeline && work->memory.data && work->type == reznor_resource_type_raytracing_pipeline && work->device);
     struct reznor_device *device = work->device;
 
@@ -80,7 +88,8 @@ FN_REZNOR_ASSEMBLY(vulkan, raytracing_pipeline) {
 #endif /* REZNOR_ENABLE_GPU_PROFILER */
 }
 
-FN_REZNOR_DISASSEMBLY(vulkan, raytracing_pipeline) {
+FN_REZNOR_DISASSEMBLY(vulkan, raytracing_pipeline) 
+{
     assert_debug(raytracing_pipeline && raytracing_pipeline->header.device);
     struct reznor_device *device = raytracing_pipeline->header.device;
 
@@ -89,18 +98,4 @@ FN_REZNOR_DISASSEMBLY(vulkan, raytracing_pipeline) {
 #endif /* REZNOR_ENABLE_GPU_PROFILER */
 }
 
-FN_REZNOR_ASSEMBLY(vulkan, shader_binding_table) {
-    assert_debug(work && work->assembly.shader_binding_table && work->memory.data && work->type == reznor_resource_type_shader_binding_table && work->device);
-    struct reznor_device *device = work->device;
-
-    (void)device;
-}
-
-FN_REZNOR_DISASSEMBLY(vulkan, shader_binding_table) {
-    assert_debug(shader_binding_table && shader_binding_table->header.device);
-    struct reznor_device *device = shader_binding_table->header.device;
-
-    (void)device;
-
-    zerop(shader_binding_table);
-}
+#endif /* REZNOR_VULKAN */

@@ -26,6 +26,7 @@ s32 amw_run_framework(PFN_riven_work (AMWCALL *entry)(struct amw_config *, s32, 
         .riven_memory_budget_size = 1lu*1024*1024*1024, /* 1 GB */
         .riven_fiber_stack_size = 64lu*1024,
         .riven_thread_count = 0,
+        .riven_fiber_count = 0,
         .riven_tagged_heap_count = 0,
         .riven_log2_work_count = 11,
         .riven_log2_memory_count = 9,
@@ -327,6 +328,7 @@ static s32 AMWCALL engine_init(
             return res;
     }
 
+    /* create rendering devices */
     res = mgpu_create_devices(
         amw->reznor, amw->hadal, tag,
         config->frames_in_flight,
@@ -341,6 +343,57 @@ static s32 AMWCALL engine_init(
         log_fatal("Failed to create any valid rendering devices.");
         return res;
     }
+    struct hadal_interface *hadal = (struct hadal_interface *)amw->hadal;
+    struct reznor_interface *reznor = (struct reznor_interface *)amw->reznor;
+
+    /* create the main window */
+    struct hadal_window_create_work window_create_work = {
+        .result = result_error,
+        .flags = hadal_window_flag_decorated | hadal_window_flag_shell_activated | hadal_window_flag_visible,
+        .hadal = amw->hadal,
+        .width = config->hadal_main_width,
+        .height = config->hadal_main_height,
+        .title = config->metadata.game_name,
+        .memory = {
+            .tag = tag,
+        },
+        .out_window = &amw->windows[0],
+    };
+    hadal->window_create(&window_create_work);
+
+    if (window_create_work.result != result_success) {
+        log_fatal("Failed to create the main window.");
+        return window_create_work.result;
+    }
+    amw->active_window_count++;
+
+    /* create the swapchain of the main window */
+    struct reznor_swapchain *main_window_swapchain = NULL;
+    struct reznor_swapchain_assembly swapchain_assembly = {
+        .debug_name = str_init("main_window_swapchain"),
+        .output = &main_window_swapchain,
+        .window = *window_create_work.out_window,
+        .enable_vsync = false,
+    };
+    struct reznor_assembly_work swapchain_work = {
+        .result = result_error,
+        .type = reznor_resource_type_swapchain,
+        .device = amw->render_devices[0],
+        .assembly_count = 1,
+        .assembly.swapchain = &swapchain_assembly,
+    };
+    reznor->host_memory_requirements(1, &swapchain_work);
+    swapchain_work.memory.data = riven_alloc(riven, tag, swapchain_work.memory.size, swapchain_work.memory.alignment);
+    reznor->assembly_table[reznor_resource_type_swapchain](&swapchain_work);
+
+    if (swapchain_work.result != result_success) {
+        log_fatal("Failed to create a swapchain of the main window.");
+        return swapchain_work.result;
+    }
+
+    /* it should be attached already */
+    assert_debug(main_window_swapchain == ((struct hadal_window_header *)amw->windows[0])->swapchain);
+    atomic_store_explicit(&amw->window_count, amw->active_window_count, memory_order_release);
 
     /* create the application */
     struct moonlit_encore moonlit_encore = {
@@ -377,7 +430,52 @@ static void AMWCALL deferred_window_destroy(struct amw_deferred_work *work)
     atomic_fetch_sub_explicit(&amw->window_count, 1, memory_order_release);
 };
 
-static void prepare_framedata_windows(struct amw_framedata *frame) 
+#define FRAMEDATA_CLEANUP_WORK_INDEX (AMW_GPUEXEC_WORK_IDX+2)
+static void AMWCALL framedata_execute_cleanup(struct amw_framedata *cleanup)
+{
+    if (!cleanup) return;
+
+    /* wait for deferred work to finish */
+    if (cleanup->deferred_count)
+        riven_unchain(cleanup->amw->riven, cleanup->chain);
+    cleanup->chain = NULL; 
+    cleanup->window_count = 0;
+    cleanup->deferred_count = 0;
+}
+
+#define FRAMEDATA_DEFERRED_WORK_INDEX (AMW_GPUEXEC_WORK_IDX+1)
+static void AMWCALL framedata_execute_deferred(struct amw_framedata *deferred)
+{
+    if (!deferred) return;
+
+    struct a_moonlit_walk_engine *amw = deferred->amw;
+
+    struct riven_work deferred_work[AMW_MAX_DEFERRED_COUNT];
+    for (u32 i = 0; i < AMW_MAX_DEFERRED_COUNT; i++)
+        deferred_work[i].name = str_init("a_moonlit_walk:deferred");
+
+    /* wait for last gpuexec to finish */
+    riven_unchain(amw->riven, deferred->chain);
+    deferred->chain = NULL;
+#ifndef NDEBUG
+    /* check fatal results of last stage (gpuexec) */
+    if (deferred->result == result_error) {
+        log_error("Frame '%lu' for 'a_moonlit_walk:gpuexec' returned an error, the game will exit now.", deferred->frame_index);
+        deferred->amw->exit_game = true;
+    }
+#endif /* NDEBUG */
+    /* process deferred work */
+    if (deferred->deferred_count) {
+        for (u32 i = 0; i < deferred->deferred_count; i++) {
+            struct amw_deferred_work *context = &deferred->deferred_work[i];
+            deferred_work[i].procedure = context->procedure;
+            deferred_work[i].argument = context;
+        }
+        riven_split_work(amw->riven, deferred_work, deferred->deferred_count, &deferred->chain);
+    }
+}
+
+static void AMWCALL framedata_prepare_windows(struct amw_framedata *frame) 
 {
     struct a_moonlit_walk_engine *amw = frame->amw;
 
@@ -426,6 +524,12 @@ static void prepare_framedata_windows(struct amw_framedata *frame)
     frame->window_count = index;
 }
 
+attr_inline void poll_events(struct a_moonlit_walk_engine *amw) 
+{
+    struct hadal_interface *hadal = (struct hadal_interface *)amw->hadal;
+    hadal->event_poll((struct hadal *)hadal, NULL);
+}
+
 s32 a_moonlit_walk(
     struct riven            *riven,
     thread_t                *threads,
@@ -462,17 +566,17 @@ s32 a_moonlit_walk(
             frames[i].deferred_work[j].frame = &frames[i];
     }
 
-    struct riven_work work[3];
+    struct riven_work work[5];
     work[AMW_GAME_WORK_IDX].procedure = (PFN_riven_work)a_moonlit_walk_game;
     work[AMW_GAME_WORK_IDX].name = str_init("a_moonlit_walk:game");
     work[AMW_RENDERING_WORK_IDX].procedure = (PFN_riven_work)a_moonlit_walk_rendering;
     work[AMW_RENDERING_WORK_IDX].name = str_init("a_moonlit_walk:rendering");
     work[AMW_GPUEXEC_WORK_IDX].procedure = (PFN_riven_work)a_moonlit_walk_gpuexec;
     work[AMW_GPUEXEC_WORK_IDX].name = str_init("a_moonlit_walk:gpuexec");
-
-    struct riven_work deferred_work[AMW_MAX_DEFERRED_COUNT];
-    for (u32 i = 0; i < AMW_MAX_DEFERRED_COUNT; i++)
-        deferred_work[i].name = str_init("a_moonlit_walk:deferred");
+    work[FRAMEDATA_DEFERRED_WORK_INDEX].procedure = (PFN_riven_work)framedata_execute_deferred;
+    work[FRAMEDATA_DEFERRED_WORK_INDEX].name = str_init("a_moonlit_walk:deferred");
+    work[FRAMEDATA_CLEANUP_WORK_INDEX].procedure = (PFN_riven_work)framedata_execute_cleanup;
+    work[FRAMEDATA_CLEANUP_WORK_INDEX].name = str_init("a_moonlit_walk:cleanup");
 
     /* XXX debug, delete later */
     f64 close_counter = DEBUG_CLOSE_COUNTER_MS;
@@ -490,45 +594,10 @@ s32 a_moonlit_walk(
         struct amw_framedata *cleanup = NULL;
 
         while (game || rendering || gpuexec || deferred) {
-            time_last = time_now;
-            time_now = rtc_counter();
-            delta_time = ((f64)(time_now - time_last) * delta_time_frequency);
-            record_frame_time(time_now, delta_time_frequency);
-
-            /* frame N-4, cleanup */
-            if (cleanup) {
-                /* wait for deferred work to finish */
-                if (cleanup->deferred_count)
-                    riven_unchain(riven, cleanup->chain);
-                cleanup->chain = NULL; 
-                cleanup->window_count = 0;
-                cleanup->deferred_count = 0;
-            }
-
-            /* frame N-3, deferred */
-            if (deferred) {
-                /* wait for last gpuexec to finish */
-                riven_unchain(riven, deferred->chain);
-                deferred->chain = NULL;
-#ifndef NDEBUG
-                /* check fatal results of last stage (gpuexec) */
-                if (deferred->result == result_error) {
-                    log_error("Frame '%lu' for '%s' returned an error, the game will exit now.", 
-                              frame_index, work[AMW_GPUEXEC_WORK_IDX].name.ptr);
-                    res = deferred->result;
-                    amw.exit_game = true;
-                }
-#endif /* NDEBUG */
-                /* process deferred work */
-                if (deferred->deferred_count) {
-                    for (u32 i = 0; i < deferred->deferred_count; i++) {
-                        struct amw_deferred_work *context = &deferred->deferred_work[i];
-                        deferred_work[i].procedure = context->procedure;
-                        deferred_work[i].argument = context;
-                    }
-                    riven_split_work(riven, deferred_work, deferred->deferred_count, &deferred->chain);
-                }
-            }
+            /* frames N-4, cleanup and N-3, deferred */
+            work[FRAMEDATA_DEFERRED_WORK_INDEX].argument = deferred;
+            work[FRAMEDATA_CLEANUP_WORK_INDEX].argument = cleanup;
+            riven_split_work_and_unchain(riven, &work[FRAMEDATA_DEFERRED_WORK_INDEX], 2);
 
             /* frame N-2, gpuexec */
             if (gpuexec) {
@@ -545,7 +614,7 @@ s32 a_moonlit_walk(
                 }
 #endif /* NDEBUG */
                 work[AMW_GPUEXEC_WORK_IDX].argument = gpuexec;
-                riven_split_work(riven, &work[AMW_GPUEXEC_WORK_IDX], !amw.exit_game, &gpuexec->chain);
+                //riven_split_work(riven, &work[AMW_GPUEXEC_WORK_IDX], 3, &gpuexec->chain);
             }
 
             /* frame N-1, rendering */
@@ -563,8 +632,23 @@ s32 a_moonlit_walk(
                 }
 #endif /* NDEBUG */
                 work[AMW_RENDERING_WORK_IDX].argument = rendering;
-                riven_split_work(riven, &work[AMW_RENDERING_WORK_IDX], !amw.exit_game, &rendering->chain);
+                riven_split_work(riven, &work[AMW_RENDERING_WORK_IDX], 1, &rendering->chain);
             }
+
+            /* begin the frame */
+            time_last = time_now;
+            time_now = rtc_counter();
+            delta_time = ((f64)(time_now - time_last) * delta_time_frequency);
+
+            record_frame_time(time_now, delta_time_frequency);
+            print_frame_time(FRAME_TIME_PRINT_INTERVAL_MS);
+
+            /* TODO bugged */
+            //poll_events(&amw);
+
+            log_debug("aha %lu", frame_index);
+
+            riven_rotate_deferred(riven);
 
             /* frame N, game */
             if (game) {
@@ -583,10 +667,10 @@ s32 a_moonlit_walk(
                 }
 
                 /* resolve the visible windows for this frame */
-                prepare_framedata_windows(game);
+                framedata_prepare_windows(game);
 
                 work[AMW_GAME_WORK_IDX].argument = game;
-                riven_split_work(riven, &work[AMW_GAME_WORK_IDX], !amw.exit_game, &game->chain);
+                riven_split_work(riven, &work[AMW_GAME_WORK_IDX], 1, &game->chain);
             }
 
             /* XXX debug, delete later */
@@ -600,9 +684,6 @@ s32 a_moonlit_walk(
             gpuexec = rendering;
             rendering = game;
             game = amw.finalize_gameloop ? NULL : &frames[(frame_index++) & (AMW_MAX_FRAMEDATA-1)];
-
-            print_frame_time(FRAME_TIME_PRINT_INTERVAL_MS);
-            riven_rotate_deferred(riven);
         }
 
         /* wait for all work to finish */

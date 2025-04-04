@@ -1,5 +1,6 @@
 #pragma once
 
+#ifdef REZNOR_VULKAN
 #include <amw/reznor.h>
 
 FN_REZNOR_DEVICE_QUERY(vulkan);
@@ -9,7 +10,8 @@ FN_REZNOR_FRAME_BEGIN(vulkan);
 FN_REZNOR_FRAME_NEXT_IMAGES(vulkan);
 FN_REZNOR_FRAME_SUBMIT(vulkan);
 
-FN_REZNOR_MEMORY_REQUIREMENTS(vulkan);
+FN_REZNOR_HOST_MEMORY_REQUIREMENTS(vulkan);
+FN_REZNOR_DEVICE_MEMORY_REQUIREMENTS(vulkan);
 FN_REZNOR_ASSEMBLY(vulkan, device_memory);
 FN_REZNOR_ASSEMBLY(vulkan, buffer);
 FN_REZNOR_ASSEMBLY(vulkan, texture);
@@ -48,8 +50,6 @@ FN_REZNOR_COMMAND_DRAW_INDEXED_INDIRECT(vulkan);
 FN_REZNOR_COMMAND_DRAW_INDIRECT(vulkan);
 FN_REZNOR_COMMAND_DISPATCH(vulkan);
 FN_REZNOR_COMMAND_DISPATCH_INDIRECT(vulkan);
-FN_REZNOR_COMMAND_COPY_BUFFER(vulkan);
-FN_REZNOR_COMMAND_COPY_TEXTURE(vulkan);
 FN_REZNOR_COMMAND_BEGIN_RENDERING(vulkan);
 FN_REZNOR_COMMAND_END_RENDERING(vulkan);
 
@@ -869,3 +869,5 @@ attr_inline VkAttachmentStoreOp attr_const vulkan_get_attachment_store_operation
                  (VkAttachmentStoreOp)reznor_store_operation_none == VK_ATTACHMENT_STORE_OP_NONE);
     return (VkAttachmentStoreOp)op;
 }
+
+#endif /* REZNOR_VULKAN */

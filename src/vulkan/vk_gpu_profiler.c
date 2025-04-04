@@ -1,6 +1,8 @@
+#ifdef REZNOR_VULKAN
 #include "vk_reznor.h"
 
-FN_REZNOR_ASSEMBLY(vulkan, query_pool) {
+FN_REZNOR_ASSEMBLY(vulkan, query_pool) 
+{
     assert_debug(work && work->assembly.device_memory && work->memory.data && work->type == reznor_resource_type_query_pool && work->device);
     struct reznor_device *device = work->device;
 
@@ -9,7 +11,8 @@ FN_REZNOR_ASSEMBLY(vulkan, query_pool) {
 #endif /* REZNOR_ENABLE_GPU_PROFILER */
 }
 
-FN_REZNOR_DISASSEMBLY(vulkan, query_pool) {
+FN_REZNOR_DISASSEMBLY(vulkan, query_pool) 
+{
     assert_debug(query_pool && query_pool->header.device);
     struct reznor_device *device = query_pool->header.device;
 
@@ -18,3 +21,5 @@ FN_REZNOR_DISASSEMBLY(vulkan, query_pool) {
 #endif /* REZNOR_ENABLE_GPU_PROFILER */
     zerop(query_pool);
 }
+
+#endif /* REZNOR_VULKAN */

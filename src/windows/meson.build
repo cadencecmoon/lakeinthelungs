@@ -1,8 +1,8 @@
 if sys == 'windows' 
     engine_sources += files(
-        'process.c',
-        'threads.c',
-        'time.c',
+        'win32_process.c',
+        'win32_threads.c',
+        'win32_time.c',
         'win32_display.c',
     )
     defs += [

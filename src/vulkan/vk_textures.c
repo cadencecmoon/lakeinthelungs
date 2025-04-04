@@ -1,21 +1,5 @@
+#ifdef REZNOR_VULKAN
 #include "vk_reznor.h"
-
-static const VkFormat g_d16_candidates[] = { 
-    VK_FORMAT_D16_UNORM, 
-    VK_FORMAT_D16_UNORM_S8_UINT, 
-    VK_FORMAT_D24_UNORM_S8_UINT,
-    VK_FORMAT_D32_SFLOAT, 
-    VK_FORMAT_D32_SFLOAT_S8_UINT,
-}; 
-
-static const VkFormat g_d24s8_candidates[] = {
-    VK_FORMAT_D24_UNORM_S8_UINT, 
-    VK_FORMAT_D32_SFLOAT_S8_UINT,
-    VK_FORMAT_D32_SFLOAT,
-    VK_FORMAT_X8_D24_UNORM_PACK32,
-    VK_FORMAT_D16_UNORM_S8_UINT,
-    VK_FORMAT_D16_UNORM,
-}; 
 
 VkCompareOp vulkan_get_compare_operation(enum reznor_comparison_function fn)
 {
@@ -248,7 +232,7 @@ FN_REZNOR_ASSEMBLY(vulkan, sampler) {
         struct reznor_sampler *sampler = &samplers[i];
 
         sampler->header.device = device;
-        sampler->header.debug_name = assembly->header.debug_name;
+        sampler->header.debug_name = assembly->debug_name;
         sampler->header.type = reznor_resource_type_sampler;
         sampler->sampler = VK_NULL_HANDLE;
 
@@ -274,14 +258,14 @@ FN_REZNOR_ASSEMBLY(vulkan, sampler) {
 
             /* destroy all previous samplers */
             for (u32 j = 0; j < i; j++) {
-                work->assembly.sampler[i].header.output.sampler = NULL;
+                work->assembly.sampler[i].output = NULL;
                 device->vkDestroySampler(device->logical, samplers[j].sampler, &device->host_allocator);
             }
             memset(samplers, 0, sizeof(struct reznor_sampler) * i);
             work->result = result_error;
             return;
         }
-        assembly->header.output.sampler = sampler;
+        assembly->output[i] = sampler;
     }
 
 #if REZNOR_ENABLE_GPU_PROFILER
@@ -301,3 +285,5 @@ FN_REZNOR_DISASSEMBLY(vulkan, sampler) {
 #endif /* REZNOR_ENABLE_GPU_PROFILER */
     zerop(sampler);
 }
+
+#endif /* REZNOR_VULKAN */

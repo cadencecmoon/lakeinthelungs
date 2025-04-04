@@ -1,3 +1,4 @@
+#ifdef PLATFORM_UNIX
 #include <amw/bedrock/log.h>
 #include <amw/bedrock/process.h>
 #include <amw/bedrock/threads.h>
@@ -87,3 +88,5 @@ void thread_affinity(
         i++; j++;
     }
 }
+
+#endif /* PLATFORM_UNIX */

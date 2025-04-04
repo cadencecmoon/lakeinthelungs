@@ -1,15 +1,18 @@
 #pragma once
 
+#ifdef HADAL_WAYLAND
 #include <amw/hadal.h>
 
 FN_HADAL_WINDOW_CREATE(wayland);
 FN_HADAL_WINDOW_DESTROY(wayland);
 FN_HADAL_WINDOW_ACQUIRE_FRAMEBUFFER_EXTENT(wayland);
+FN_HADAL_WINDOW_VISIBILITY(wayland);
+FN_HADAL_EVENT_POLL(wayland);
 #ifdef REZNOR_VULKAN
 FN_HADAL_VULKAN_WRITE_INSTANCE_PROCEDURES(wayland);
 FN_HADAL_VULKAN_SURFACE_CREATE(wayland);
 FN_HADAL_VULKAN_PRESENTATION_SUPPORT(wayland);
-#endif
+#endif /* REZNOR_VULKAN */
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
@@ -189,6 +192,7 @@ typedef xkb_keysym_t (*PFN_xkb_compose_state_get_one_sym)(struct xkb_compose_sta
 #define xkb_compose_table_unref                             g_wayland->xkb.compose_table_unref
 #define xkb_compose_state_new                               g_wayland->xkb.compose_state_new
 #define xkb_compose_state_reset                             g_wayland->xkb.compose_state_reset
+#define xkb_compose_state_unref                             g_wayland->xkb.compose_state_unref
 #define xkb_compose_state_feed                              g_wayland->xkb.compose_state_feed
 #define xkb_compose_state_get_status                        g_wayland->xkb.compose_state_get_status
 #define xkb_compose_state_get_one_sym                       g_wayland->xkb.compose_state_get_one_sym
@@ -367,7 +371,7 @@ typedef VkBool32 (*PFN_vkGetPhysicalDeviceWaylandPresentationSupportKHR)(
 #endif /* REZNOR_VULKAN */
 
 /* shared between linux display backends */
-#include "joystick.h"
+#include "../linux_joystick.h"
 
 struct wayland_cursor_theme {
     struct wl_cursor_theme             *theme;
@@ -392,6 +396,8 @@ struct hadal_keyboard {
 
 struct hadal_window {
     struct hadal_window_header          header;
+    struct hadal_window                *next;
+
     const char                         *tag;
     struct wl_surface                  *surface;
 
@@ -423,11 +429,11 @@ struct hadal_window {
     } shell_surface_type;
 
     struct hadal_output   **outputs;
-    u32                     outputs_count;
+    u32                     output_count;
 
     u32                     floating_width, floating_height;
-    u32                     fb_extent_width, fb_extent_height;
     u32                     window_width, window_height;
+    at_u32                  fb_width, fb_height;
     u32                     toplevel_bounds_width, toplevel_bounds_height;
 };
 
@@ -440,6 +446,8 @@ struct hadal_output {
 /** The Wayland display backend implementation of the Hadal interface. */
 struct hadal {
     struct hadal_interface                                  interface;
+
+    struct hadal_window                                    *window_list_head;
 
     struct wl_display                                      *display;
     struct wl_registry                                     *registry;
@@ -569,12 +577,16 @@ struct hadal {
         PFN_xkb_compose_table_unref                         compose_table_unref;
         PFN_xkb_compose_state_new                           compose_state_new;
         PFN_xkb_compose_state_reset                         compose_state_reset;
+        PFN_xkb_compose_state_unref                         compose_state_unref;
         PFN_xkb_compose_state_feed                          compose_state_feed;
         PFN_xkb_compose_state_get_status                    compose_state_get_status;
         PFN_xkb_compose_state_get_one_sym                   compose_state_get_one_sym;
     } xkb;
 
     struct {
+        struct wl_callback                                 *callback;
+        b32                                                 ready;
+
         PFN_libdecor_new                                    new;
         PFN_libdecor_unref                                  unref;
         PFN_libdecor_get_fd                                 get_fd;
@@ -625,6 +637,7 @@ extern void AMWCALL wayland_register_surface(struct wl_surface *surface);
 extern void AMWCALL wayland_register_output(struct wl_output *output);
 extern b32 AMWCALL wayland_own_surface(struct wl_surface *surface);
 extern b32 AMWCALL wayland_own_output(struct wl_output *output);
+extern b32 AMWCALL wayland_flush_display(struct hadal *hadal);
 
 /* Protocols are generated with wayland-scanner, their sources are included in
  * the project repository: wayland_protocols/<protocol>.xml. */
@@ -651,3 +664,5 @@ extern b32 AMWCALL wayland_own_output(struct wl_output *output);
 #include "xdg-output-unstable-v1-protocol.h"
 #include "xdg-shell-protocol.h"
 #include "xdg-toplevel-icon-v1-protocol.h"
+
+#endif /* HADAL_WAYLAND */

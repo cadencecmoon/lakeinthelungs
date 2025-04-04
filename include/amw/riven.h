@@ -72,22 +72,6 @@ void AMWCALL riven_split_work_and_unchain(
     riven_unchain(riven, chain);
 }
 
-/** Acquire a valid chain outside of the work queue, not bound to any existing work. The chain must 
- *  be released by external means by another thread by calling 'rivens_release_chained'. Any calls 
- *  to 'rivens_unchain' will result in a context switch, until the chain has been released. */
-AMWAPI attr_hot attr_nonnull(1) attr_acquire_shared_capability(2)
-void AMWCALL riven_acquire_chained(
-    struct riven       *riven,
-    riven_chain_t      *chain);
-
-/** Releases a chain previously acquired by 'rivens_acquire_chained'. */
-attr_inline attr_release_shared_capability(1)
-void AMWCALL riven_release_chained(riven_chain_t chain)
-{
-    at_usize *counter = chain;
-    if (counter) atomic_store_explicit(counter, 0lu, memory_order_release);
-}
-
 /** Returns the thread index of the current thread. The index is acquired by a hash lookup of the thread id. */
 AMWAPI attr_hot attr_nonnull(1)
 u32 AMWCALL riven_thread_index(struct riven *riven);

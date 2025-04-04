@@ -1,3 +1,5 @@
+#ifdef SOMA_PIPEWIRE
+
 #include <amw/bedrock/log.h>
 #include <amw/bedrock/process.h>
 #include <amw/soma.h>
@@ -276,3 +278,5 @@ RIVEN_ENCORE(soma, pipewire)
     *encore->header.interface = (void *)soma;
     log_verbose("'%s' interface write.", soma->interface.header.name.ptr);
 }
+
+#endif /* SOMA_PIPEWIRE */

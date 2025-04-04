@@ -1,11 +1,13 @@
-#include <amw/bedrock/process.h>
-#include <amw/bedrock/log.h>
+#ifdef HADAL_WAYLAND
 
 #include "wl_hadal.h"
+#include <amw/bedrock/process.h>
+#include <amw/bedrock/log.h>
 
 struct hadal *g_wayland = NULL;
 
 #include <fcntl.h>
+#include <errno.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <wayland-util.h>
@@ -55,6 +57,100 @@ b32 wayland_own_surface(struct wl_surface *surface)
 b32 wayland_own_output(struct wl_output *output)
 {
     return wl_proxy_get_tag((struct wl_proxy *)output) == &g_wayland_output_tag;
+}
+
+#include <poll.h>
+extern b32 _hadal_posix_poll(struct pollfd *fds, nfds_t count, f64 *timeout);
+
+b32 wayland_flush_display(struct hadal *hadal)
+{
+    while (wl_display_flush(hadal->display) == -1) {
+        if (errno != EAGAIN)
+            return false;
+
+        struct pollfd fd = { wl_display_get_fd(hadal->display), POLLOUT, 0 };
+
+        while (poll(&fd, 1, -1) == -1)
+            if (errno != EINTR && errno != EAGAIN)
+                return false;
+    }
+    return true;
+}
+
+FN_HADAL_EVENT_POLL(wayland)
+{
+    b32 event = false;
+
+    /* TODO detect joystick connection */
+
+    enum { DISPLAY_FD, KEYREPEAT_FD, CURSOR_FD, LIBDECOR_FD };
+    struct pollfd fds[] = {
+        [DISPLAY_FD] = { wl_display_get_fd(hadal->display), POLLIN, 0 },
+        [KEYREPEAT_FD] = { hadal->key_repeat_timerfd, POLLIN, 0 },
+        [CURSOR_FD] = { hadal->cursor_timerfd, POLLIN, 0 },
+        [LIBDECOR_FD] = { -1, POLLIN, 0 }
+    };
+
+    if (hadal->shell.libdecor)
+        fds[LIBDECOR_FD].fd = libdecor_get_fd(hadal->shell.libdecor);
+
+    while (!event) {
+        while (wl_display_prepare_read(hadal->display) != 0) {
+            if (wl_display_dispatch_pending(hadal->display) > 0)
+                return;
+        }
+
+        /* if an error other than EAGAIN happens, we have likely been disconnected
+         * from the Wayland session; try to handle that the best we can.. */
+        if (!wayland_flush_display(hadal)) {
+            wl_display_cancel_read(hadal->display);
+
+            struct hadal_window *window = hadal->window_list_head;
+            while (window) {
+                atomic_fetch_or_explicit(&window->header.flags, hadal_window_flag_should_close, memory_order_release);
+                window = window->next;
+            }
+            return;
+        }
+
+        if (!_hadal_posix_poll(fds, arraysize(fds), timeout)) {
+            wl_display_cancel_read(hadal->display);
+            return;
+        }
+
+        if (fds[DISPLAY_FD].revents & POLLIN) {
+            wl_display_read_events(hadal->display);
+            if (wl_display_dispatch_pending(hadal->display) > 0)
+                event = true;
+        } else {
+            wl_display_cancel_read(hadal->display);
+        }
+
+        if (fds[KEYREPEAT_FD].revents & POLLIN) {
+            u64 repeats;
+            
+            if (read(hadal->key_repeat_timerfd, &repeats, sizeof(repeats)) == 8) {
+                for (u64 i = 0; i < repeats; i++) {
+                    /* TODO key input !! */
+                    //log_verbose("key input: %u scancode", hadal->key_repeat_scancode);
+                }
+                event = true;
+            }
+        }
+
+        if (fds[CURSOR_FD].revents & POLLIN) {
+            u64 repeats;
+
+            if (read(hadal->cursor_timerfd, &repeats, sizeof(repeats)) == 8) {
+                /* TODO increment cursor image */
+            }
+        }
+
+        if (fds[LIBDECOR_FD].revents & POLLIN) {
+            if (libdecor_dispatch(hadal->shell.libdecor, 0) > 0)
+                event = true;
+        }
+    }
 }
 
 static void handle_wm_base_ping(
@@ -121,6 +217,41 @@ static void handle_registry_global_remove(
 static const struct wl_registry_listener registry_listener = {
     .global = handle_registry_global,
     .global_remove = handle_registry_global_remove,
+};
+
+static void handle_libdecor_error(
+    struct libdecor    *context,
+    enum libdecor_error error,
+    const char         *message) 
+{
+    /* unused */
+    (void)context;
+
+    log_error("Wayland: libdecor error %u: %s.", error, message);
+}
+
+static struct libdecor_interface libdecor_interface = {
+    .error = handle_libdecor_error,
+};
+
+static void handle_libdecor_ready_callback(
+    void               *data,
+    struct wl_callback *callback,
+    u32                 time)
+{
+    /* unused */
+    (void)time;
+
+    struct hadal *hadal = (struct hadal *)data;
+    hadal->libdecor.ready = true;
+
+    assert_debug(hadal->libdecor.callback == callback);
+    wl_callback_destroy(hadal->libdecor.callback);
+    hadal->libdecor.callback = NULL;
+}
+
+static const struct wl_callback_listener libdecor_ready_listener = {
+    .done = handle_libdecor_ready_callback,
 };
 
 static b32 load_symbols(struct hadal *hadal, const char *fn)
@@ -471,6 +602,135 @@ static b32 load_symbols(struct hadal *hadal, const char *fn)
     return true;
 }
 
+static void create_key_tables(struct hadal *hadal)
+{
+    memset(hadal->interface.keycodes, -1, sizeof(hadal->interface.keycodes));
+    memset(hadal->interface.scancodes, -1, sizeof(hadal->interface.scancodes));
+
+    hadal->interface.keycodes[KEY_GRAVE]      = hadal_keycode_grave_accent;
+    hadal->interface.keycodes[KEY_1]          = hadal_keycode_1;
+    hadal->interface.keycodes[KEY_2]          = hadal_keycode_2;
+    hadal->interface.keycodes[KEY_3]          = hadal_keycode_3;
+    hadal->interface.keycodes[KEY_4]          = hadal_keycode_4;
+    hadal->interface.keycodes[KEY_5]          = hadal_keycode_5;
+    hadal->interface.keycodes[KEY_6]          = hadal_keycode_6;
+    hadal->interface.keycodes[KEY_7]          = hadal_keycode_7;
+    hadal->interface.keycodes[KEY_8]          = hadal_keycode_8;
+    hadal->interface.keycodes[KEY_9]          = hadal_keycode_9;
+    hadal->interface.keycodes[KEY_0]          = hadal_keycode_0;
+    hadal->interface.keycodes[KEY_SPACE]      = hadal_keycode_space;
+    hadal->interface.keycodes[KEY_MINUS]      = hadal_keycode_minus;
+    hadal->interface.keycodes[KEY_EQUAL]      = hadal_keycode_equal;
+    hadal->interface.keycodes[KEY_Q]          = hadal_keycode_q;
+    hadal->interface.keycodes[KEY_W]          = hadal_keycode_w;
+    hadal->interface.keycodes[KEY_E]          = hadal_keycode_e;
+    hadal->interface.keycodes[KEY_R]          = hadal_keycode_r;
+    hadal->interface.keycodes[KEY_T]          = hadal_keycode_t;
+    hadal->interface.keycodes[KEY_Y]          = hadal_keycode_y;
+    hadal->interface.keycodes[KEY_U]          = hadal_keycode_u;
+    hadal->interface.keycodes[KEY_I]          = hadal_keycode_i;
+    hadal->interface.keycodes[KEY_O]          = hadal_keycode_o;
+    hadal->interface.keycodes[KEY_P]          = hadal_keycode_p;
+    hadal->interface.keycodes[KEY_LEFTBRACE]  = hadal_keycode_left_bracket;
+    hadal->interface.keycodes[KEY_RIGHTBRACE] = hadal_keycode_right_bracket;
+    hadal->interface.keycodes[KEY_A]          = hadal_keycode_a;
+    hadal->interface.keycodes[KEY_S]          = hadal_keycode_s;
+    hadal->interface.keycodes[KEY_D]          = hadal_keycode_d;
+    hadal->interface.keycodes[KEY_F]          = hadal_keycode_f;
+    hadal->interface.keycodes[KEY_G]          = hadal_keycode_g;
+    hadal->interface.keycodes[KEY_H]          = hadal_keycode_h;
+    hadal->interface.keycodes[KEY_J]          = hadal_keycode_j;
+    hadal->interface.keycodes[KEY_K]          = hadal_keycode_k;
+    hadal->interface.keycodes[KEY_L]          = hadal_keycode_l;
+    hadal->interface.keycodes[KEY_SEMICOLON]  = hadal_keycode_semicolon;
+    hadal->interface.keycodes[KEY_APOSTROPHE] = hadal_keycode_apostrophe;
+    hadal->interface.keycodes[KEY_Z]          = hadal_keycode_z;
+    hadal->interface.keycodes[KEY_X]          = hadal_keycode_x;
+    hadal->interface.keycodes[KEY_C]          = hadal_keycode_c;
+    hadal->interface.keycodes[KEY_V]          = hadal_keycode_v;
+    hadal->interface.keycodes[KEY_B]          = hadal_keycode_b;
+    hadal->interface.keycodes[KEY_N]          = hadal_keycode_n;
+    hadal->interface.keycodes[KEY_M]          = hadal_keycode_m;
+    hadal->interface.keycodes[KEY_COMMA]      = hadal_keycode_comma;
+    hadal->interface.keycodes[KEY_DOT]        = hadal_keycode_period;
+    hadal->interface.keycodes[KEY_SLASH]      = hadal_keycode_slash;
+    hadal->interface.keycodes[KEY_BACKSLASH]  = hadal_keycode_backslash;
+    hadal->interface.keycodes[KEY_ESC]        = hadal_keycode_escape;
+    hadal->interface.keycodes[KEY_TAB]        = hadal_keycode_tab;
+    hadal->interface.keycodes[KEY_LEFTSHIFT]  = hadal_keycode_left_shift;
+    hadal->interface.keycodes[KEY_RIGHTSHIFT] = hadal_keycode_right_shift;
+    hadal->interface.keycodes[KEY_LEFTCTRL]   = hadal_keycode_left_control;
+    hadal->interface.keycodes[KEY_RIGHTCTRL]  = hadal_keycode_right_control;
+    hadal->interface.keycodes[KEY_LEFTALT]    = hadal_keycode_left_alt;
+    hadal->interface.keycodes[KEY_RIGHTALT]   = hadal_keycode_right_alt;
+    hadal->interface.keycodes[KEY_LEFTMETA]   = hadal_keycode_left_super;
+    hadal->interface.keycodes[KEY_RIGHTMETA]  = hadal_keycode_right_super;
+    hadal->interface.keycodes[KEY_COMPOSE]    = hadal_keycode_menu;
+    hadal->interface.keycodes[KEY_NUMLOCK]    = hadal_keycode_num_lock;
+    hadal->interface.keycodes[KEY_CAPSLOCK]   = hadal_keycode_caps_lock;
+    hadal->interface.keycodes[KEY_PRINT]      = hadal_keycode_print_screen;
+    hadal->interface.keycodes[KEY_SCROLLLOCK] = hadal_keycode_scroll_lock;
+    hadal->interface.keycodes[KEY_PAUSE]      = hadal_keycode_pause;
+    hadal->interface.keycodes[KEY_DELETE]     = hadal_keycode_delete;
+    hadal->interface.keycodes[KEY_BACKSPACE]  = hadal_keycode_backspace;
+    hadal->interface.keycodes[KEY_ENTER]      = hadal_keycode_enter;
+    hadal->interface.keycodes[KEY_HOME]       = hadal_keycode_home;
+    hadal->interface.keycodes[KEY_END]        = hadal_keycode_end;
+    hadal->interface.keycodes[KEY_PAGEUP]     = hadal_keycode_page_up;
+    hadal->interface.keycodes[KEY_PAGEDOWN]   = hadal_keycode_page_down;
+    hadal->interface.keycodes[KEY_INSERT]     = hadal_keycode_insert;
+    hadal->interface.keycodes[KEY_LEFT]       = hadal_keycode_left;
+    hadal->interface.keycodes[KEY_RIGHT]      = hadal_keycode_right;
+    hadal->interface.keycodes[KEY_DOWN]       = hadal_keycode_down;
+    hadal->interface.keycodes[KEY_UP]         = hadal_keycode_up;
+    hadal->interface.keycodes[KEY_F1]         = hadal_keycode_f1;
+    hadal->interface.keycodes[KEY_F2]         = hadal_keycode_f2;
+    hadal->interface.keycodes[KEY_F3]         = hadal_keycode_f3;
+    hadal->interface.keycodes[KEY_F4]         = hadal_keycode_f4;
+    hadal->interface.keycodes[KEY_F5]         = hadal_keycode_f5;
+    hadal->interface.keycodes[KEY_F6]         = hadal_keycode_f6;
+    hadal->interface.keycodes[KEY_F7]         = hadal_keycode_f7;
+    hadal->interface.keycodes[KEY_F8]         = hadal_keycode_f8;
+    hadal->interface.keycodes[KEY_F9]         = hadal_keycode_f9;
+    hadal->interface.keycodes[KEY_F10]        = hadal_keycode_f10;
+    hadal->interface.keycodes[KEY_F11]        = hadal_keycode_f11;
+    hadal->interface.keycodes[KEY_F12]        = hadal_keycode_f12;
+    hadal->interface.keycodes[KEY_F13]        = hadal_keycode_f13;
+    hadal->interface.keycodes[KEY_F14]        = hadal_keycode_f14;
+    hadal->interface.keycodes[KEY_F15]        = hadal_keycode_f15;
+    hadal->interface.keycodes[KEY_F16]        = hadal_keycode_f16;
+    hadal->interface.keycodes[KEY_F17]        = hadal_keycode_f17;
+    hadal->interface.keycodes[KEY_F18]        = hadal_keycode_f18;
+    hadal->interface.keycodes[KEY_F19]        = hadal_keycode_f19;
+    hadal->interface.keycodes[KEY_F20]        = hadal_keycode_f20;
+    hadal->interface.keycodes[KEY_F21]        = hadal_keycode_f21;
+    hadal->interface.keycodes[KEY_F22]        = hadal_keycode_f22;
+    hadal->interface.keycodes[KEY_F23]        = hadal_keycode_f23;
+    hadal->interface.keycodes[KEY_F24]        = hadal_keycode_f24;
+    hadal->interface.keycodes[KEY_KPSLASH]    = hadal_keycode_kp_divide;
+    hadal->interface.keycodes[KEY_KPASTERISK] = hadal_keycode_kp_multiply;
+    hadal->interface.keycodes[KEY_KPMINUS]    = hadal_keycode_kp_subtract;
+    hadal->interface.keycodes[KEY_KPPLUS]     = hadal_keycode_kp_add;
+    hadal->interface.keycodes[KEY_KP0]        = hadal_keycode_kp_0;
+    hadal->interface.keycodes[KEY_KP1]        = hadal_keycode_kp_1;
+    hadal->interface.keycodes[KEY_KP2]        = hadal_keycode_kp_2;
+    hadal->interface.keycodes[KEY_KP3]        = hadal_keycode_kp_3;
+    hadal->interface.keycodes[KEY_KP4]        = hadal_keycode_kp_4;
+    hadal->interface.keycodes[KEY_KP5]        = hadal_keycode_kp_5;
+    hadal->interface.keycodes[KEY_KP6]        = hadal_keycode_kp_6;
+    hadal->interface.keycodes[KEY_KP7]        = hadal_keycode_kp_7;
+    hadal->interface.keycodes[KEY_KP8]        = hadal_keycode_kp_8;
+    hadal->interface.keycodes[KEY_KP9]        = hadal_keycode_kp_9;
+    hadal->interface.keycodes[KEY_KPDOT]      = hadal_keycode_kp_decimal;
+    hadal->interface.keycodes[KEY_KPEQUAL]    = hadal_keycode_kp_equal;
+    hadal->interface.keycodes[KEY_KPENTER]    = hadal_keycode_kp_enter;
+    hadal->interface.keycodes[KEY_102ND]      = hadal_keycode_world_2;
+
+    for (s32 scancode = 0; scancode < 256; scancode++)
+        if (hadal->interface.keycodes[scancode] > 0)
+            hadal->interface.scancodes[hadal->interface.keycodes[scancode]] = scancode;
+}
+
 #ifdef REZNOR_VULKAN
 FN_HADAL_VULKAN_WRITE_INSTANCE_PROCEDURES(wayland)
 {
@@ -500,10 +760,31 @@ static void wayland_interface_fini(struct hadal *hadal)
 {
     if (!hadal) return;
 
+    /* libdecor */
+    if (hadal->shell.libdecor)
+        while (!hadal->libdecor.ready)
+            libdecor_unref(hadal->shell.libdecor);
     process_close_dll(hadal->module_libdecor);
+
+    /* xkbcommon */
+    if (hadal->xkb_compose_state)
+        xkb_compose_state_unref(hadal->xkb_compose_state);
+    if (hadal->xkb_keymap)
+        xkb_keymap_unref(hadal->xkb_keymap);
+    if (hadal->xkb_state)
+        xkb_state_unref(hadal->xkb_state);
+    if (hadal->xkb_context)
+        xkb_context_unref(hadal->xkb_context);
     process_close_dll(hadal->module_xkbcommon);
+
+    /* wayland cursor */
+    for (u32 i = 0; i < hadal->cursor_themes_count; i++)
+        wl_cursor_theme_destroy(hadal->cursor_themes[i].theme);
+    if (hadal->cursor_shape_manager)
+        wp_cursor_shape_manager_v1_destroy(hadal->cursor_shape_manager);
     process_close_dll(hadal->module_cursor);
 
+    /* wayland client */
     if (hadal->subcompositor)
         wl_subcompositor_destroy(hadal->subcompositor);
     if (hadal->compositor)
@@ -514,6 +795,24 @@ static void wayland_interface_fini(struct hadal *hadal)
         xdg_wm_base_destroy(hadal->shell.xdg);
     if (hadal->seat)
         wl_seat_destroy(hadal->seat);
+    if (hadal->viewporter)
+        wp_viewporter_destroy(hadal->viewporter);
+    if (hadal->decoration_manager)
+        zxdg_decoration_manager_v1_destroy(hadal->decoration_manager);
+    if (hadal->primary_selection_device_manager)
+        zwp_primary_selection_device_manager_v1_destroy(hadal->primary_selection_device_manager);
+    if (hadal->data_device_manager)
+        wl_data_device_manager_destroy(hadal->data_device_manager);
+    if (hadal->relative_pointer_manager)
+        zwp_relative_pointer_manager_v1_destroy(hadal->relative_pointer_manager);
+    if (hadal->pointer_constraints)
+        zwp_pointer_constraints_v1_destroy(hadal->pointer_constraints);
+    if (hadal->idle_inhibit_manager)
+        zwp_idle_inhibit_manager_v1_destroy(hadal->idle_inhibit_manager);
+    if (hadal->activation_manager)
+        xdg_activation_v1_destroy(hadal->activation_manager);
+    if (hadal->fractional_scale_manager)
+        wp_fractional_scale_manager_v1_destroy(hadal->fractional_scale_manager);
     if (hadal->registry)
         wl_registry_destroy(hadal->registry);
     if (hadal->display) {
@@ -600,6 +899,8 @@ disconnect:
     hadal->registry = wl_display_get_registry(hadal->display);
     wl_registry_add_listener(hadal->registry, &registry_listener, hadal);
 
+    create_key_tables(hadal);
+
     hadal->xkb_context = xkb_context_new(0);
     if (!hadal->xkb_context) {
         log_error("%s failed to initialize XKB context", fn);
@@ -613,6 +914,18 @@ disconnect:
     /* sync to get initial output events */
     wl_display_roundtrip(hadal->display);
 
+    if (module_libdecor) {
+        hadal->shell.libdecor = libdecor_new(display, &libdecor_interface);
+        if (hadal->shell.libdecor) {
+            /* perform an initial dispatch and flush to get the init started */
+            libdecor_dispatch(hadal->shell.libdecor, 0);
+
+            /* create sync point to "know" when libdecor is ready for use */
+            hadal->libdecor.callback = wl_display_sync(hadal->display);
+            wl_callback_add_listener(hadal->libdecor.callback, &libdecor_ready_listener, hadal);
+        }
+    }
+
     /* write the interface */
     hadal->interface.header.name = str_init("hadal_wayland");
     hadal->interface.header.riven = encore->header.riven;
@@ -622,6 +935,8 @@ disconnect:
     hadal->interface.window_create = _hadal_wayland_window_create;
     hadal->interface.window_destroy = _hadal_wayland_window_destroy;
     hadal->interface.window_acquire_framebuffer_extent = _hadal_wayland_window_acquire_framebuffer_extent;
+    hadal->interface.window_visibility = _hadal_wayland_window_visibility;
+    hadal->interface.event_poll = _hadal_wayland_event_poll;
 #ifdef REZNOR_VULKAN
     hadal->interface.vulkan_write_instance_procedures = _hadal_wayland_vulkan_write_instance_procedures;
     hadal->interface.vulkan_surface_create = _hadal_wayland_vulkan_surface_create;
@@ -631,3 +946,5 @@ disconnect:
     *encore->header.interface = (void *)hadal;
     log_verbose("'%s' interface write.", hadal->interface.header.name.ptr);
 }
+
+#endif /* HADAL_WAYLAND */

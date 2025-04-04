@@ -1,3 +1,4 @@
+#ifdef REZNOR_VULKAN
 #include "vk_reznor.h"
 
 #include <amw/hadal.h>
@@ -187,7 +188,7 @@ surface_done:
 
     /* get swapchain images and create views */
     res = device->vkGetSwapchainImagesKHR(device->logical, swapchain->swapchain, &swapchain->image_count, swapchain->images);
-    if (res != VK_SUCCESS)
+    if (res != VK_SUCCESS && res != VK_INCOMPLETE)
         return res;
 
     VkImageViewCreateInfo color_image_view = {
@@ -228,9 +229,38 @@ surface_done:
     }
 
     atomic_store_explicit(&swapchain->header.flags, flags, memory_order_release);
-    window->swapchain = (struct reznor_resource_header *)swapchain;
+    window->swapchain = swapchain;
 
     return VK_SUCCESS;
+}
+
+static void swapchain_disassembly(struct reznor_device *device, struct reznor_swapchain *swapchain)
+{
+    u32 flags = atomic_load_explicit(&swapchain->header.flags, memory_order_acquire);
+    assert_debug(flags & reznor_swapchain_flag_is_valid);
+
+    if (flags & reznor_swapchain_flag_close_window_on_destroy) {
+        struct hadal_window_header *window = (struct hadal_window_header *)swapchain->window;
+        if (window) {
+            window->swapchain = NULL;
+            atomic_fetch_or_explicit(&window->flags, hadal_window_flag_should_close, memory_order_release);
+        }
+    }
+    swapchain->window = NULL;
+
+    for (u32 i = 0; i < device->header.frames_in_flight; i++)
+        if (swapchain->image_available_semaphores[i] != VK_NULL_HANDLE)
+            device->vkDestroySemaphore(device->logical, swapchain->image_available_semaphores[i], &device->host_allocator);
+
+    for (u32 i = 0; i < swapchain->image_count; i++)
+        if (swapchain->image_views[i] != VK_NULL_HANDLE)
+            device->vkDestroyImageView(device->logical, swapchain->image_views[i], &device->host_allocator);
+
+    if (swapchain->swapchain != VK_NULL_HANDLE)
+        device->vkDestroySwapchainKHR(device->logical, swapchain->swapchain, &device->host_allocator);
+    if (swapchain->surface != VK_NULL_HANDLE)
+        device->header.reznor->vkDestroySurfaceKHR(device->header.reznor->instance, swapchain->surface, NULL);
+    zerop(swapchain);
 }
 
 FN_REZNOR_ASSEMBLY(vulkan, swapchain) { 
@@ -244,15 +274,14 @@ FN_REZNOR_ASSEMBLY(vulkan, swapchain) {
         work->result = result_error;
         return;
     }
-#if REZNOR_ENABLE_GPU_PROFILER
-    atomic_fetch_add_explicit(&device->swapchain_count, work->assembly_count, memory_order_acquire);
-#endif /* REZNOR_ENABLE_GPU_PROFILER */
+    struct reznor_swapchain *swapchains = (struct reznor_swapchain *)work->memory.data;
 
     for (u32 i = 0; i < work->assembly_count; i++) {
         struct reznor_swapchain_assembly *assembly = &work->assembly.swapchain[i];
-        struct reznor_swapchain *swapchain = (struct reznor_swapchain *)&work->memory.raw[sizeof(struct reznor_swapchain) * i];
+        struct reznor_swapchain *swapchain = &swapchains[i];
 
-        swapchain->header.debug_name = assembly->header.debug_name;
+        atomic_store_explicit(&swapchain->header.flags, reznor_swapchain_flag_is_valid, memory_order_relaxed);
+        swapchain->header.debug_name = assembly->debug_name;
         swapchain->header.device = device;
         swapchain->header.type = reznor_resource_type_swapchain;
         swapchain->window = assembly->window;
@@ -266,12 +295,16 @@ FN_REZNOR_ASSEMBLY(vulkan, swapchain) {
             log_error("Creating a Vulkan swapchain '%s' failed for device '%s' and window '%s': %s.", 
                 swapchain->header.debug_name.ptr, device->physical->properties2.properties.deviceName, window->title.ptr, vulkan_result_string(res));
 
-            _reznor_vulkan_swapchain_disassembly(swapchain);
+            for (u32 j = 0; j <= i; j++)
+                swapchain_disassembly(device, swapchain);
             work->result = res;
-            continue;
+            return;
         }
-        assembly->header.output.swapchain = swapchain;
+        assembly->output[i] = swapchain;
     }
+#if REZNOR_ENABLE_GPU_PROFILER
+    atomic_fetch_add_explicit(&device->swapchain_count, work->assembly_count, memory_order_acquire);
+#endif /* REZNOR_ENABLE_GPU_PROFILER */
 }
 
 FN_REZNOR_TRY_RECREATE_SWAPCHAIN(vulkan)
@@ -309,38 +342,17 @@ FN_REZNOR_TRY_RECREATE_SWAPCHAIN(vulkan)
 
 FN_REZNOR_DISASSEMBLY(vulkan, swapchain) { 
     assert_debug(swapchain && swapchain->header.device);
+
     struct reznor_device *device = swapchain->header.device;
     if (!device)
         return;
 
-    u32 flags = atomic_load_explicit(&swapchain->header.flags, memory_order_acquire);
-    assert_debug(flags & reznor_swapchain_flag_is_valid);
-
     device->vkDeviceWaitIdle(device->logical);
-
-    if (flags & reznor_swapchain_flag_close_window_on_destroy) {
-        struct hadal_window_header *window = (struct hadal_window_header *)swapchain->window;
-        if (window) {
-            window->swapchain = NULL;
-            atomic_fetch_or_explicit(&window->flags, hadal_window_flag_should_close, memory_order_release);
-        }
-    }
-    swapchain->window = NULL;
-
-    for (u32 i = 0; i < device->header.frames_in_flight; i++)
-        if (swapchain->image_available_semaphores[i] != VK_NULL_HANDLE)
-            device->vkDestroySemaphore(device->logical, swapchain->image_available_semaphores[i], &device->host_allocator);
-
-    for (u32 i = 0; i < swapchain->image_count; i++)
-        if (swapchain->image_views[i] != VK_NULL_HANDLE)
-            device->vkDestroyImageView(device->logical, swapchain->image_views[i], &device->host_allocator);
-
-    if (swapchain->swapchain != VK_NULL_HANDLE)
-        device->vkDestroySwapchainKHR(device->logical, swapchain->swapchain, &device->host_allocator);
-    if (swapchain->surface != VK_NULL_HANDLE)
-        device->header.reznor->vkDestroySurfaceKHR(device->header.reznor->instance, swapchain->surface, NULL);
+    swapchain_disassembly(device, swapchain);
+    
 #if REZNOR_ENABLE_GPU_PROFILER
     atomic_fetch_sub_explicit(&device->swapchain_count, 1u, memory_order_release);
 #endif /* REZNOR_ENABLE_GPU_PROFILER */
-    zerop(swapchain);
 }
+
+#endif /* REZNOR_VULKAN */

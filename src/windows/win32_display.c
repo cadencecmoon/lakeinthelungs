@@ -1,3 +1,4 @@
+#ifdef PLATFORM_WINDOWS
 #include <amw/bedrock/process.h>
 #include <amw/bedrock/log.h>
 
@@ -9,3 +10,4 @@ RIVEN_ENCORE(hadal, win32)
 {
     assert_debug(encore->header.interface && *encore->header.interface == NULL);
 }
+#endif /* PLATFORM_WINDOWS */

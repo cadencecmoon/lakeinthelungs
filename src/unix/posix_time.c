@@ -1,3 +1,4 @@
+#ifdef PLATFORM_UNIX
 #include <amw/bedrock/time.h>
 
 #include <unistd.h>
@@ -15,7 +16,7 @@ static b32 has_monotonic = 0;
 
 #if !defined(HAS_CLOCK_GETTIME) && defined(PLATFORM_APPLE)
 static mach_timebase_info_data_t mach_base_info;
-#endif
+#endif /* PLATFORM_APPLE */
 
 static void check_monotonic(void)
 {
@@ -26,7 +27,7 @@ static void check_monotonic(void)
 #elif defined(PLATFORM_APPLE)
     if (mach_timebase_info(&mach_base_info) == 0)
         has_monotonic = 1;
-#endif
+#endif /* HAS_CLOCK_GETTIME */
     checked_monotonic = 0;
 }
 
@@ -48,7 +49,7 @@ u64 rtc_counter(void)
         ticks = mach_absolute_time();
 #else
         UNREACHABLE;
-#endif
+#endif /* HAS_CLOCK_GETTIME */
     } else {
         struct timeval now;
         gettimeofday(&now, NULL);
@@ -72,7 +73,9 @@ u64 rtc_frequency(void)
         freq *= const_ns_per_sec;
         freq /= mach_base_info.numer;
         return freq;
-#endif
+#endif /* HAS_CLOCK_GETTIME */
     } 
     return const_us_per_sec;
 }
+
+#endif /* PLATFORM_UNIX */

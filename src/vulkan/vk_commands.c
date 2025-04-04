@@ -1,3 +1,4 @@
+#ifdef REZNOR_VULKAN
 #include "vk_reznor.h"
 
 FN_REZNOR_COMMAND_DRAW(vulkan)
@@ -36,34 +37,14 @@ FN_REZNOR_COMMAND_DISPATCH_INDIRECT(vulkan)
     device->vkCmdDispatchIndirect(command_buffer->buffer, buffer->buffer, offset);
 }
 
-FN_REZNOR_COMMAND_COPY_BUFFER(vulkan)
-{
-    struct reznor_device *device = command_buffer->device;
-    (void)device;
-    (void)regions;
-    (void)region_count;
-    (void)dst_buffer;
-    (void)src_buffer;
-}
-
-FN_REZNOR_COMMAND_COPY_TEXTURE(vulkan)
-{
-    struct reznor_device *device = command_buffer->device;
-    (void)device;
-    (void)regions;
-    (void)region_count;
-    (void)dst_texture;
-    (void)src_texture;
-}
-
-static void write_rendering_attachment_info(
+attr_inline void write_rendering_attachment_info(
     VkRenderingAttachmentInfo                *write, 
     const struct reznor_rendering_attachment *param)
 {
         const struct reznor_texture *texture = param->texture;
-        assert_debug(texture->image && texture->image_view);
-
         const struct reznor_texture *resolve_texture = param->texture;
+
+        assert_debug(texture->image && texture->image_view);
         assert_debug(resolve_texture->image && resolve_texture->image_view);
 
         write->sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
@@ -134,3 +115,5 @@ FN_REZNOR_COMMAND_END_RENDERING(vulkan)
     struct reznor_device *device = command_buffer->device;
     device->vkCmdEndRendering(command_buffer->buffer);
 }
+
+#endif /* REZNOR_VULKAN */

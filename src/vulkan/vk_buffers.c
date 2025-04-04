@@ -1,6 +1,8 @@
+#ifdef REZNOR_VULKAN
 #include "vk_reznor.h"
 
-FN_REZNOR_ASSEMBLY(vulkan, buffer) { 
+FN_REZNOR_ASSEMBLY(vulkan, buffer) 
+{
     assert_debug(work && work->assembly.buffer && work->memory.data && work->type == reznor_resource_type_buffer && work->device);
     struct reznor_device *device = work->device;
 
@@ -9,7 +11,8 @@ FN_REZNOR_ASSEMBLY(vulkan, buffer) {
 #endif /* REZNOR_ENABLE_GPU_PROFILER */
 }
 
-FN_REZNOR_DISASSEMBLY(vulkan, buffer) {
+FN_REZNOR_DISASSEMBLY(vulkan, buffer) 
+{
     assert_debug(buffer && buffer->header.device);
     struct reznor_device *device = buffer->header.device;
 
@@ -25,30 +28,54 @@ FN_REZNOR_DISASSEMBLY(vulkan, buffer) {
     zerop(buffer);
 }
 
-FN_REZNOR_ASSEMBLY(vulkan, bottom_level) { 
+FN_REZNOR_ASSEMBLY(vulkan, bottom_level) 
+{
     assert_debug(work && work->assembly.bottom_level && work->memory.data && work->type == reznor_resource_type_bottom_level && work->device);
 
     struct reznor_device *device = work->device;
     assert_debug(device);
 }
 
-FN_REZNOR_DISASSEMBLY(vulkan, bottom_level) { 
+FN_REZNOR_DISASSEMBLY(vulkan, bottom_level) 
+{
     assert_debug(bottom_level && bottom_level->header.device);
     struct reznor_device *device = bottom_level->header.device;
 
     (void)device;
 }
 
-FN_REZNOR_ASSEMBLY(vulkan, top_level) { 
+FN_REZNOR_ASSEMBLY(vulkan, top_level) 
+{
     assert_debug(work && work->assembly.top_level && work->memory.data && work->type == reznor_resource_type_top_level && work->device);
     struct reznor_device *device = work->device;
 
     (void)device;
 }
 
-FN_REZNOR_DISASSEMBLY(vulkan, top_level) { 
+FN_REZNOR_DISASSEMBLY(vulkan, top_level) 
+{
     assert_debug(top_level && top_level->header.device);
     struct reznor_device *device = top_level->header.device;
 
     (void)device;
 }
+
+FN_REZNOR_ASSEMBLY(vulkan, shader_binding_table) 
+{
+    assert_debug(work && work->assembly.shader_binding_table && work->memory.data && work->type == reznor_resource_type_shader_binding_table && work->device);
+    struct reznor_device *device = work->device;
+
+    (void)device;
+}
+
+FN_REZNOR_DISASSEMBLY(vulkan, shader_binding_table) 
+{
+    assert_debug(shader_binding_table && shader_binding_table->header.device);
+    struct reznor_device *device = shader_binding_table->header.device;
+
+    (void)device;
+
+    zerop(shader_binding_table);
+}
+
+#endif /* REZNOR_VULKAN */

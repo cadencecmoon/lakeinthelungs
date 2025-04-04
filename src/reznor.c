@@ -71,6 +71,8 @@ RIVEN_ENCORE(reznor, native)
         VALIDATE(frame_begin)
         VALIDATE(frame_next_images)
         VALIDATE(frame_submit)
+        VALIDATE(host_memory_requirements)
+        VALIDATE(device_memory_requirements)
         for (u32 i = 0; i < reznor_resource_type_count; i++) {
             if (interface->assembly_table[i] == NULL || interface->disassembly_table[i] == NULL) {
                 const char *resource = string_from_resource_type(i);
@@ -87,8 +89,6 @@ RIVEN_ENCORE(reznor, native)
         VALIDATE(command_draw_indirect)
         VALIDATE(command_dispatch)
         VALIDATE(command_dispatch_indirect)
-        VALIDATE(command_copy_buffer)
-        VALIDATE(command_copy_texture)
         VALIDATE(command_begin_rendering)
         VALIDATE(command_end_rendering)
 #undef VALIDATE

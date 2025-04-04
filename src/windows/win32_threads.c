@@ -1,3 +1,4 @@
+#ifdef PLATFORM_WINDOWS
 #include <amw/bedrock/threads.h>
 
 #include "win32_hadal.h"
@@ -110,3 +111,4 @@ void thread_affinity(
         i++; j++;
     }
 }
+#endif /* PLATFORM_WINDOWS */

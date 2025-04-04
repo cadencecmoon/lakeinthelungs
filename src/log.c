@@ -65,7 +65,7 @@ void log_message(
     };
 
     va_start(log.ap, fmt);
-    do {} while (atomic_flag_test_and_set(&spinlock));
+    do {} while (atomic_flag_test_and_set_explicit(&spinlock, memory_order_acquire));
 
     if (verbose) {
         time_t t = time(NULL);
@@ -83,7 +83,7 @@ void log_message(
     fprintf(stderr, "\x1b[0m\n");
     fflush(stderr);
 
-    atomic_flag_clear(&spinlock);
+    atomic_flag_clear_explicit(&spinlock, memory_order_release);
     va_end(log.ap);
 }
 

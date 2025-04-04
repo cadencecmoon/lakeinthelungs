@@ -259,6 +259,8 @@ struct moonlit {
     u16                             sphere_indices[INDICES_COUNT];
 };
 
+#include "src/vulkan/vk_reznor.h"
+
 void lake_fini(struct moonlit *lake)
 {
     (void)lake;

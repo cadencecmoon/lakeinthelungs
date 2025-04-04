@@ -1,3 +1,4 @@
+#ifdef REZNOR_VULKAN
 #include "vk_reznor.h"
 
 #include <amw/hadal.h>
@@ -752,10 +753,10 @@ FN_REZNOR_DEVICE_CREATE(vulkan)
     usize alignment = _Alignof(struct reznor_device);
     usize bytes = 0;
 
-    if (!work->memory.data) {
-        work->memory.size = total_bytes;
-        work->memory.alignment = alignment;
+    work->memory.size = total_bytes;
+    work->memory.alignment = alignment;
 
+    if (!work->memory.data) {
         if (work->memory.tag) {
             work->memory.data = riven_alloc(reznor->interface.header.riven, work->memory.tag, total_bytes, alignment);
         } else {
@@ -764,9 +765,6 @@ FN_REZNOR_DEVICE_CREATE(vulkan)
             work->result = result_allocation_query;
             return;
         }
-    } else {
-        assert_debug(work->memory.size == total_bytes);
-        assert_debug(work->memory.alignment == alignment);
     }
     assert_debug(work->out_device && work->physical_info);
 
@@ -774,7 +772,7 @@ FN_REZNOR_DEVICE_CREATE(vulkan)
     u8 *raw = (u8 *)work->memory.data;
 
     struct vulkan_physical_device *physical = work->physical_info->internal;
-    struct reznor_device *device = (struct reznor_device *)&raw[bytes];
+    struct reznor_device *device = (struct reznor_device *)raw;
     bytes += device_bytes;
 
     device->header.name = work->physical_info->name;
@@ -1029,9 +1027,25 @@ static b32 resolve_swapchain_state(struct reznor_swapchain *swapchain, VkResult 
     return true; /* the swapchain is fine */
 }
 
+FN_REZNOR_FRAME_BEGIN(vulkan)
+{
+    struct reznor_device *device = frame->device;
+    struct reznor *reznor = device->header.reznor;
+
+    /* TODO do rendering work */
+    //VERIFY_VK(device->vkWaitForFences(device->logical, 1, &frame->fence, VK_TRUE, UINT32_MAX));
+    VERIFY_VK(device->vkResetFences(device->logical, 1, &frame->fence));
+
+    for (u32 i = 0; i < reznor->interface.thread_count; i++)
+        VERIFY_VK(device->vkResetCommandPool(device->logical, frame->graphics_command_pools[i].command_pool, 0));
+}
+
 FN_REZNOR_FRAME_NEXT_IMAGES(vulkan)
 {
     assert_debug(swapchain_count <= REZNOR_MAX_SWAPCHAINS);
+
+    /* TODO do rendering work */
+    return;
 
     for (u32 i = 0; i < swapchain_count; i++) {
         struct reznor_swapchain *swapchain = swapchains[i];
@@ -1058,19 +1072,6 @@ FN_REZNOR_FRAME_NEXT_IMAGES(vulkan)
 
         swapchain->image_available_semaphore_index = (swapchain->image_available_semaphore_index + 1) % device->header.frames_in_flight;
     }
-}
-
-FN_REZNOR_FRAME_BEGIN(vulkan)
-{
-    struct reznor_device *device = frame->device;
-    struct reznor *reznor = device->header.reznor;
-
-    /* TODO do rendering work */
-    //VERIFY_VK(device->vkWaitForFences(device->logical, 1, &frame->fence, VK_TRUE, UINT32_MAX));
-    VERIFY_VK(device->vkResetFences(device->logical, 1, &frame->fence));
-
-    for (u32 i = 0; i < reznor->interface.thread_count; i++)
-        VERIFY_VK(device->vkResetCommandPool(device->logical, frame->graphics_command_pools[i].command_pool, 0));
 }
 
 FN_REZNOR_FRAME_SUBMIT(vulkan)
@@ -1148,3 +1149,5 @@ FN_REZNOR_FRAME_SUBMIT(vulkan)
         }
     }
 }
+
+#endif /* REZNOR_VULKAN */

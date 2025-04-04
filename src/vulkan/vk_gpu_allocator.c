@@ -1,6 +1,14 @@
+#ifdef REZNOR_VULKAN
 #include "vk_reznor.h"
 
-FN_REZNOR_ASSEMBLY(vulkan, device_memory) {
+FN_REZNOR_DEVICE_MEMORY_REQUIREMENTS(vulkan) 
+{
+    (void)TODO;
+    return 0;
+}
+
+FN_REZNOR_ASSEMBLY(vulkan, device_memory) 
+{
     assert_debug(work && work->assembly.device_memory && work->memory.data && work->type == reznor_resource_type_device_memory && work->device);
     struct reznor_device *device = work->device;
 
@@ -9,7 +17,8 @@ FN_REZNOR_ASSEMBLY(vulkan, device_memory) {
 #endif /* REZNOR_ENABLE_GPU_PROFILER */
 }
 
-FN_REZNOR_DISASSEMBLY(vulkan, device_memory) {
+FN_REZNOR_DISASSEMBLY(vulkan, device_memory) 
+{
     assert_debug(device_memory && device_memory->header.device);
     struct reznor_device *device = device_memory->header.device;
 
@@ -18,3 +27,5 @@ FN_REZNOR_DISASSEMBLY(vulkan, device_memory) {
 #endif /* REZNOR_ENABLE_GPU_PROFILER */
     zerop(device_memory);
 }
+
+#endif /* REZNOR_VULKAN */

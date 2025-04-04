@@ -1,3 +1,4 @@
+#ifdef PLATFORM_WINDOWS
 #include <amw/bedrock/log.h>
 #include <amw/bedrock/process.h>
 
@@ -54,3 +55,4 @@ void process_hugetlbinfo(usize *hugepagesize, usize max_target_hugepagesize)
     else if (hugepagesize)
         *hugepagesize = 0;
 }
+#endif /* PLATFORM_WINDOWS */
