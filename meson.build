@@ -1,7 +1,7 @@
 project('lakeinthelungs', 'c',
     version : '2025',
     default_options : [
-        'c_std=c11',
+        'c_std=c99',
         'buildtype=release',
         'default_library=shared',
         'warning_level=3',
@@ -9,6 +9,7 @@ project('lakeinthelungs', 'c',
 
 cc = meson.get_compiler('c')
 sys = host_machine.system()
+fs = import('fs')
 
 defs = ['-Wall']
 if cc.get_id() != 'msvc'
@@ -20,15 +21,13 @@ if cc.get_id() != 'msvc'
 endif
 
 deps = []
-engine_sources = []
-main_sources = []
 cross_opts = []
 include = include_directories('include')
 
 if get_option('buildtype') == 'debug' or get_option('buildtype') == 'debugoptimized'
-    defs += '-DDEBUG'
+    defs += '-DLAKE_DEBUG'
 elif get_option('buildtype') == 'release'
-    defs += '-DNDEBUG'
+    defs += '-DLAKE_NDEBUG'
 endif
 if get_option('default_library') == 'shared'
     defs += '-DLAKE_BUILD_DLL_EXPORT'
@@ -41,11 +40,12 @@ if meson.is_cross_build()
     systype = '@0@ (cross-compiling)'.format(systype)
 endif
 
+sources = []
 subdir('src')
 
 amwengine = library(
     'amwengine',
-    engine_sources,
+    sources,
     c_args : defs,
     dependencies : deps,
     include_directories : include,
@@ -55,9 +55,10 @@ dep_amwengine = declare_dependency(
     include_directories : include,
     link_with : amwengine)
 
-main_sources += 'lake.c'
+main_sources = []
+subdir('main')
 
-executable(
+lakeinthelungs = executable(
     'lakeinthelungs',
     main_sources,
     c_args : defs,
@@ -78,7 +79,7 @@ if doxygen.found()
         install : false)
     docs_datadir = join_paths(get_option('datadir'), 'docs', 'lake')
 
-    custom_target(
+    html_target = custom_target(
         'lakeinthelungs_docs',
         input : doxyfile,
         output : 'html',

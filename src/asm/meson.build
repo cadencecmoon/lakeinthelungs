@@ -37,7 +37,7 @@ else
 endif
 
 assembly_config = '_' + assembly_arch + '_' + assembly_os + '_' + assembly_abi + assembly_asm
-engine_sources += files(
+sources += files(
     'jump_fcontext' + assembly_config,
     'make_fcontext' + assembly_config,
 )
