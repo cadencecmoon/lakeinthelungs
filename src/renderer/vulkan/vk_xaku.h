@@ -3,6 +3,43 @@
 #include <amwe/xaku.h>
 #ifdef XAKU_VULKAN
 
+FN_XAKU_CMD_COPY_BUFFER_TO_BUFFER(vulkan);
+FN_XAKU_CMD_COPY_BUFFER_TO_TEXTURE(vulkan);
+FN_XAKU_CMD_COPY_TEXTURE_TO_BUFFER(vulkan);
+FN_XAKU_CMD_COPY_TEXTURE_TO_TEXTURE(vulkan);
+FN_XAKU_CMD_BLIT_TEXTURE_TO_TEXTURE(vulkan);
+FN_XAKU_CMD_BUILD_ACCELERATION_STRUCTURES(vulkan);
+FN_XAKU_CMD_CLEAR_BUFFER(vulkan);
+FN_XAKU_CMD_CLEAR_TEXTURE(vulkan);
+FN_XAKU_CMD_DESTROY_DEFERRED(vulkan);
+FN_XAKU_CMD_PUSH_CONSTANT(vulkan);
+FN_XAKU_CMD_BARRIERS(vulkan);
+FN_XAKU_CMD_TRANSITIONS(vulkan);
+FN_XAKU_CMD_SET_COMPUTE_PIPELINE(vulkan);
+FN_XAKU_CMD_SET_RASTER_PIPELINE(vulkan);
+FN_XAKU_CMD_SET_RAY_TRACING_PIPELINE(vulkan);
+FN_XAKU_CMD_SET_VIEWPORT(vulkan);
+FN_XAKU_CMD_SET_SCISSOR(vulkan);
+FN_XAKU_CMD_SET_DEPTH_BIAS(vulkan);
+FN_XAKU_CMD_SET_INDEX_BUFFER(vulkan);
+FN_XAKU_CMD_BEGIN_RENDERING(vulkan);
+FN_XAKU_CMD_END_RENDERING(vulkan);
+FN_XAKU_CMD_DISPATCH(vulkan);
+FN_XAKU_CMD_DISPATCH_INDIRECT(vulkan);
+FN_XAKU_CMD_DRAW(vulkan);
+FN_XAKU_CMD_DRAW_INDEXED(vulkan);
+FN_XAKU_CMD_DRAW_INDIRECT(vulkan);
+FN_XAKU_CMD_DRAW_INDIRECT_COUNT(vulkan);
+FN_XAKU_CMD_DRAW_MESH_TASKS(vulkan);
+FN_XAKU_CMD_DRAW_MESH_TASKS_INDIRECT(vulkan);
+FN_XAKU_CMD_DRAW_MESH_TASKS_INDIRECT_COUNT(vulkan);
+FN_XAKU_CMD_TRACE_RAYS(vulkan);
+FN_XAKU_CMD_TRACE_RAYS_INDIRECT(vulkan);
+FN_XAKU_CMD_WRITE_TIMESTAMPS(vulkan);
+FN_XAKU_CMD_RESET_TIMESTAMPS(vulkan);
+FN_XAKU_CMD_BEGIN_LABEL(vulkan);
+FN_XAKU_CMD_END_LABEL(vulkan);
+
 #ifndef VK_NO_PROTOTYPES
     #define VK_NO_PROTOTYPES
 #endif
@@ -134,7 +171,7 @@ struct vulkan_gpu_allocator {
 };
 
 struct xaku_device {
-    struct xaku_device_header                                   header;
+    //struct xaku_device_header                                   header;
     /** A pointer to Riven for convenience. */
     struct riven                                               *riven;
     /** The Vulkan context of a rendering device, using the given physical device. */

@@ -31,11 +31,44 @@ extern FN_RIVEN_INTERFACE_VALIDATION(xaku)
     const char *fmt = "'%s: %s' is missing an interface procedure - 'PFN_xaku_%s'.";
     bool valid = true;
 
-#define VALIDATE(FN) \
-    if (interface->FN == NULL) { bedrock_log_debug(fmt, interface->header.name, interface->header.backend, #FN); valid = false; }
+#define VALIDATE(INTERFACE, FN) \
+    if (interface->INTERFACE.FN == NULL) { bedrock_log_debug(fmt, interface->header.name, interface->header.backend, #INTERFACE "_" #FN); valid = false; }
 
-    (void)interface;
-    (void)fmt;
+    VALIDATE(cmd, copy_buffer_to_buffer)
+    VALIDATE(cmd, copy_buffer_to_texture)
+    VALIDATE(cmd, copy_texture_to_buffer)
+    VALIDATE(cmd, copy_texture_to_texture)
+    VALIDATE(cmd, build_acceleration_structures)
+    VALIDATE(cmd, clear_buffer)
+    VALIDATE(cmd, clear_texture)
+    VALIDATE(cmd, destroy_deferred)
+    VALIDATE(cmd, push_constant)
+    VALIDATE(cmd, barriers)
+    VALIDATE(cmd, transitions)
+    VALIDATE(cmd, set_compute_pipeline)
+    VALIDATE(cmd, set_raster_pipeline)
+    VALIDATE(cmd, set_ray_tracing_pipeline)
+    VALIDATE(cmd, set_viewport)
+    VALIDATE(cmd, set_scissor)
+    VALIDATE(cmd, set_depth_bias)
+    VALIDATE(cmd, set_index_buffer)
+    VALIDATE(cmd, begin_rendering)
+    VALIDATE(cmd, end_rendering)
+    VALIDATE(cmd, dispatch)
+    VALIDATE(cmd, dispatch_indirect)
+    VALIDATE(cmd, draw)
+    VALIDATE(cmd, draw_indexed)
+    VALIDATE(cmd, draw_indirect)
+    VALIDATE(cmd, draw_indirect_count)
+    VALIDATE(cmd, draw_mesh_tasks)
+    VALIDATE(cmd, draw_mesh_tasks_indirect)
+    VALIDATE(cmd, draw_mesh_tasks_indirect_count)
+    VALIDATE(cmd, trace_rays)
+    VALIDATE(cmd, trace_rays_indirect)
+    VALIDATE(cmd, write_timestamps)
+    VALIDATE(cmd, reset_timestamps)
+    VALIDATE(cmd, begin_label)
+    VALIDATE(cmd, end_label)
 #undef VALIDATE
 
     return valid;

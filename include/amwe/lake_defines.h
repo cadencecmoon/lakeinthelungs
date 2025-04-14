@@ -1460,6 +1460,18 @@ lake_bswapf32(f32 x)
     #endif
 #endif
 
+#define lake_span_to_const(T)           \
+    struct {                            \
+        const T *data;                  \
+        usize size;                     \
+    }
+
+#define lake_fixed_list(T, CAPACITY)    \
+    struct {                            \
+        T data[CAPACITY];               \
+        u8 size;                        \
+    }
+
 typedef s16     wchar16;
 typedef s32     wchar32;
 #ifdef LAKE_USE_WCHAR32_UNICODE
@@ -1467,6 +1479,9 @@ typedef wchar32 wchar;
 #else
 typedef wchar16 wchar;
 #endif
+
+#define LAKE_SMALL_STRING_CAPACITY (63u)
+typedef lake_fixed_list(char, LAKE_SMALL_STRING_CAPACITY) lake_small_string;
 
 #define LAKE_EPSILON    DBL_EPSILON
 #define LAKE_EPSILONf   FLT_EPSILON

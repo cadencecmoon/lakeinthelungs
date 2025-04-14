@@ -49,13 +49,13 @@ extern FN_RIVEN_INTERFACE_VALIDATION(soma)
     const char *fmt = "'%s: %s' is missing an interface procedure - 'PFN_soma_%s'.";
     bool valid = true;
 
-#define VALIDATE(FN) \
-    if (interface->FN == NULL) { bedrock_log_debug(fmt, interface->header.name, interface->header.backend, #FN); valid = false; }
+#define VALIDATE(INTERFACE, FN) \
+    if (interface->INTERFACE.FN == NULL) { bedrock_log_debug(fmt, interface->header.name, interface->header.backend, #INTERFACE "_" #FN); valid = false; }
 
-    VALIDATE(sink_query)
-    VALIDATE(sink_open)
-    VALIDATE(sink_close)
-    VALIDATE(sink_wait)
+    VALIDATE(sink, query)
+    VALIDATE(sink, open)
+    VALIDATE(sink, close)
+    VALIDATE(sink, wait)
 #undef VALIDATE
 
     return valid;

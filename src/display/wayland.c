@@ -896,6 +896,7 @@ static void destroy_window_shell_objects(struct hadal_window *window)
 static FN_HADAL_WINDOW_CREATE(wayland)
 {
     (void)wayland;
+    (void)out_window;
     return NULL;
 }
 
@@ -929,6 +930,8 @@ static FN_HADAL_WINDOW_VISIBILITY(wayland)
 }
 
 #ifdef XAKU_VULKAN
+#include <amwe/xaku.h>
+
 static FN_HADAL_VULKAN_WRITE_INSTANCE(wayland)
 {
     if (!wayland || !instance || !vkGetInstanceProcAddr)
@@ -968,7 +971,7 @@ static FN_HADAL_VULKAN_SURFACE_CREATE(wayland)
         .display = wayland->display,
         .surface = window->surface,
     };
-    return wayland->vulkan.vkCreateWaylandSurfaceKHR(wayland->vulkan.instance, &surface_info, callbacks, out_surface);
+    return (enum xaku_result)wayland->vulkan.vkCreateWaylandSurfaceKHR(wayland->vulkan.instance, &surface_info, callbacks, out_surface);
 }
 #endif /* XAKU_VULKAN */
 
@@ -1704,13 +1707,13 @@ disconnect:
 #endif /* HADAL_WAYLAND_LIBDECOR */
 
     /* write the interface */
-    wayland->interface.window_create = _hadal_wayland_window_create;
-    wayland->interface.window_destroy = _hadal_wayland_window_destroy;
-    wayland->interface.window_visibility = _hadal_wayland_window_visibility;
+    wayland->interface.window.create = _hadal_wayland_window_create;
+    wayland->interface.window.destroy = _hadal_wayland_window_destroy;
+    wayland->interface.window.visibility = _hadal_wayland_window_visibility;
 #ifdef XAKU_VULKAN
-    wayland->interface.vulkan_write_instance = _hadal_wayland_vulkan_write_instance;
-    wayland->interface.vulkan_presentation_support = _hadal_wayland_vulkan_presentation_support;
-    wayland->interface.vulkan_surface_create = _hadal_wayland_vulkan_surface_create;
+    wayland->interface.vulkan.write_instance = _hadal_wayland_vulkan_write_instance;
+    wayland->interface.vulkan.presentation_support = _hadal_wayland_vulkan_presentation_support;
+    wayland->interface.vulkan.surface_create = _hadal_wayland_vulkan_surface_create;
 #endif /* XAKU_VULKAN */
     return wayland;
 }

@@ -39,16 +39,16 @@ extern FN_RIVEN_INTERFACE_VALIDATION(hadal)
     const char *fmt = "'%s: %s' is missing an interface procedure - 'PFN_hadal_%s'.";
     bool valid = true;
 
-#define VALIDATE(FN) \
-    if (interface->FN == NULL) { bedrock_log_debug(fmt, interface->header.name, interface->header.backend, #FN); valid = false; }
+#define VALIDATE(INTERFACE, FN) \
+    if (interface->INTERFACE.FN == NULL) { bedrock_log_debug(fmt, interface->header.name, interface->header.backend, #INTERFACE "_" #FN); valid = false; }
 
-    VALIDATE(window_create)
-    VALIDATE(window_destroy)
-    VALIDATE(window_visibility)
+    VALIDATE(window, create)
+    VALIDATE(window, destroy)
+    VALIDATE(window, visibility)
 #ifdef XAKU_VULKAN
-    VALIDATE(vulkan_write_instance)
-    VALIDATE(vulkan_presentation_support)
-    VALIDATE(vulkan_surface_create)
+    VALIDATE(vulkan, write_instance)
+    VALIDATE(vulkan, presentation_support)
+    VALIDATE(vulkan, surface_create)
 #endif /* XAKU_VULKAN */
 #undef VALIDATE
 
