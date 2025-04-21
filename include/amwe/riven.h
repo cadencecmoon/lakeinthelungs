@@ -213,12 +213,21 @@ typedef void *(LAKECALL *PFN_riven_encore)(ARGS_RIVEN_ENCORE);
 
 /** Abstracts away an interface structure that defines this header. */
 struct riven_interface_header {
+    /** An interface implementation may live until it is in use by any independent system.
+     *  Losing all reference points will zombify */
+    atomic_u64                      refcnt;
     struct riven                   *riven;          /**< The context for Riven. */
     riven_tag_t                     tag;            /**< The lifetime of this interface. */
     const char                     *name;           /**< The name of this interface. */
     const char                     *backend;        /**< The name of this implementation. */
-    PFN_riven_work                  encore_fini;    /**< Callback used to destroy the encore. */
+    /**< Callback used to destroy the encore, the work argument is 'encore' of the interface. */
+    PFN_riven_work                  zero_ref_callback;
 };
+
+#define riven_inc_refcnt(REFCNT) \
+    (u64)lake_atomic_add_explicit(REFCNT, 1llu, lake_memory_model_relaxed)
+#define riven_dec_refcnt(REFCNT) \
+    (u64)lake_atomic_sub_explicit(REFCNT, 1llu, lake_memory_model_relaxed)
 
 typedef bool (LAKECALL *PFN_riven_interface_validation)(const void *interface);
 #define FN_RIVEN_INTERFACE_VALIDATION(INTERFACE) \
@@ -229,42 +238,25 @@ typedef bool (LAKECALL *PFN_riven_interface_validation)(const void *interface);
  *  one-by-one, until one is valid, and this encore is then written (returned).
  *  All fields except the 'debug' stuff must be set (not NULL). */
 struct riven_encore_work {
-    /** A pointer to Riven. */
-    struct riven                   *riven;
     /** The name of the interface, for logging. */
     const char                     *name;
     /** A list of encore implementations to try, should be sorted by the user by most important. */
     const PFN_riven_encore         *encores;
     /** Maximum number of encores to try. */
     u32                             encore_count;
-    /** Information about the engine and application. */
-    const struct pelagial_metadata *metadata;
-    /** Data specific to an interface, look at the interface docs in the headers. */
-    void                           *userdata;
     /** The lifetime of the interface, handled by the application. */
     riven_tag_t                     tag;
+    /** Information about the engine and application. */
+    const struct pelagial_metadata *metadata;
     /** Optional, performs a validation on the public interface structure.
      *  Must return true if the interface implementation is accepted,
      *  otherwise if false is returned, the interface will be discarded. */
     PFN_riven_interface_validation  interface_validation;
-    /** A pointer to the handle where a valid encore may be written. 
-     *  If ends up pointing into NULL, it means all given encores failed. */
-    void                          **write;
 };
 
-/** Executes a list of encores for one interface, until one implementation is valid.
- *  Can be run as a job in parallel with other independent interfaces. */
-LAKEAPI lake_nonnull(1) void 
-riven_encore_init(struct riven_encore_work *restrict work);
-
-/** Returns a job to destroy the interface. */
-lake_force_inline lake_nonnull(1) PFN_riven_work
-riven_encore_fini(void *interface) 
-{
-    struct riven_interface_header *header = (struct riven_interface_header *)interface;
-    bedrock_assert_debug(header->encore_fini);
-    return header->encore_fini;
-}
+/** Executes a list of encores for one interface, until one implementation is valid. */
+LAKEAPI lake_nonnull_all void *LAKECALL
+riven_encore(struct riven *riven, struct riven_encore_work *restrict work, void *encore_userdata);
 
 /** Setups the job system and maps virtual memory to be used within the engine. The resource requirements of 
  *  internal systems depends on given argument hints and on the capabilities of the host system. Passing 0 as 

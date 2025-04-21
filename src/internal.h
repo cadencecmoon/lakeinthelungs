@@ -1,6 +1,6 @@
 #include <amwe/a_moonlit_walk.h>
 
-/** Describes all engine and application runtime settings. Holds close to all settings 
+/** Describes all engine and application runtime settings. Holds all settings 
  *  that can be updated without restarting the application. */
 struct amwe_settings {
     u32 todo;

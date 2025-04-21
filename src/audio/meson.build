@@ -10,7 +10,7 @@ if dep_xaudio.found()
     defs += '-DSOMA_XAUDIO2=1'
 endif
 
-dep_core = dependency('appleframeworks', modules : [ 'CoreAudio' ], required : get_option('core'))
+dep_core = dependency('appleframeworks', modules : [ 'CoreAudio' ], required : get_option('coreaudio'))
 if dep_core.found()
     #sources += files('')
     defs += '-DSOMA_COREAUDIO=1'

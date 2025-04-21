@@ -10,8 +10,8 @@ extern "C" {
 struct soma_sink;
 struct soma_encore;
 
-enum soma_result {
-    soma_result_success = 0,
+struct soma_encore_assembly {
+    u32 todo;
 };
 
 #ifdef SOMA_WASAPI
@@ -51,6 +51,14 @@ LAKEAPI FN_RIVEN_ENCORE(soma, null);
 /** Returns an array of native encores, with a predefined priority. */
 LAKEAPI lake_nonnull(2) const PFN_riven_encore *LAKECALL 
 soma_native_encores(bool null_fallback, u32 *out_encore_count);
+
+#define SOMA_INTERFACE_SINK_HEADER \
+    /** The encore used to open this sink. */ \
+    struct soma_encore *encore;
+
+enum soma_result {
+    soma_result_success = 0,
+};
 
 #ifdef __cplusplus
 }

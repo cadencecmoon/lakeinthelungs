@@ -21,11 +21,17 @@ if (webgpu_found)
     defs += '-DXAKU_WEBGPU=1'
 endif
 
-dep_vulkan = dependency('vulkan', required : get_option('vulkan'))
+# at external/
 if dep_vulkan.found()
     sources += files(
-        'vulkan/vk_device.c',
-        'vulkan/vk_encore.c',
+        'vk_commands.c',
+        'vk_device.c',
+        'vk_encore.c',
+        'vk_gpu_allocator.c',
+        'vk_gpu_profiler.c',
+        'vk_gpu_resources.c',
+        'vk_pipelines.c',
+        'vk_swapchain.c',
     )
     defs += '-DXAKU_VULKAN=1'
 endif

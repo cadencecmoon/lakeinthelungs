@@ -1,5 +1,24 @@
 #include "internal.h"
 
+#define ENCORE_COUNT 3
+
+static s32 engine_init(struct a_moonlit_walk_engine *amwe)
+{
+
+    return 0;
+}
+
+static void engine_fini(struct a_moonlit_walk_engine *amwe)
+{
+    /* destroy the game interface first, before anything else */
+    if (amwe->pelagial.encore)
+        amwe->pelagial.header->zero_ref_callback(amwe->pelagial.encore);
+
+    xaku_fini(&amwe->xaku);
+    soma_fini(&amwe->soma);
+    hadal_fini(&amwe->hadal);
+}
+
 s32 a_moonlit_walk(
     struct riven                   *riven,
     const struct riven_hints       *riven_hints,

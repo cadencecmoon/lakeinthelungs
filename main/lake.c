@@ -27,7 +27,7 @@ PFN_riven_framework pelagial_main(
     return (PFN_riven_framework)a_moonlit_walk;
 }
 
-static void lake_encore_fini(struct pelagial_encore *lake)
+static void lake_encore_zero_ref_callback(struct pelagial_encore *lake)
 {
     (void)lake;
 }
@@ -50,6 +50,6 @@ FN_RIVEN_ENCORE(pelagial, lake)
     lake->interface.header.tag = tag;
     lake->interface.header.name = "pelagial";
     lake->interface.header.backend = "lake";
-    lake->interface.header.encore_fini = (PFN_riven_work)lake_encore_fini;
+    lake->interface.header.zero_ref_callback = (PFN_riven_work)lake_encore_zero_ref_callback;
     return lake; 
 }

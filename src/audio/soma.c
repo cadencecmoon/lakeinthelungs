@@ -1,4 +1,4 @@
-#include <amwe/soma.h>
+#include <amwe/audio/soma.h>
 
 static const PFN_riven_encore native_encores[] = {
 #ifdef SOMA_WASAPI
@@ -49,13 +49,13 @@ extern FN_RIVEN_INTERFACE_VALIDATION(soma)
     const char *fmt = "'%s: %s' is missing an interface procedure - 'PFN_soma_%s'.";
     bool valid = true;
 
-#define VALIDATE(INTERFACE, FN) \
-    if (interface->INTERFACE.FN == NULL) { bedrock_log_debug(fmt, interface->header.name, interface->header.backend, #INTERFACE "_" #FN); valid = false; }
+#define VALIDATE(FN) \
+    if (interface->FN == NULL) { bedrock_log_debug(fmt, interface->header.name, interface->header.backend, #FN); valid = false; }
 
-    VALIDATE(sink, query)
-    VALIDATE(sink, open)
-    VALIDATE(sink, close)
-    VALIDATE(sink, wait)
+    VALIDATE(sink_query)
+    VALIDATE(sink_open)
+    VALIDATE(sink_close)
+    VALIDATE(sink_wait)
 #undef VALIDATE
 
     return valid;
@@ -90,3 +90,8 @@ FN_RIVEN_ENCORE_STUB(soma, oss)
 #endif /* SOMA_OSS */
 
 FN_RIVEN_ENCORE_STUB(soma, null)
+
+void soma_fini(struct soma *soma)
+{
+    (void)soma;
+}

@@ -1,4 +1,4 @@
-#include <amwe/soma.h>
+#include <amwe/audio/soma.h>
 #ifdef SOMA_PIPEWIRE
 
 #include <pipewire/pipewire.h>
@@ -58,8 +58,8 @@ enum PW_READY_FLAGS {
 #define PW_ID_TO_HANDLE(x) (void *)((uptr)x)
 #define PW_HANDLE_TO_ID(x) (u32)((uptr)x)
 
-struct soma_device {
-    struct soma_encore *encore;
+struct soma_sink {
+    SOMA_INTERFACE_SINK_HEADER
 };
 
 struct soma_encore {
@@ -99,12 +99,13 @@ static FN_SOMA_SINK_QUERY(pipewire)
     (void)pipewire;
     (void)default_playback;
     (void)default_recording;
+    return soma_result_success;
 }
 
 static FN_SOMA_SINK_OPEN(pipewire)
 {
     (void)pipewire;
-    return NULL;
+    return soma_result_success;
 }
 
 static FN_SOMA_SINK_CLOSE(pipewire)
@@ -195,7 +196,7 @@ static bool load_pipewire_symbols(struct soma_encore *pipewire, const char *msg)
 
 static struct soma_encore *g_pipewire = NULL;
 
-static void pipewire_encore_fini(struct soma_encore *encore)
+static void pipewire_encore_zero_ref(struct soma_encore *encore)
 {
     if (!encore)
         return;
@@ -258,18 +259,18 @@ FN_RIVEN_ENCORE(soma, pipewire)
     pipewire->pw_get_library_version = get_library_version;
     pipewire->pw_init = init;
 
+    if (!load_pipewire_symbols(pipewire, msg)) {
+        pipewire_encore_zero_ref(pipewire);
+        return NULL;
+    }
+
     /* write the interface header */
     pipewire->interface.header.riven = riven;
     pipewire->interface.header.tag = tag;
     pipewire->interface.header.name = "soma";
     pipewire->interface.header.backend = "pipewire";
-    pipewire->interface.header.encore_fini = (PFN_riven_work)pipewire_encore_fini;
+    pipewire->interface.header.zero_ref_callback = (PFN_riven_work)pipewire_encore_zero_ref;
     g_pipewire = pipewire;
-
-    if (!load_pipewire_symbols(pipewire, msg)) {
-        pipewire_encore_fini(pipewire);
-        return NULL;
-    }
 
     /* write the interface */
     pipewire->interface.sink_query = _soma_pipewire_sink_query;

@@ -16,10 +16,6 @@ struct hadal_window;
 struct hadal_monitor;
 struct hadal_encore;
 
-enum hadal_result {
-    hadal_result_success = 0,
-};
-
 #if defined(LAKE_PLATFORM_WINDOWS)
 LAKEAPI FN_RIVEN_ENCORE(hadal, win32);
 #elif defined(LAKE_PLATFORM_APPLE_MACOS)
@@ -47,6 +43,20 @@ LAKEAPI FN_RIVEN_ENCORE(hadal, null);
 /** Returns an array of native encores, with a predefined priority. */
 LAKEAPI lake_nonnull(2) const PFN_riven_encore *LAKECALL 
 hadal_native_encores(bool null_fallback, u32 *out_encore_count);
+
+#define HADAL_INTERFACE_MONITOR_HEADER \
+    /**< The encore that owns this output monitor. */ \
+    struct hadal_encore *encore;
+
+#define HADAL_INTERFACE_WINDOW_HEADER \
+    /**< The encore that was used to create this native window. */ \
+    struct hadal_encore *encore;
+
+enum hadal_result {
+    hadal_result_success = 0,
+};
+
+/* Connection to graphics APIs: */
 
 #ifdef XAKU_VULKAN
 enum xaku_result;
@@ -81,12 +91,6 @@ typedef bool (LAKECALL *PFN_hadal_vulkan_presentation_support)(ARGS_HADAL_VULKAN
 typedef lake_nodiscard enum xaku_result (LAKECALL *PFN_hadal_vulkan_surface_create)(ARGS_HADAL_VULKAN_SURFACE_CREATE);
 #define FN_HADAL_VULKAN_SURFACE_CREATE(ENCORE) \
     lake_nodiscard enum xaku_result LAKECALL _hadal_##ENCORE##_vulkan_surface_create(ARGS_HADAL_VULKAN_SURFACE_CREATE)
-
-struct hadal_interface_vulkan {
-    PFN_hadal_vulkan_write_instance         write_instance;
-    PFN_hadal_vulkan_presentation_support   presentation_support;
-    PFN_hadal_vulkan_surface_create         surface_create;
-};
 #endif /* XAKU_VULKAN */
 
 #ifdef __cplusplus

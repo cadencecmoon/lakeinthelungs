@@ -6,10 +6,10 @@
 
 #include <amwe/hash_table.h>
 
-#include <amwe/hadal.h>
+#include <amwe/display/hadal.h>
+#include <amwe/renderer/xaku.h>
+#include <amwe/audio/soma.h>
 #include <amwe/pelagial.h>
-#include <amwe/soma.h>
-#include <amwe/xaku.h>
 
 #ifdef __cplusplus
 extern "C" {

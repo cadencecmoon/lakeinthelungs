@@ -1,6 +1,6 @@
 #pragma once
 
-#include <amwe/hadal/encore.h>
+#include <amwe/display/encore.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -47,10 +47,12 @@ enum hadal_window_flags {
     hadal_window_flag_should_close      = (1u << 18),
 };
 
+/** The first member of a 'hadal_window' struct implementation. */
 struct hadal_window_header {
+    /** The encore used to create this window. Does not modify the refcnt, as it's owned by Riven. */
     struct hadal_encore            *encore;
-    const char                     *title;
-    atomic_u32                      flags;
+    /** The window may be destroyed when the reference count reaches zero. */
+    atomic_u64                      refcnt;
 };
 
 typedef lake_nodiscard enum hadal_result (LAKECALL *PFN_hadal_window_create)(struct hadal_encore *encore, struct hadal_window **out_window);
@@ -64,18 +66,6 @@ typedef void (LAKECALL *PFN_hadal_window_destroy)(struct hadal_window *window);
 typedef u32 (LAKECALL *PFN_hadal_window_visibility)(struct hadal_window *window, bool visible);
 #define FN_HADAL_WINDOW_VISIBILITY(ENCORE) \
     u32 LAKECALL _hadal_##ENCORE##_window_visibility(struct hadal_window *window, bool visible)
-
-struct hadal_interface_window {
-    PFN_hadal_window_create         create;
-    PFN_hadal_window_destroy        destroy;
-    PFN_hadal_window_visibility     visibility;
-};
-
-/** A view into a window. */
-union hadal_window_view {
-    struct hadal_window_header     *header;
-    struct hadal_window            *data; 
-};
 
 #ifdef __cplusplus
 }

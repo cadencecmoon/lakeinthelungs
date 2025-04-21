@@ -1,4 +1,5 @@
 option('docs',      type : 'feature', value : 'auto')
+option('imgui',     type : 'boolean', value : true)
 
 # vector extensions
 option('avx',       type : 'boolean', value : false)
@@ -14,7 +15,7 @@ option('drmkms',    type : 'feature', value : 'auto')
 # audio backends
 option('wasapi',    type : 'feature', value : 'auto')
 option('xaudio2',   type : 'feature', value : 'auto')
-option('core',      type : 'feature', value : 'auto')
+option('coreaudio', type : 'feature', value : 'auto')
 option('aaudio',    type : 'feature', value : 'auto')
 option('webaudio',  type : 'feature', value : 'auto')
 option('alsa',      type : 'feature', value : 'auto')

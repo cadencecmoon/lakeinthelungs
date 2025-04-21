@@ -1,4 +1,4 @@
-#include <amwe/hadal.h>
+#include <amwe/display/hadal.h>
 #ifdef HADAL_WAYLAND
 
 #ifndef _GNU_SOURCE
@@ -368,7 +368,9 @@ struct wayland_cursor_theme {
 };
 
 struct hadal_window {
-    struct hadal_window_header          header;
+    HADAL_INTERFACE_WINDOW_HEADER
+    atomic_u32                          flags;
+    const char                         *title;
     const char                         *tag;
     struct wl_surface                  *surface;
 
@@ -405,6 +407,7 @@ struct hadal_window {
 };
 
 struct hadal_monitor {
+    HADAL_INTERFACE_MONITOR_HEADER
     struct wl_output                   *output;
     struct zxdg_output_v1              *xdg_output;
 };
@@ -624,8 +627,9 @@ static struct hadal_encore *g_wayland = NULL;
 #include "xdg-shell-protocol.h"
 #include "xdg-toplevel-icon-v1-protocol.h"
 
-static const char *g_wayland_surface_tag = "hadal_window";
+#if 0 // TODO
 static const char *g_wayland_monitor_tag = "hadal_monitor";
+static const char *g_wayland_surface_tag = "hadal_window";
 
 static void wayland_register_surface(struct wl_surface *surface)
 {
@@ -662,13 +666,11 @@ static bool resize_window(struct hadal_window *window, s32 width, s32 height)
     width = lake_max(width, 1);
     height = lake_max(height, 1);
 
-#if 0
     if ((u32)width == window->window_width && (u32)height == window->window_height)
         return false;
 
     window->window_width = width;
     window->window_height = height;
-#endif
 
     resize_framebuffer(window);
 
@@ -705,6 +707,7 @@ static const struct wl_surface_listener surface_listener = {
     .enter = handle_surface_enter,
     .leave = handle_surface_leave,
 };
+#endif
 
 #ifdef HADAL_WAYLAND_LIBDECOR
 static bool create_window_shell_libdecor_frame(struct hadal_window *window)
@@ -739,7 +742,7 @@ static void handle_xdg_toplevel_close(
     (void)xdg_toplevel;
 
     struct hadal_window *window = (struct hadal_window *)data;
-    lake_atomic_or_explicit(&window->header.flags, hadal_window_flag_should_close, lake_memory_model_release);
+    lake_atomic_or_explicit(&window->flags, hadal_window_flag_should_close, lake_memory_model_release);
 }
 
 static void handle_xdg_toplevel_configure(
@@ -810,24 +813,24 @@ static const struct xdg_toplevel_listener xdg_toplevel_listener = {
 
 static bool create_window_shell_xdg_toplevel(struct hadal_window *window)
 {
-    struct hadal_encore *encore = window->header.encore;
+    struct hadal_encore *encore = window->encore;
     bedrock_assert_debug(encore->shell.xdg);
 
     window->shell_surface.xdg.surface = xdg_wm_base_get_xdg_surface(encore->shell.xdg, window->surface);
     if (!window->shell_surface.xdg.surface) {
-        bedrock_log_error("Wayland: failed to create xdg-surface for window of title '%s'.", window->header.title);
+        bedrock_log_error("Wayland: failed to create xdg-surface for window of title '%s'.", window->title);
         return false;
     }
     xdg_surface_add_listener(window->shell_surface.xdg.surface, &xdg_surface_listener, window);
 
     window->shell_surface.xdg.roleobj.toplevel = xdg_surface_get_toplevel(window->shell_surface.xdg.surface);
     if (!window->shell_surface.xdg.roleobj.toplevel) {
-        bedrock_log_error("Wayland: failed to create xdg-toplevel for window of title '%s'.", window->header.title);
+        bedrock_log_error("Wayland: failed to create xdg-toplevel for window of title '%s'.", window->title);
         return false;
     }
     xdg_toplevel_add_listener(window->shell_surface.xdg.roleobj.toplevel, &xdg_toplevel_listener, window);
 
-    xdg_toplevel_set_title(window->shell_surface.xdg.roleobj.toplevel, window->header.title);
+    xdg_toplevel_set_title(window->shell_surface.xdg.roleobj.toplevel, window->title);
 
     wl_surface_commit(window->surface);
     wl_display_roundtrip(encore->display);
@@ -897,7 +900,7 @@ static FN_HADAL_WINDOW_CREATE(wayland)
 {
     (void)wayland;
     (void)out_window;
-    return NULL;
+    return hadal_result_success;
 }
 
 static FN_HADAL_WINDOW_DESTROY(wayland)
@@ -912,7 +915,7 @@ static FN_HADAL_WINDOW_DESTROY(wayland)
 
 static FN_HADAL_WINDOW_VISIBILITY(wayland)
 {
-    u32 flags = lake_atomic_read_explicit(&window->header.flags, lake_memory_model_relaxed);
+    u32 flags = lake_atomic_read_explicit(&window->flags, lake_memory_model_relaxed);
 
     if ((flags & hadal_window_flag_visible) != (visible ? hadal_window_flag_visible : 0)) {
         if (visible && !create_window_shell_objects(window)) {
@@ -923,14 +926,14 @@ static FN_HADAL_WINDOW_VISIBILITY(wayland)
             wl_surface_attach(window->surface, NULL, 0, 0);
             wl_surface_commit(window->surface);
         }
-        return lake_atomic_xor_explicit(&window->header.flags, hadal_window_flag_visible, lake_memory_model_release);
+        return lake_atomic_xor_explicit(&window->flags, hadal_window_flag_visible, lake_memory_model_release);
     }
     /* no modify/write operation was done */
     return flags;
 }
 
 #ifdef XAKU_VULKAN
-#include <amwe/xaku.h>
+#include <amwe/renderer/xaku.h>
 
 static FN_HADAL_VULKAN_WRITE_INSTANCE(wayland)
 {
@@ -960,10 +963,10 @@ static FN_HADAL_VULKAN_PRESENTATION_SUPPORT(wayland)
 
 static FN_HADAL_VULKAN_SURFACE_CREATE(wayland)
 {
-    bedrock_assert_debug(lake_atomic_read_explicit(&window->header.flags, lake_memory_model_relaxed) 
+    bedrock_assert_debug(lake_atomic_read_explicit(&window->flags, lake_memory_model_relaxed) 
         & (hadal_window_flag_vulkan | hadal_window_flag_is_valid));
 
-    struct hadal_encore *wayland = window->header.encore;
+    struct hadal_encore *wayland = window->encore;
     struct VkWaylandSurfaceCreateInfoKHR surface_info = {
         .sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR,
         .pNext = NULL,
@@ -1526,7 +1529,7 @@ static void create_key_tables(struct hadal_encore *wayland)
             wayland->interface.scancodes[wayland->interface.keycodes[scancode]] = scancode;
 }
 
-static void wayland_encore_fini(struct hadal_encore *wayland)
+static void wayland_encore_zero_ref(struct hadal_encore *wayland)
 {
     if (!wayland)
         return;
@@ -1636,7 +1639,7 @@ disconnect:
         bedrock_module_close(module_xkbcommon);
         bedrock_module_close(module_cursor);
         bedrock_module_close(module_client);
-        wayland_encore_fini(g_wayland);
+        wayland_encore_zero_ref(g_wayland);
         return NULL;
     }
 
@@ -1669,7 +1672,7 @@ disconnect:
     wayland->interface.header.tag = tag;
     wayland->interface.header.name = "hadal";
     wayland->interface.header.backend = "wayland";
-    wayland->interface.header.encore_fini = (PFN_riven_work)wayland_encore_fini;
+    wayland->interface.header.zero_ref_callback = (PFN_riven_work)wayland_encore_zero_ref;
     g_wayland = wayland;
 
     if (!load_symbols(wayland, msg))
@@ -1707,13 +1710,13 @@ disconnect:
 #endif /* HADAL_WAYLAND_LIBDECOR */
 
     /* write the interface */
-    wayland->interface.window.create = _hadal_wayland_window_create;
-    wayland->interface.window.destroy = _hadal_wayland_window_destroy;
-    wayland->interface.window.visibility = _hadal_wayland_window_visibility;
+    wayland->interface.window_create = _hadal_wayland_window_create;
+    wayland->interface.window_destroy = _hadal_wayland_window_destroy;
+    wayland->interface.window_visibility = _hadal_wayland_window_visibility;
 #ifdef XAKU_VULKAN
-    wayland->interface.vulkan.write_instance = _hadal_wayland_vulkan_write_instance;
-    wayland->interface.vulkan.presentation_support = _hadal_wayland_vulkan_presentation_support;
-    wayland->interface.vulkan.surface_create = _hadal_wayland_vulkan_surface_create;
+    wayland->interface.vulkan_write_instance = _hadal_wayland_vulkan_write_instance;
+    wayland->interface.vulkan_presentation_support = _hadal_wayland_vulkan_presentation_support;
+    wayland->interface.vulkan_surface_create = _hadal_wayland_vulkan_surface_create;
 #endif /* XAKU_VULKAN */
     return wayland;
 }

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <amwe/xaku/encore.h>
+#include <amwe/renderer/encore.h>
 
 #ifdef __cplusplus
 extern "C" {

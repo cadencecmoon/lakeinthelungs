@@ -1,4 +1,4 @@
-#include <amwe/hadal.h>
+#include <amwe/display/hadal.h>
 
 static const PFN_riven_encore native_encores[] = {
 #if defined(LAKE_PLATFORM_WINDOWS)
@@ -39,16 +39,16 @@ extern FN_RIVEN_INTERFACE_VALIDATION(hadal)
     const char *fmt = "'%s: %s' is missing an interface procedure - 'PFN_hadal_%s'.";
     bool valid = true;
 
-#define VALIDATE(INTERFACE, FN) \
-    if (interface->INTERFACE.FN == NULL) { bedrock_log_debug(fmt, interface->header.name, interface->header.backend, #INTERFACE "_" #FN); valid = false; }
+#define VALIDATE(FN) \
+    if (interface->FN == NULL) { bedrock_log_debug(fmt, interface->header.name, interface->header.backend, #FN); valid = false; }
 
-    VALIDATE(window, create)
-    VALIDATE(window, destroy)
-    VALIDATE(window, visibility)
+    VALIDATE(window_create)
+    VALIDATE(window_destroy)
+    VALIDATE(window_visibility)
 #ifdef XAKU_VULKAN
-    VALIDATE(vulkan, write_instance)
-    VALIDATE(vulkan, presentation_support)
-    VALIDATE(vulkan, surface_create)
+    VALIDATE(vulkan_write_instance)
+    VALIDATE(vulkan_presentation_support)
+    VALIDATE(vulkan_surface_create)
 #endif /* XAKU_VULKAN */
 #undef VALIDATE
 
@@ -74,3 +74,8 @@ FN_RIVEN_ENCORE_STUB(hadal, drmkms)
 #endif /* HADAL_DRMKMS */
 
 FN_RIVEN_ENCORE_STUB(hadal, null)
+
+void hadal_fini(struct hadal *hadal)
+{
+    (void)hadal;
+}

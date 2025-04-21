@@ -1,13 +1,15 @@
-project('lakeinthelungs', 'c',
+project('lakeinthelungs', [ 'c', 'cpp' ],
     version : '2025',
     default_options : [
         'c_std=c99',
+        'cpp_std=c++17',
         'buildtype=release',
         'default_library=shared',
         'warning_level=3',
     ])
 
 cc = meson.get_compiler('c')
+cpp = meson.get_compiler('cpp')
 sys = host_machine.system()
 fs = import('fs')
 
@@ -41,6 +43,7 @@ if meson.is_cross_build()
 endif
 
 sources = []
+subdir('external')
 subdir('src')
 
 amwengine = library(
@@ -48,7 +51,7 @@ amwengine = library(
     sources,
     c_args : defs,
     dependencies : deps,
-    include_directories : include,
+    include_directories : [ include, 'external' ],
     install : false)
 dep_amwengine = declare_dependency(
     link_args : cross_opts,

@@ -1022,17 +1022,19 @@ extern "C" {
 #endif
 
 #ifdef __cplusplus
-    #if defined(LAKE_CC_GNUC_VERSION)
-        #define restrict __restrict__
-    #elif defined(LAKE_CC_MSVC_VERSION)
-        #define restrict __restrict
-    #else
-        #define restrict
-    #endif
+#if defined(LAKE_CC_GNUC_VERSION)
+    #define restrict __restrict__
+#elif defined(LAKE_CC_MSVC_VERSION)
+    #define restrict __restrict
+#else
+    #define restrict
+#endif
+#define LAKE_ZERO_INIT {}
 #else
 #define true 1
 #define false 0
 typedef _Bool bool;
+#define LAKE_ZERO_INIT {0}
 #endif /* __cplusplus */
 
 typedef int8_t      s8;
@@ -1460,6 +1462,20 @@ lake_bswapf32(f32 x)
     #endif
 #endif
 
+#define lake_pair(T0, T1)               \
+    struct {                            \
+        T0 first;                       \
+        T1 second;                      \
+    }
+
+#define lake_dynamic_array(T)           \
+    struct {                            \
+        T  *data;                       \
+        u32 count;                      \
+        u32 capacity;                   \
+    }
+/* TODO implement dynamic array procedures as macros */
+
 #define lake_span_to_const(T)           \
     struct {                            \
         const T *data;                  \
@@ -1468,7 +1484,7 @@ lake_bswapf32(f32 x)
 
 #define lake_fixed_list(T, CAPACITY)    \
     struct {                            \
-        T data[CAPACITY];               \
+        T  data[CAPACITY];              \
         u8 size;                        \
     }
 
@@ -1582,6 +1598,31 @@ typedef vec4                        mat3x4[3];
 typedef lake_simd_alignment vec4    mat4[4];    /* 4x4 matrix */
 typedef vec2                        mat4x2[4];
 typedef vec3                        mat4x3[4];
+
+struct lake_viewport {
+    f32 x, y, width, height, min_depth, max_depth;
+};
+
+struct lake_offset2d {
+    s32 x, y;
+};
+
+struct lake_offset3d {
+    s32 x, y, z;
+};
+
+struct lake_extent2d {
+    u32 width, height;
+};
+
+struct lake_extent3d {
+    u32 width, height, depth;
+};
+
+struct lake_rect2d {
+    struct lake_offset2d offset;
+    struct lake_extent2d extent;
+};
 
 #define LAKE_MS_PER_SECOND       1000
 #define LAKE_US_PER_SECOND       1000000
