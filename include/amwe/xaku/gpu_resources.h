@@ -1,6 +1,6 @@
 #pragma once
 
-#include <amwe/renderer/encore.h>
+#include <amwe/xaku/encore.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -756,6 +756,11 @@ struct xaku_buffer_blas_assembly {
 #define XAKU_TEMPLATE_GPU_RESOURCE_POOL(ENCORE, T) \
     struct ENCORE##_##T##_pool { \
     };
+
+struct xaku_interface_image_context {
+    xaku_texture_view_id    texture_view;
+    xaku_sampler_id         sampler;
+};
 
 #ifdef __cplusplus
 }

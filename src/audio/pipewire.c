@@ -1,4 +1,4 @@
-#include <amwe/audio/soma.h>
+#include <amwe/soma.h>
 #ifdef SOMA_PIPEWIRE
 
 #include <pipewire/pipewire.h>

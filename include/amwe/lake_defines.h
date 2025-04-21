@@ -1499,6 +1499,9 @@ typedef wchar16 wchar;
 #define LAKE_SMALL_STRING_CAPACITY (63u)
 typedef lake_fixed_list(char, LAKE_SMALL_STRING_CAPACITY) lake_small_string;
 
+/** Write a new size using a C string literal, useful for hashing. */
+#define lake_small_string_init(CSTR) ((lake_small_string){ CSTR, lake_lengthof(CSTR) })
+
 #define LAKE_EPSILON    DBL_EPSILON
 #define LAKE_EPSILONf   FLT_EPSILON
 

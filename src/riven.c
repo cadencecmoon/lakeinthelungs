@@ -1287,19 +1287,16 @@ void riven_unchain(
     if (chain) lake_atomic_store_explicit(chain, RIVEN_FIBER_INVALID, lake_memory_model_release);
 }
 
-void *riven_encore(struct riven *riven, struct riven_encore_work *restrict work, void *encore_userdata)
+void riven_encore(struct riven_encore_work *restrict work)
 {
 #ifdef LAKE_DEBUG
-    if (!work->encores || !work->encore_count) {
-        bedrock_log_debug("'%s' encore is empty, no work to do.", work->name);
-        return NULL;
-    }
+    if (!work->encores || !work->encore_count) return;
 #endif /* LAKE_DEBUG */
 
     union { void *data; struct riven_interface_header *header; } interface = { .data = NULL };
     
     for (u32 i = 0; i < work->encore_count; i++) {
-        interface.data = work->encores[i](riven, riven->hints, work->metadata, encore_userdata, work->tag);
+        interface.data = work->encores[i](work->riven, work->riven->hints, work->metadata, work->encore_userdata, work->tag);
 
         /* the encore was discarded by internal means */
         if (interface.data == NULL)
@@ -1311,18 +1308,17 @@ void *riven_encore(struct riven *riven, struct riven_encore_work *restrict work,
         if (work->interface_validation && !work->interface_validation(interface.data)) {
             /* destroy the interface and continue */
             bedrock_log_debug("'%s' encore (%u out of %u) invalidated interface '%s', it will be destroyed.",
-                work->name, i, work->encore_count, interface.header->name);
+                interface.header->name, i, work->encore_count, interface.header->name);
             interface.header->zero_ref_callback(interface.data);
             continue;
         }
 #endif /* LAKE_DEBUG */
 
-        /* accept this implementation */
-        riven_inc_refcnt(&interface.header->refcnt);
-        bedrock_log_verbose("'%s: %s' interface write.", work->name, interface.header->backend);
-        return interface.data;
+        /* accept this implementation, don't increment the reference count (externally synchronized) */
+        bedrock_log_verbose("'%s: %s' interface write.", interface.header->name, interface.header->backend);
+        *work->out_interface = interface.data;
+        return;
     }
-    return NULL;
 }
 
 s32 riven_moonlit_walk(

@@ -1,19 +1,11 @@
 #pragma once
 
-#include <amwe/renderer/encore.h>
-#include <amwe/renderer/commands.h>
-#include <amwe/renderer/gpu_resources.h>
-#include <amwe/renderer/pipelines.h>
-#include <amwe/renderer/device.h>
-#include <amwe/renderer/render_graph.h>
-
-#ifndef XAKU_ENABLE_GPU_PROFILER
-    #ifndef LAKE_NDEBUG
-        #define XAKU_ENABLE_GPU_PROFILER 1
-    #else
-        #define XAKU_ENABLE_GPU_PROFILER 0
-    #endif /* LAKE_NDEBUG */
-#endif /* XAKU_ENABLE_GPU_PROFILER */
+#include <amwe/xaku/encore.h>
+#include <amwe/xaku/commands.h>
+#include <amwe/xaku/gpu_resources.h>
+#include <amwe/xaku/pipelines.h>
+#include <amwe/xaku/device.h>
+#include <amwe/render_graph.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -128,33 +120,6 @@ struct xaku_interface {
     PFN_xaku_compile_command_list                   compile_command_list;
 };
 
-/** A view into the backend. */
-union xaku_encore_view {
-    struct riven_interface_header          *header;
-    struct xaku_interface                  *interface;
-    struct xaku_encore                     *encore;
-};
-
-/** A view into a rendering device. */
-union xaku_device_view {
-    struct {XAKU_INTERFACE_DEVICE_HEADER}  *header;
-    struct xaku_device                     *device;
-    union xaku_encore_view                 *encore_view;
-};
-
-/** A view into a device resource structure that has a reference count.
- *  For buffers, textures, texture views, samplers and acceleration structures,
- *  render handles are used instead (amwe/renderer/gpu_resources.h). */
-#define UNION_XAKU_REFERENCED_RESOURCE_VIEW(T) \
-    union xaku_##T##_view { struct {XAKU_INTERFACE_DEVICE_RESOURCE_HEADER(T)} *header; struct xaku_##T *T; }
-UNION_XAKU_REFERENCED_RESOURCE_VIEW(memory);
-UNION_XAKU_REFERENCED_RESOURCE_VIEW(query_pool);
-UNION_XAKU_REFERENCED_RESOURCE_VIEW(swapchain);
-UNION_XAKU_REFERENCED_RESOURCE_VIEW(compute_pipeline);
-UNION_XAKU_REFERENCED_RESOURCE_VIEW(raster_pipeline);
-UNION_XAKU_REFERENCED_RESOURCE_VIEW(ray_tracing_pipeline);
-UNION_XAKU_REFERENCED_RESOURCE_VIEW(command_recorder);
-
 /** Implies different strategies for the rendering engine. */
 enum xaku_strategy {
     /** Allow the initialization process to figure out what strategy is best. */
@@ -185,8 +150,12 @@ struct xaku {
     lake_dynamic_array(union xaku_device_view)  devices;
 };
 
-LAKEAPI void LAKECALL
-xaku_fini(struct xaku *xaku);
+/** Returns previous reference count of the encore:
+ *  - 0 means invalid backend.
+ *  - 1 means the backend may be safely destroyed. 
+ *  - >1 means that another system holds onto the backend. */
+LAKEAPI u32 LAKECALL
+xaku_fini(struct xaku *xaku, struct riven_work *out_zero_refcnt);
 
 #ifdef __cplusplus
 }

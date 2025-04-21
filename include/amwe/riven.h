@@ -11,6 +11,15 @@ extern "C" {
 #define RIVEN_DEFERRED_CYCLE 2
 #endif
 
+/* we want to disable profiling on NDEBUG builds */
+#ifndef RIVEN_ENABLE_PROFILER
+    #ifndef LAKE_NDEBUG
+        #define RIVEN_ENABLE_PROFILER 1
+    #else
+        #define RIVEN_ENABLE_PROFILER 0
+    #endif /* LAKE_NDEBUG */
+#endif /* RIVEN_ENABLE_PROFILER */
+
 /* we assume a block size of 256KB */
 #define RIVEN_BLOCK_SIZE (256lu*1024lu)
 
@@ -235,13 +244,13 @@ typedef bool (LAKECALL *PFN_riven_interface_validation)(const void *interface);
 
 /** Work argument to execute a list of encores related to a single interface,
  *  and perform other work to validate the interface. Encores are executed
- *  one-by-one, until one is valid, and this encore is then written (returned).
- *  All fields except the 'debug' stuff must be set (not NULL). */
+ *  one-by-one, until one is valid, and this encore is then written (returned). */
 struct riven_encore_work {
-    /** The name of the interface, for logging. */
-    const char                     *name;
+    struct riven                   *riven;
     /** A list of encore implementations to try, should be sorted by the user by most important. */
     const PFN_riven_encore         *encores;
+    /** Custom argument into the encores. */
+    void                           *encore_userdata;
     /** Maximum number of encores to try. */
     u32                             encore_count;
     /** The lifetime of the interface, handled by the application. */
@@ -252,11 +261,13 @@ struct riven_encore_work {
      *  Must return true if the interface implementation is accepted,
      *  otherwise if false is returned, the interface will be discarded. */
     PFN_riven_interface_validation  interface_validation;
+    /** The interface will be written here. */
+    void                          **out_interface;
 };
 
 /** Executes a list of encores for one interface, until one implementation is valid. */
-LAKEAPI lake_nonnull_all void *LAKECALL
-riven_encore(struct riven *riven, struct riven_encore_work *restrict work, void *encore_userdata);
+LAKEAPI lake_nonnull_all void LAKECALL
+riven_encore(struct riven_encore_work *restrict work);
 
 /** Setups the job system and maps virtual memory to be used within the engine. The resource requirements of 
  *  internal systems depends on given argument hints and on the capabilities of the host system. Passing 0 as 

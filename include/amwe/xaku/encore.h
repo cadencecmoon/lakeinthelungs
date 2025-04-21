@@ -222,6 +222,14 @@ enum xaku_result {
     xaku_result_max_enum                                                = 0x7FFFFFFF,
 };
 
+/** A view into the backend. */
+union xaku_encore_view {
+    struct riven_interface_header          *header;
+    struct xaku_interface                  *interface;
+    struct xaku_encore                     *encore;
+    void                                   *data;
+};
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

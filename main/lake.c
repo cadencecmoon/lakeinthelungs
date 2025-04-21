@@ -7,32 +7,12 @@
 #define VERTICES_COUNT (2 + (STACKS-2) * SLICES)
 #define INDICES_COUNT (100 * 3)
 
-PFN_riven_framework pelagial_main(
-    struct pelagial_metadata   *metadata,
-    struct riven_hints         *hints, 
-    s32                         argc, 
-    char                      **argv)
-{
-    (void)argv;
-    bedrock_log_set_verbose(argc-1);
-
-    metadata->engine_name = "A Moonlit Walk Engine";
-    metadata->app_name = "Lake in the Lungs";
-    metadata->engine_build_ver = AMWE_VERSION;
-    metadata->app_build_ver = AMWE_VERSION;
-
-    /* keep em at default for now */
-    (void)hints;
-
-    return (PFN_riven_framework)a_moonlit_walk;
-}
-
 static void lake_encore_zero_ref_callback(struct pelagial_encore *lake)
 {
     (void)lake;
 }
 
-FN_RIVEN_ENCORE(pelagial, lake)
+static FN_RIVEN_ENCORE(pelagial, lake)
 {
     (void)metadata;
     (void)riven_hints;
@@ -52,4 +32,19 @@ FN_RIVEN_ENCORE(pelagial, lake)
     lake->interface.header.backend = "lake";
     lake->interface.header.zero_ref_callback = (PFN_riven_work)lake_encore_zero_ref_callback;
     return lake; 
+}
+
+PFN_riven_framework pelagial_main(
+    struct riven_hints         *hints,
+    struct pelagial_metadata   *metadata)
+{
+    metadata->app_name = "Lake in the Lungs";
+    metadata->app_build_ver = AMWE_VERSION;
+    hints->thread_count = 0; /* debug */
+
+    bedrock_log_set_verbose(metadata->argc-1);
+    amwe_hint_framework(AMWE_HINT_PIPELINE_SETTING, amwe_hint_pipeline_setting_auto);
+
+    amwe_hint_encore(AMWE_HINT_ENCORE_PELAGIAL, (PFN_riven_encore)pelagial_encore_lake);
+    return (PFN_riven_framework)a_moonlit_walk;
 }

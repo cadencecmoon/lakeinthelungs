@@ -16,6 +16,10 @@ struct hadal_window;
 struct hadal_monitor;
 struct hadal_encore;
 
+struct hadal_encore_assembly {
+    u32 todo;
+};
+
 #if defined(LAKE_PLATFORM_WINDOWS)
 LAKEAPI FN_RIVEN_ENCORE(hadal, win32);
 #elif defined(LAKE_PLATFORM_APPLE_MACOS)
@@ -44,16 +48,16 @@ LAKEAPI FN_RIVEN_ENCORE(hadal, null);
 LAKEAPI lake_nonnull(2) const PFN_riven_encore *LAKECALL 
 hadal_native_encores(bool null_fallback, u32 *out_encore_count);
 
-#define HADAL_INTERFACE_MONITOR_HEADER \
-    /**< The encore that owns this output monitor. */ \
-    struct hadal_encore *encore;
-
-#define HADAL_INTERFACE_WINDOW_HEADER \
-    /**< The encore that was used to create this native window. */ \
-    struct hadal_encore *encore;
-
 enum hadal_result {
     hadal_result_success = 0,
+};
+
+/** A view into the backend. */
+union hadal_encore_view {
+    struct riven_interface_header          *header;
+    struct hadal_interface                 *interface;
+    struct hadal_encore                    *encore;
+    void                                   *data;
 };
 
 /* Connection to graphics APIs: */

@@ -110,17 +110,12 @@ static f64 g_recorded_frame_times[FRAME_TIME_COUNT] = {0.0};
 static u32 g_recorded_frame_time_idx = FRAME_TIME_COUNT - 1;
 static f64 g_last_print_time = 0.0;
 
-static u64 g_timer_offset = 0;
-
-void bedrock_frame_time_record(u64 time_now, f64 dt_frequency)
+void bedrock_frame_time_record(u64 time_app_start, u64 time_now, f64 dt_frequency_reciprocal)
 {
-    if (!g_timer_offset)
-        g_timer_offset = time_now;
-
     g_recorded_frame_time_idx++;
     if (g_recorded_frame_time_idx >= FRAME_TIME_COUNT)
         g_recorded_frame_time_idx -= FRAME_TIME_COUNT;
-    g_recorded_frame_times[g_recorded_frame_time_idx] = (f64)(time_now - g_timer_offset) * dt_frequency;
+    g_recorded_frame_times[g_recorded_frame_time_idx] = ((f64)(time_now - time_app_start) * dt_frequency_reciprocal);
 }
 
 static s32 compare_floats(const void *lhs_raw, const void *rhs_raw)

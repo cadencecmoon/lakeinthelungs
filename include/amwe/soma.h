@@ -1,7 +1,7 @@
 #pragma once
 
-#include <amwe/audio/encore.h>
-#include <amwe/audio/sink.h>
+#include <amwe/soma/encore.h>
+#include <amwe/soma/sink.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -16,20 +16,6 @@ struct soma_interface {
     PFN_soma_sink_open                      sink_open;
     PFN_soma_sink_close                     sink_close;
     PFN_soma_sink_wait                      sink_wait;
-};
-
-/** A view into the backend. */
-union soma_encore_view {
-    struct riven_interface_header          *header;
-    struct soma_interface                  *interface;
-    struct soma_encore                     *encore;
-};
-
-/** A view into an audio sink. */
-union soma_sink_view {
-    struct {SOMA_INTERFACE_SINK_HEADER}    *header;
-    struct soma_sink                       *sink;
-    union soma_encore_view                 *encore_view;
 };
 
 /** Implies different strategies for the audio engine. */
@@ -52,8 +38,12 @@ struct soma {
     lake_dynamic_array(union soma_sink_view)    record_sinks;
 };
 
-LAKEAPI void LAKECALL
-soma_fini(struct soma *soma);
+/** Returns previous reference count of the encore:
+ *  - 0 means invalid backend.
+ *  - 1 means the backend may be safely destroyed. 
+ *  - >1 means that another system holds onto the backend. */
+LAKEAPI u32 LAKECALL
+soma_fini(struct soma *soma, struct riven_work *out_zero_refcnt);
 
 #ifdef __cplusplus
 }

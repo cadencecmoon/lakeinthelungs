@@ -1,3 +1,7 @@
+sources += files(
+    'soma.c',
+)
+
 wasapi_found = cc.check_header('audioclient.h', required : get_option('wasapi'))
 if wasapi_found
     #sources += files('')

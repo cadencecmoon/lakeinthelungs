@@ -1,4 +1,4 @@
-#include <amwe/audio/soma.h>
+#include <amwe/soma.h>
 
 static const PFN_riven_encore native_encores[] = {
 #ifdef SOMA_WASAPI
@@ -91,7 +91,9 @@ FN_RIVEN_ENCORE_STUB(soma, oss)
 
 FN_RIVEN_ENCORE_STUB(soma, null)
 
-void soma_fini(struct soma *soma)
+u32 soma_fini(struct soma *soma, struct riven_work *out_zero_refcnt)
 {
     (void)soma;
+    (void)out_zero_refcnt;
+    return 0;
 }

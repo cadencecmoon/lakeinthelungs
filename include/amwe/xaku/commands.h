@@ -1,8 +1,8 @@
 #pragma once
 
-#include <amwe/renderer/encore.h>
-#include <amwe/renderer/gpu_resources.h>
-#include <amwe/renderer/pipelines.h>
+#include <amwe/xaku/encore.h>
+#include <amwe/xaku/gpu_resources.h>
+#include <amwe/xaku/pipelines.h>
 
 #ifdef __cplusplus
 extern "C" {

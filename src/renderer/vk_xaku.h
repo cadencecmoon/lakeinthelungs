@@ -1,6 +1,6 @@
 #pragma once
 
-#include <amwe/renderer/xaku.h>
+#include <amwe/xaku.h>
 #ifdef XAKU_VULKAN
 
 FN_XAKU_LIST_DEVICES_PROPERTIES(vulkan);

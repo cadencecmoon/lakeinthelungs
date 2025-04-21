@@ -60,6 +60,14 @@ enum soma_result {
     soma_result_success = 0,
 };
 
+/** A view into the backend. */
+union soma_encore_view {
+    struct riven_interface_header          *header;
+    struct soma_interface                  *interface;
+    struct soma_encore                     *encore;
+    void                                   *data;
+};
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

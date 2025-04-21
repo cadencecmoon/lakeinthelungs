@@ -1,7 +1,7 @@
 #pragma once
 
-#include <amwe/renderer/encore.h>
-#include <amwe/renderer/gpu_resources.h>
+#include <amwe/xaku/encore.h>
+#include <amwe/xaku/gpu_resources.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -9,33 +9,60 @@ extern "C" {
 
 #define XAKU_SHADER_UNUSED (~0u)
 
-enum xaku_shader_stage_bits {
-    xaku_shader_stage_vertex                 = (1u << 0),
-    xaku_shader_stage_tesselation_control    = (1u << 1),
-    xaku_shader_stage_tesselation_evaluation = (1u << 2),
-    xaku_shader_stage_geometry               = (1u << 3),
-    xaku_shader_stage_fragment               = (1u << 4),
-    xaku_shader_stage_compute                = (1u << 5),
-    xaku_shader_stage_all_raster             = 0x0000001F,
-    xaku_shader_stage_all                    = 0x7FFFFFFF,
-    /* mesh shader */
-    xaku_shader_stage_task                   = (1u << 6),
-    xaku_shader_stage_mesh                   = (1u << 7),
-    /* raytracing */
-    xaku_shader_stage_raygen                 = (1u << 8),
-    xaku_shader_stage_any_hit                = (1u << 9),
-    xaku_shader_stage_closest_hit            = (1u << 10),
-    xaku_shader_stage_miss                   = (1u << 11),
-    xaku_shader_stage_intersection           = (1u << 12),
-    xaku_shader_stage_callable               = (1u << 13),
+enum xaku_shader_create_flag_bits {
+    xaku_shader_create_flag_none                        = 0,
+    xaku_shader_create_flag_allow_varying_subgroup_size = (1u << 0),
+    xaku_shader_create_flag_require_full_subgroups      = (1u << 1),
+};
+
+/** For now only SLang is supported: https://shader-slang.org/ */
+enum xaku_shader_language {
+    xaku_shader_language_slang,
+    xaku_shader_language_max_enum = 0x7fffffff,
+};
+
+struct xaku_shader_file {
+    /** TODO filesystem */
+    const char *path;
+};
+
+/** This string will only work if it is valid SLang code. */
+struct xaku_shader_code {
+    const char *code;
+};
+
+union xaku_shader_source {
+    struct xaku_shader_file file;
+    struct xaku_shader_code code;
+};
+
+struct xaku_shader_define {
+    const char *name;
+    const char *value;
+};
+
+struct xaku_shader_model {
+    u32 major, minor;
 };
 
 struct xaku_shader_params {
-    const u32                              *byte_code;
-    u32                                     byte_code_size;
-    u32                                     stage_flags; /**< enum xaku_shader_stage_bits */
-    u32                                     required_subgroup_size;
-    lake_small_string                       entry_point;
+    const u32                                      *byte_code;
+    u32                                             byte_code_size;
+    u32                                             create_flags; /**< enum xaku_shader_create_flag_bits */
+    u32                                             required_subgroup_size;
+    lake_small_string                               entry_point;
+};
+
+struct xaku_shader_compile_params {
+    union xaku_shader_source                        source;
+    const char                                     *entry_point;
+    enum xaku_shader_language                       language;
+    u32                                             create_flags; /**< enum xaku_shader_create_flag_bits */
+    lake_dynamic_array(struct xaku_shader_define)   defines;
+    u32                                             required_subgroup_size;
+    bool                                            has_required_subgroup_size;
+    bool                                            has_entry_point;
+    bool                                            enable_debug_utils;
 };
 
 struct xaku_compute_pipeline_assembly {
@@ -49,15 +76,30 @@ struct xaku_compute_pipeline_assembly {
     .name = LAKE_ZERO_INIT, \
 }
 
-/** The first member of a 'xaku_compute_pipeline' struct implementation. */
-struct xaku_compute_pipeline_header {
-    /** Device that owns this memory block. */
-    struct xaku_device                     *device; 
-    /** The memory may be released when the reference count reaches zero. */
-    atomic_u64                              refcnt;
-    /** The assembly details used to create this pipeline. */
-    struct xaku_compute_pipeline_assembly   assembly;
+struct xaku_compute_pipeline_compile_assembly {
+    union xaku_shader_source                        source;
+    const char                                     *entry_point;
+    enum xaku_shader_language                       language;
+    u32                                             create_flags; /**< enum xaku_shader_create_flag_bits */
+    lake_dynamic_array(struct xaku_shader_define)   defines;
+    u32                                             push_constant_size;
+    u32                                             required_subgroup_size;
+    bool                                            has_required_subgroup_size;
+    bool                                            has_entry_point;
+    bool                                            enable_debug_utils;
 };
+#define XAKU_DEFAULT_COMPUTE_PIPELINE_COMPILE_ASSEMBLY { \
+    .source = LAKE_ZERO_INIT, \
+    .entry_point = NULL, \
+    .defines = LAKE_ZERO_INIT, \
+    .create_flags = 0, \
+    .language = xaku_shader_language_slang, \
+    .push_constant_size = XAKU_MAX_PUSH_CONSTANT_BYTE_SIZE, \
+    .required_subgroup_size = 0, \
+    .has_required_subgroup_size = false, \
+    .has_entry_point = true, \
+    .enable_debug_utils = false, \
+}
 
 struct xaku_depth_test_params {
     enum xaku_format                        depth_attachment_format;
@@ -203,15 +245,38 @@ struct xaku_raster_pipeline_assembly {
     .name = LAKE_ZERO_INIT, \
 }
 
-/** The first member of a 'xaku_raster_pipeline' struct implementation. */
-struct xaku_raster_pipeline_header {
-    /** Device that owns this memory block. */
-    struct xaku_device                     *device; 
-    /** The memory may be released when the reference count reaches zero. */
-    atomic_u64                              refcnt;
-    /** The assembly details used to create this pipeline. */
-    struct xaku_raster_pipeline_assembly    assembly;
+struct xaku_raster_pipeline_compile_assembly {
+    struct xaku_shader_compile_params                  *mesh_shader;
+    struct xaku_shader_compile_params                  *vertex_shader;
+    struct xaku_shader_compile_params                  *tesselation_control_shader;
+    struct xaku_shader_compile_params                  *tesselation_evaluation_shader;
+    struct xaku_shader_compile_params                  *geometry_shader;
+    struct xaku_shader_compile_params                  *fragment_shader;
+    struct xaku_shader_compile_params                  *task_shader;
+    lake_fixed_list(struct xaku_render_attachment, 8)   color_attachments;
+    struct xaku_depth_test_params                      *depth_test;
+    struct xaku_stencil_test_params                    *stencil_test;
+    struct xaku_tesselation_params                     *tesselation;
+    struct xaku_rasterizer_params                       raster;
+    u32                                                 push_constant_size;
+    lake_small_string                                   name;
 };
+#define XAKU_DEFAULT_RASTER_PIPELINE_COMPILE_ASSEMBLY { \
+    .mesh_shader = NULL, \
+    .vertex_shader = NULL, \
+    .tesselation_control_shader = NULL, \
+    .tesselation_evaluation_shader = NULL, \
+    .geometry_shader = NULL, \
+    .fragment_shader = NULL, \
+    .task_shader = NULL, \
+    .color_attachments = LAKE_ZERO_INIT, \
+    .depth_test = NULL, \
+    .stencil_test = NULL, \
+    .tesselation = NULL, \
+    .raster = LAKE_ZERO_INIT, \
+    .push_constant_size = XAKU_MAX_PUSH_CONSTANT_BYTE_SIZE, \
+    .name = LAKE_ZERO_INIT, \
+}
 
 enum xaku_ray_tracing_shader_group_type {
     xaku_ray_tracing_shader_group_type_general = 0,
@@ -259,14 +324,52 @@ struct xaku_ray_tracing_pipeline_assembly {
     .name = LAKE_ZERO_INIT, \
 }
 
-/** The first member of a 'xaku_ray_tracing_pipeline' struct implementation. */
-struct xaku_ray_tracing_pipeline_header {
-    /** Device that owns this memory block. */
-    struct xaku_device                         *device; 
-    /** The memory may be released when the reference count reaches zero. */
-    atomic_u64                                  refcnt;
-    /** The assembly details used to create this pipeline. */
-    struct xaku_ray_tracing_pipeline_assembly   assembly;
+struct xaku_ray_tracing_pipeline_compile_assembly {
+    lake_span_to_const(struct xaku_shader_compile_params)           ray_gen_stages;
+    lake_span_to_const(struct xaku_shader_compile_params)           miss_stages;
+    lake_span_to_const(struct xaku_shader_compile_params)           callable_stages;
+    lake_span_to_const(struct xaku_shader_compile_params)           intersection_stages;
+    lake_span_to_const(struct xaku_shader_compile_params)           closest_hit_stages;
+    lake_span_to_const(struct xaku_shader_compile_params)           any_hit_stages;
+    lake_span_to_const(struct xaku_ray_tracing_shader_group_params) shader_groups;
+    u32                                                             max_ray_recursion_depth;
+    u32                                                             push_constant_size;
+    lake_small_string                                               name;
+};
+#define XAKU_DEFAULT_RAY_TRACING_PIPELINE_COMPILE_ASSEMBLY { \
+    .ray_gen_stages = LAKE_ZERO_INIT, \
+    .miss_stages = LAKE_ZERO_INIT, \
+    .callable_stages = LAKE_ZERO_INIT, \
+    .intersection_stages = LAKE_ZERO_INIT, \
+    .closest_hit_stages = LAKE_ZERO_INIT, \
+    .any_hit_stages = LAKE_ZERO_INIT, \
+    .shader_groups = LAKE_ZERO_INIT, \
+    .max_ray_recursion_depth = 0, \
+    .push_constant_size = XAKU_MAX_PUSH_CONSTANT_BYTE_SIZE, \
+    .name = LAKE_ZERO_INIT, \
+}
+
+/** Custom preprocessor for a pipeline manager. TODO filesystem path */
+typedef void (LAKECALL *PFN_xaku_shader_custom_preprocessor)(const char *code, const char *path);
+
+/** Not used within encores! */
+struct xaku_pipeline_manager_assembly {
+    lake_dynamic_array(const char *)                root_paths;                     /* TODO filesystem path */ 
+    const char                                     *write_out_preprocessed_code;    /* TODO filesystem path */  
+    const char                                     *write_out_spirv;                /* TODO filesystem path */  
+    const char                                     *spirv_cache_folder;             /* TODO filesystem path */  
+    PFN_xaku_shader_custom_preprocessor             custom_preprocessor;
+    enum xaku_shader_language                       default_language;
+    u32                                             default_create_flags; /**< enum xaku_shader_create_flag_bits */
+    lake_dynamic_array(struct xaku_shader_define)   default_defines;
+    u32                                             default_required_subgroup_size;
+    bool                                            default_enable_debug_utils;
+    bool                                            has_default_required_subgroup_size;
+    bool                                            has_write_out_preprocessed_code;   
+    bool                                            has_write_out_spirv;               
+    bool                                            has_spirv_cache_folder;            
+    bool                                            register_null_pipelines_when_first_compile_fails;
+    lake_small_string                               name;
 };
 
 #ifdef __cplusplus

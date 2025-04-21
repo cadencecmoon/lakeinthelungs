@@ -1,4 +1,4 @@
-#include <amwe/display/hadal.h>
+#include <amwe/hadal.h>
 
 static const PFN_riven_encore native_encores[] = {
 #if defined(LAKE_PLATFORM_WINDOWS)
@@ -75,7 +75,9 @@ FN_RIVEN_ENCORE_STUB(hadal, drmkms)
 
 FN_RIVEN_ENCORE_STUB(hadal, null)
 
-void hadal_fini(struct hadal *hadal)
+u32 hadal_fini(struct hadal *hadal, struct riven_work *out_zero_refcnt)
 {
     (void)hadal;
+    (void)out_zero_refcnt;
+    return 0;
 }

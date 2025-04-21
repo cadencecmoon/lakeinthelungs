@@ -6,21 +6,6 @@
 extern "C" {
 #endif /* __cplusplus */
 
-/** Invoke this function exactly once per frame to record the current frame time.
- *  Only when the other functions defined in this header will be available. */
-LAKEAPI void LAKECALL 
-bedrock_frame_time_record(u64 time_now, f64 dt_frequency);
-
-/** Retrieves the current estimate of the frame time in seconds. It is the median 
- *  of a certain number of previously recorded frame times. */
-LAKEAPI lake_const f32 LAKECALL 
-bedrock_frame_time_median(void);
-
-/** Prints the current estimate of the total frame time periodically, namely once 
- *  per given time interval, assuming this function is called once per frame. */
-LAKEAPI void LAKECALL 
-bedrock_frame_time_print(f32 interval_ms);
-
 /* file name */
 #ifndef BEDROCK_FILENAME
     #ifdef LAKE_PLATFORM_WINDOWS
@@ -198,6 +183,21 @@ bedrock_rtc_counter(void);
 /** Returns the frequency of the real-time clock. */
 LAKEAPI lake_const u64 LAKECALL 
 bedrock_rtc_frequency(void);
+
+/** Invoke this function exactly once per frame to record the current frame time.
+ *  Only when the other functions defined in this header will be available. */
+LAKEAPI void LAKECALL 
+bedrock_frame_time_record(u64 time_app_start, u64 time_now, f64 dt_frequency_reciprocal);
+
+/** Retrieves the current estimate of the frame time in seconds. It is the median 
+ *  of a certain number of previously recorded frame times. */
+LAKEAPI lake_const f32 LAKECALL 
+bedrock_frame_time_median(void);
+
+/** Prints the current estimate of the total frame time periodically, namely once 
+ *  per given time interval, assuming this function is called once per frame. */
+LAKEAPI void LAKECALL 
+bedrock_frame_time_print(f32 interval_ms);
 
 /** Read system info about the CPU. */
 LAKEAPI void LAKECALL 

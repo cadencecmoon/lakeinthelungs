@@ -1,10 +1,10 @@
 #pragma once
 
-#include <amwe/renderer/encore.h>
-#include <amwe/renderer/gpu_resources.h>
-#include <amwe/renderer/pipelines.h>
-#include <amwe/renderer/commands.h>
-#include <amwe/display/hadal.h>
+#include <amwe/xaku/encore.h>
+#include <amwe/xaku/gpu_resources.h>
+#include <amwe/xaku/pipelines.h>
+#include <amwe/xaku/commands.h>
+#include <amwe/hadal.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -563,6 +563,26 @@ PFN_XAKU_DESTROY_RESOURCE(blas)
 #define FN_XAKU_DESTROY_SAMPLER(ENCORE)              FN_XAKU_DESTROY_RESOURCE(ENCORE, sampler)
 #define FN_XAKU_DESTROY_TLAS(ENCORE)                 FN_XAKU_DESTROY_RESOURCE(ENCORE, tlas)
 #define FN_XAKU_DESTROY_BLAS(ENCORE)                 FN_XAKU_DESTROY_RESOURCE(ENCORE, blas)
+
+/** A view into a rendering device. */
+union xaku_device_view {
+    struct {XAKU_INTERFACE_DEVICE_HEADER}  *header;
+    struct xaku_device                     *device;
+    union xaku_encore_view                 *encore_view;
+};
+
+/** A view into a device resource structure that has a reference count.
+ *  For buffers, textures, texture views, samplers and acceleration structures,
+ *  render handles are used instead (amwe/renderer/gpu_resources.h). */
+#define UNION_XAKU_REFERENCED_RESOURCE_VIEW(T) \
+    union xaku_##T##_view { struct {XAKU_INTERFACE_DEVICE_RESOURCE_HEADER(T)} *header; struct xaku_##T *T; }
+UNION_XAKU_REFERENCED_RESOURCE_VIEW(memory);
+UNION_XAKU_REFERENCED_RESOURCE_VIEW(query_pool);
+UNION_XAKU_REFERENCED_RESOURCE_VIEW(swapchain);
+UNION_XAKU_REFERENCED_RESOURCE_VIEW(compute_pipeline);
+UNION_XAKU_REFERENCED_RESOURCE_VIEW(raster_pipeline);
+UNION_XAKU_REFERENCED_RESOURCE_VIEW(ray_tracing_pipeline);
+UNION_XAKU_REFERENCED_RESOURCE_VIEW(command_recorder);
 
 #ifdef __cplusplus
 }

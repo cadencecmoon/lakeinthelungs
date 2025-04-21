@@ -1,6 +1,13 @@
-#include "internal.h"
+#include <amwe/a_moonlit_walk.h>
 
 void a_moonlit_walk_rendering(struct amwe_pipeline_work *work)
 {
-    if (!work) return;
+    bedrock_assert_debug(work);
+#ifdef RIVEN_ENABLE_PROFILER
+    work->profiling.rendering_begin_time = bedrock_rtc_counter();
+#endif /* RIVEN_ENABLE_PROFILER */
+
+#ifdef RIVEN_ENABLE_PROFILER
+    work->profiling.rendering_end_time = bedrock_rtc_counter();
+#endif /* RIVEN_ENABLE_PROFILER */
 }

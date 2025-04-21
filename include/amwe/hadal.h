@@ -1,9 +1,10 @@
 #pragma once
 
-#include <amwe/display/encore.h>
-#include <amwe/display/keycodes.h>
-#include <amwe/display/scancodes.h>
-#include <amwe/display/window.h>
+#include <amwe/hadal/encore.h>
+#include <amwe/hadal/keycodes.h>
+#include <amwe/hadal/monitor.h>
+#include <amwe/hadal/scancodes.h>
+#include <amwe/hadal/window.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -11,7 +12,7 @@ extern "C" {
 
 /** A public interface of the display engine, implemented by a backend 'hadal_encore'.
  *
- *  The encore 'userdata' type is 'NULL' (no custom parameters are expected for now). */
+ *  The encore 'userdata' type is 'struct hadal_encore_assembly'. */
 struct hadal_interface {
     struct riven_interface_header               header;
 
@@ -28,27 +29,6 @@ struct hadal_interface {
     PFN_hadal_vulkan_presentation_support       vulkan_presentation_support;
     PFN_hadal_vulkan_surface_create             vulkan_surface_create;
 #endif /* XAKU_VULKAN */
-};
-
-/** A view into the backend. */
-union hadal_encore_view {
-    struct riven_interface_header              *header;
-    struct hadal_interface                     *interface;
-    struct hadal_encore                        *encore;
-};
-
-/** A view into an output monitor. */
-union hadal_monitor_view {
-    struct {HADAL_INTERFACE_MONITOR_HEADER}    *header;
-    struct hadal_monitor                       *monitor; 
-    union hadal_encore_view                    *encore_view;
-};
-
-/** A view into a window. */
-union hadal_window_view {
-    struct {HADAL_INTERFACE_WINDOW_HEADER}     *header;
-    struct hadal_window                        *window; 
-    union hadal_encore_view                    *encore_view;
 };
 
 /** Implies different strategies for the display engine. */
@@ -72,8 +52,12 @@ struct hadal {
     lake_dynamic_array(union hadal_window_view) windows;
 };
 
-LAKEAPI void LAKECALL
-hadal_fini(struct hadal *hadal);
+/** Returns previous reference count of the encore:
+ *  - 0 means invalid backend.
+ *  - 1 means the backend may be safely destroyed. 
+ *  - >1 means that another system holds onto the backend. */
+LAKEAPI u32 LAKECALL
+hadal_fini(struct hadal *hadal, struct riven_work *out_zero_refcnt);
 
 #ifdef __cplusplus
 }

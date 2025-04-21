@@ -1,4 +1,4 @@
-#include <amwe/renderer/xaku.h>
+#include <amwe/xaku.h>
 
 static const PFN_riven_encore native_encores[] = {
 #ifdef XAKU_D3D12
@@ -139,7 +139,9 @@ FN_RIVEN_ENCORE_STUB(xaku, webgpu)
 
 FN_RIVEN_ENCORE_STUB(xaku, null);
 
-void xaku_fini(struct xaku *xaku)
+u32 xaku_fini(struct xaku *xaku, struct riven_work *out_zero_refcnt)
 {
     (void)xaku;
+    (void)out_zero_refcnt;
+    return 0;
 }

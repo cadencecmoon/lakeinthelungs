@@ -1,4 +1,4 @@
-#include <amwe/display/hadal.h>
+#include <amwe/hadal.h>
 #ifdef HADAL_WAYLAND
 
 #ifndef _GNU_SOURCE
@@ -933,7 +933,7 @@ static FN_HADAL_WINDOW_VISIBILITY(wayland)
 }
 
 #ifdef XAKU_VULKAN
-#include <amwe/renderer/xaku.h>
+#include <amwe/xaku.h>
 
 static FN_HADAL_VULKAN_WRITE_INSTANCE(wayland)
 {
@@ -1660,6 +1660,8 @@ disconnect:
         riven_thalloc(riven, tag, lake_sizeof(struct hadal_encore), lake_alignof(struct hadal_encore));
     bedrock_zerop(wayland);
 
+    wayland->display = display;
+    wayland->wl.display_connect = display_connect;
     wayland->module_client = module_client;
     wayland->module_cursor = module_cursor;
     wayland->module_xkbcommon = module_xkbcommon;

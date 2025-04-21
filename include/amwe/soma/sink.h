@@ -1,6 +1,6 @@
 #pragma once
 
-#include <amwe/audio/encore.h>
+#include <amwe/soma/encore.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -25,6 +25,13 @@ typedef void (LAKECALL *PFN_soma_sink_close)(struct soma_sink *sink);
 typedef bool (LAKECALL *PFN_soma_sink_wait)(struct soma_sink *sink);
 #define FN_SOMA_SINK_WAIT(ENCORE) \
     bool LAKECALL _soma_##ENCORE##_sink_wait(struct soma_sink *sink)
+
+/** A view into an audio sink. */
+union soma_sink_view {
+    struct {SOMA_INTERFACE_SINK_HEADER}    *header;
+    struct soma_sink                       *sink;
+    union soma_encore_view                 *encore_view;
+};
 
 #ifdef __cplusplus
 }
