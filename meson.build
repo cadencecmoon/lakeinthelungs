@@ -25,11 +25,13 @@ endif
 deps = []
 cross_opts = []
 include = include_directories('include')
+enable_devtools = not get_option('devtools').disabled()
 
 if get_option('buildtype') == 'debug' or get_option('buildtype') == 'debugoptimized'
     defs += '-DLAKE_DEBUG'
 elif get_option('buildtype') == 'release'
     defs += '-DLAKE_NDEBUG'
+    enable_devtools = get_option('devtools').enabled()
 endif
 if get_option('default_library') == 'shared'
     defs += '-DLAKE_BUILD_DLL_EXPORT'
@@ -43,15 +45,15 @@ if meson.is_cross_build()
 endif
 
 sources = []
-subdir('external')
-subdir('src')
+subdir('engine')
 
 amwengine = library(
     'amwengine',
     sources,
     c_args : defs,
+    cpp_args : defs,
     dependencies : deps,
-    include_directories : [ include, 'external' ],
+    include_directories : include,
     install : false)
 dep_amwengine = declare_dependency(
     link_args : cross_opts,
@@ -59,7 +61,7 @@ dep_amwengine = declare_dependency(
     link_with : amwengine)
 
 main_sources = []
-subdir('main')
+subdir('game')
 
 lakeinthelungs = executable(
     'lakeinthelungs',

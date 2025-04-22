@@ -33,7 +33,7 @@ struct hadal_interface {
 
 /** Implies different strategies for the display engine. */
 enum hadal_strategy {
-    /** Allow the initialization process to figure out what strategy is best. */
+    /** Allow the initialization process to figure out what strategy is best, not a valid strategy. */
     hadal_strategy_auto = 0,
     /** Only the main window may be present, no modals, popups or multiple windows allowed. */
     hadal_strategy_optimal_one_viewport = 0,
@@ -44,20 +44,30 @@ enum hadal_strategy {
 };
 
 /** An engine structure for display communication and windowing. */
-struct hadal {
+struct hadal_display {
     enum hadal_strategy                         strategy;
     atomic_u32                                  flags;
-    union hadal_encore_view                     backend;
+    union hadal_encore_view                     hadal;
 
     lake_dynamic_array(union hadal_window_view) windows;
 };
+
+struct hadal_display_assembly {
+    union hadal_encore_view     hadal;
+    enum hadal_strategy         strategy;
+};
+
+LAKEAPI lake_nonnull_all lake_nodiscard
+enum hadal_result LAKECALL hadal_display_init(
+    const struct hadal_display_assembly *assembly,
+    struct hadal_display                *out_display);
 
 /** Returns previous reference count of the encore:
  *  - 0 means invalid backend.
  *  - 1 means the backend may be safely destroyed. 
  *  - >1 means that another system holds onto the backend. */
-LAKEAPI u32 LAKECALL
-hadal_fini(struct hadal *hadal, struct riven_work *out_zero_refcnt);
+LAKEAPI lake_nonnull_all u32 LAKECALL
+hadal_display_fini(struct hadal_display *display, struct riven_work *out_zero_refcnt);
 
 #ifdef __cplusplus
 }

@@ -20,7 +20,7 @@ struct soma_interface {
 
 /** Implies different strategies for the audio engine. */
 enum soma_strategy {
-    /** Allow the initialization process to figure out what strategy is best. */
+    /** Allow the initialization process to figure out what strategy is best, not a valid strategy. */
     soma_strategy_auto = 0,
     /** Runs a single primary backend. */
     soma_strategy_optimal,
@@ -29,21 +29,31 @@ enum soma_strategy {
 };
 
 /** An engine structure for audio processing. */
-struct soma {
+struct soma_audio {
     enum soma_strategy                          strategy;
     atomic_u32                                  flags;
-    union soma_encore_view                      backend;
+    union soma_encore_view                      soma;
 
     lake_dynamic_array(union soma_sink_view)    playback_sinks;
     lake_dynamic_array(union soma_sink_view)    record_sinks;
 };
 
+struct soma_audio_assembly {
+    union soma_encore_view      soma;
+    enum soma_strategy          strategy;
+};
+
+LAKEAPI lake_nonnull_all lake_nodiscard
+enum soma_result LAKECALL soma_audio_init(
+    const struct soma_audio_assembly *assembly,
+    struct soma_audio                *out_audio);
+
 /** Returns previous reference count of the encore:
  *  - 0 means invalid backend.
  *  - 1 means the backend may be safely destroyed. 
  *  - >1 means that another system holds onto the backend. */
-LAKEAPI u32 LAKECALL
-soma_fini(struct soma *soma, struct riven_work *out_zero_refcnt);
+LAKEAPI lake_nonnull_all u32 LAKECALL
+soma_audio_fini(struct soma_audio *audio, struct riven_work *out_zero_refcnt);
 
 #ifdef __cplusplus
 }

@@ -79,10 +79,10 @@ struct a_moonlit_walk_engine {
     const struct pelagial_metadata *metadata;
     bedrock_thread_t               *threads;
 
-    union pelagial_encore_view      pelagial;
-    struct hadal                    hadal;
-    struct soma                     soma;
-    struct xaku                     xaku;
+    union pelagial_encore_view      application;
+    struct hadal_display            display;
+    struct soma_audio               audio;
+    struct xaku_renderer            renderer;
 };
 
 /* can be cast into PFN_riven_work */

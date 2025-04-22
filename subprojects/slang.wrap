@@ -1,0 +1,11 @@
+[wrap-git]
+directory = slang
+patch_directory = slang
+
+url = https://github.com/shader-slang/slang.git
+revision = master
+depth = 1
+
+[provide]
+shader-slang = dep_slang
+shader-slangc = slangc

@@ -122,7 +122,7 @@ struct xaku_interface {
 
 /** Implies different strategies for the rendering engine. */
 enum xaku_strategy {
-    /** Allow the initialization process to figure out what strategy is best. */
+    /** Allow the initialization process to figure out what strategy is best, not a valid strategy. */
     xaku_strategy_auto = 0,
     /** Rendering is done on a single primary device, no mGPU scheduling overhead. */
     xaku_strategy_optimal_primary,
@@ -142,20 +142,30 @@ enum xaku_strategy {
 };
 
 /** An engine structure for GPU renderering. */
-struct xaku {
+struct xaku_renderer {
     enum xaku_strategy                          strategy;
     atomic_u32                                  flags;
-    union xaku_encore_view                      backend;
+    union xaku_encore_view                      xaku;
 
     lake_dynamic_array(union xaku_device_view)  devices;
 };
+
+struct xaku_renderer_assembly {
+    union xaku_encore_view      xaku;
+    enum xaku_strategy          strategy;
+};
+
+LAKEAPI lake_nonnull_all lake_nodiscard
+enum xaku_result LAKECALL xaku_renderer_init(
+    const struct xaku_renderer_assembly *assembly,
+    struct xaku_renderer                *out_renderer);
 
 /** Returns previous reference count of the encore:
  *  - 0 means invalid backend.
  *  - 1 means the backend may be safely destroyed. 
  *  - >1 means that another system holds onto the backend. */
-LAKEAPI u32 LAKECALL
-xaku_fini(struct xaku *xaku, struct riven_work *out_zero_refcnt);
+LAKEAPI lake_nonnull_all u32 LAKECALL
+xaku_renderer_fini(struct xaku_renderer *renderer, struct riven_work *out_zero_refcnt);
 
 #ifdef __cplusplus
 }

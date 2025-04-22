@@ -1,0 +1,7 @@
+imgui
+slang
+spirv-headers
+spirv-tools
+vorbis
+vulkan-memory-allocator
+!packagefiles/*

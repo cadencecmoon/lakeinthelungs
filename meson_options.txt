@@ -1,5 +1,5 @@
 option('docs',      type : 'feature', value : 'auto')
-option('imgui',     type : 'boolean', value : true)
+option('devtools',  type : 'feature', value : 'auto')
 
 # vector extensions
 option('avx',       type : 'boolean', value : false)
@@ -13,6 +13,7 @@ option('xcb',       type : 'feature', value : 'auto')
 option('drmkms',    type : 'feature', value : 'auto')
 
 # audio backends
+option('asio',      type : 'feature', value : 'auto')
 option('wasapi',    type : 'feature', value : 'auto')
 option('xaudio2',   type : 'feature', value : 'auto')
 option('coreaudio', type : 'feature', value : 'auto')

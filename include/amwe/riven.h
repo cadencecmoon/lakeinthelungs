@@ -269,6 +269,17 @@ struct riven_encore_work {
 LAKEAPI lake_nonnull_all void LAKECALL
 riven_encore(struct riven_encore_work *restrict work);
 
+/** Forces an interface to destroy itself, it's unsafe. */
+#define riven_destroy_interface(ENCORE) ({          \
+    if (ENCORE) {                                   \
+        union {                                     \
+            void *data;                             \
+            struct riven_interface_header *header;  \
+        } view = { .data = ENCORE };                \
+        view.header->zero_ref_callback(view.data);  \
+        ENCORE = NULL;                              \
+    }})
+
 /** Setups the job system and maps virtual memory to be used within the engine. The resource requirements of 
  *  internal systems depends on given argument hints and on the capabilities of the host system. Passing 0 as 
  *  arguments for size and count hints will provide reasonable defaults within the limits of the host - but it 
