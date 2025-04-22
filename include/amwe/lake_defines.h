@@ -1698,19 +1698,19 @@ typedef usize lake_may_alias    alias_word;
 
 #define _LAKE_ATOMICS_H
 #if LAKE_ATOMIC_IMPLEMENTATION == _LAKE_ATOMIC_IMPLEMENTATION_CPP_ATOMICS
-    #include <amwe/arch/atomics_c++.hpp>
+    #include <amwe/private/atomics_c++.hpp>
 #elif LAKE_ATOMIC_IMPLEMENTATION == _LAKE_ATOMIC_IMPLEMENTATION_GCC_ATOMICS
-    #include <amwe/arch/atomics_gcc.h>
+    #include <amwe/private/atomics_gcc.h>
 #elif LAKE_ATOMIC_IMPLEMENTATION == _LAKE_ATOMIC_IMPLEMENTATION_CLANG_C11_ATOMICS
-    #include <amwe/arch/atomics_clang.h>
+    #include <amwe/private/atomics_clang.h>
 #elif LAKE_ATOMIC_IMPLEMENTATION == _LAKE_ATOMIC_IMPLEMENTATION_MSVC_INTERLOCKED
-    #include <amwe/arch/atomics_msvc.h>
+    #include <amwe/private/atomics_msvc.h>
 #elif LAKE_ATOMIC_IMPLEMENTATION == _LAKE_ATOMIC_IMPLEMENTATION_X86_ASM
-    #include <amwe/arch/atomics_x86.h>
+    #include <amwe/private/atomics_x86.h>
 #elif LAKE_ATOMIC_IMPLEMENTATION == _LAKE_ATOMIC_IMPLEMENTATION_ARM_ASM
-    #include <amwe/arch/atomics_arm.h>
+    #include <amwe/private/atomics_arm.h>
 #elif LAKE_ATOMIC_IMPLEMENTATION == _LAKE_ATOMIC_IMPLEMENTATION_RISV_ASM
-    #include <amwe/arch/atomics_riscv.h>
+    #include <amwe/private/atomics_riscv.h>
 #endif
 #undef _LAKE_ATOMICS_H
 

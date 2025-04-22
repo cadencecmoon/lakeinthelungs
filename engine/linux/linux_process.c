@@ -1,23 +1,17 @@
 #include <amwe/bedrock.h>
 
 #if defined(LAKE_PLATFORM_LINUX)
-    #include <fcntl.h>
-    #include <unistd.h>
-    #include <dirent.h>
-    #include <sys/stat.h>
-    #include <sys/types.h>
-#elif defined(LAKE_PLATFORM_WINDOWS)
-    #include <amwe/arch/windows.h>
-#endif /* LAKE_PLATFORM_LINUX */
-
-/* strncmp */
-#include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <string.h> /* strncmp */
 
 void bedrock_cpuinfo(s32 *out_threads, s32 *out_cores, s32 *out_packages)
 {
     static s32 threads, cores, packages = 0;
 
-#ifdef LAKE_PLATFORM_LINUX
     s32 fd, len, pos, end;
     char buf[4096];
     char num[100];
@@ -78,12 +72,6 @@ void bedrock_cpuinfo(s32 *out_threads, s32 *out_cores, s32 *out_packages)
         cores = sysconf(_SC_NPROCESSORS_CONF);
         threads = 2 * cores;
     }
-#elif defined(LAKE_PLATFORM_WINDOWS)
-    /* TODO hardcoded my laptops values */
-    thread = 12;
-    cores = 6;
-    packages = 1;
-#endif /* LAKE_PLATFORM_LINUX */
 
 result_cpuinfo:
     if (out_threads)  *out_threads = threads;
@@ -95,7 +83,6 @@ void bedrock_meminfo(usize *out_total_ram, usize *out_pagesize)
 {
     ssize page, bytes;
 
-#ifdef LAKE_PLATFORM_LINUX
     ssize count = sysconf(_SC_PHYS_PAGES);
     if (count == -1)
         bedrock_log_error("lake_sys_meminfo: sysconf _SC_PHYS_PAGES failed");
@@ -105,11 +92,6 @@ void bedrock_meminfo(usize *out_total_ram, usize *out_pagesize)
         bedrock_log_error("lake_sys_meminfo: sysconf _SC_PAGE_SIZE failed");
 
     bytes = page * count;
-#elif defined(LAKE_PLATFORM_WINDOWS)
-    /* TODO hardcoded my laptops values */
-    page = 4096lu;
-    bytes = 16lu*1024*1024*1024;
-#endif /* LAKE_PLATFORM_LINUX */
 
     if (out_total_ram) *out_total_ram = bytes;
     if (out_pagesize)  *out_pagesize = page;
@@ -119,7 +101,6 @@ void bedrock_hugetlbinfo(usize *out_huge_pagesize, usize max_accept_size)
 {
     if (!out_huge_pagesize) return;
 
-#ifdef LAKE_PLATFORM_LINUX
     DIR *dir;
     struct dirent *entry;
     usize count, bytes;
@@ -147,11 +128,5 @@ void bedrock_hugetlbinfo(usize *out_huge_pagesize, usize max_accept_size)
         closedir(dir);
     }
     *out_huge_pagesize = bytes;
-#elif defined(LAKE_PLATFORM_WINDOWS)
-    /* TODO hardcoded my laptops values */
-    if (hugepagesize && max_target_hugepagesize >= 2*1024*1024)
-        *hugepagesize = 2*1024*1024;
-    else if (hugepagesize)
-        *hugepagesize = 0;
-#endif /* LAKE_PLATFORM_LINUX */
 }
+#endif /* LAKE_PLATFORM_LINUX */

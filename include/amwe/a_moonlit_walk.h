@@ -116,7 +116,7 @@ pelagial_main(
     struct pelagial_metadata   *metadata);
 
 #if defined(LAKE_PLATFORM_WINDOWS)
-#include <amwe/arch/windows.h>
+#include <amwe/private/windows.h>
 
 s32 WINAPI WinMain(
     _In_ HINSTANCE     hInstance, 

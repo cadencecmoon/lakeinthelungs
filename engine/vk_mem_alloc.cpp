@@ -1,3 +1,5 @@
+#include <amwe/bedrock.h>
+
 #if defined(LAKE_CC_CLANG_VERSION)
     #pragma clang diagnostic push
     #pragma clang diagnostic ignored "-Wtautological-compare"
@@ -25,10 +27,10 @@
 #define VMA_IMPLEMENTATION
 #include "vk_xaku.h"
 
-#if defined(__clang__)
+#if defined(LAKE_CC_CLANG_VERSION)
     #pragma clang diagnostic pop
-#elif defined(__GNUC__)
+#elif defined(LAKE_CC_GNUC_VERSION)
     #pragma GCC diagnostic pop
-#elif defined(_MSVC_LANG)
+#elif defined(LAKE_CC_MSVC_VERSION)
     #pragma warning(pop)
 #endif

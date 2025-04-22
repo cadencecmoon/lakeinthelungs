@@ -1,10 +1,12 @@
 sources += files(
-    'common.c',
+    'frame_time.c',
     'hash_table.c',
-    'log.c',
-    'mmap.c',
-    'module.c',
-    'proc.c',
-    'threads.c',
-    'time.c'
+    'logger.c',
+    'mem_utility.c',
+    'null_audio.c',
+    'null_display.c',
+    'null_renderer.c',
 )
+
+subdir('asm')
+subdir('math')

@@ -1,20 +1,16 @@
 #include <amwe/bedrock.h>
 
 #if defined(LAKE_PLATFORM_UNIX)
-    #include <unistd.h>
-    #include <pthread.h>
-    #include <sys/types.h>
-    #include <sys/cdefs.h>
-#elif defined(LAKE_PLATFORM_WINDOWS)
-    #include <amwe/arch/windows.h>
-#endif /* LAKE_PLATFORM_UNIX */
+#include <unistd.h>
+#include <pthread.h>
+#include <sys/types.h>
+#include <sys/cdefs.h>
 
 void bedrock_thread_create(
     bedrock_thread_t *thread, 
     void             *(*procedure)(void *), 
     void             *argument)
 {
-#if defined(LAKE_PLATFORM_UNIX)
     pthread_attr_t attr;
     pthread_attr_init(&attr);
 
@@ -27,13 +23,10 @@ void bedrock_thread_create(
         lake_debugtrap();
     }
     pthread_attr_destroy(&attr);
-#elif defined(LAKE_PLATFORM_WINDOWS)
-#endif /* LAKE_PLATFORM_UNIX */
 }
 
 void bedrock_thread_destroy(bedrock_thread_t thread)
 {
-#if defined(LAKE_PLATFORM_UNIX)
     bedrock_assert_debug(!pthread_equal((pthread_t)thread, pthread_self()));
 
     if (pthread_cancel((pthread_t)thread) != 0) {
@@ -44,28 +37,22 @@ void bedrock_thread_destroy(bedrock_thread_t thread)
         bedrock_log_error("Destroying a thread with 'pthread_join' failed.");
         return;
     }
-#elif defined(LAKE_PLATFORM_WINDOWS)
-#endif /* LAKE_PLATFORM_UNIX */
 }
 
 void bedrock_thread_join(bedrock_thread_t thread)
 {
-#if defined(LAKE_PLATFORM_UNIX)
     bedrock_assert_debug(!pthread_equal((pthread_t)thread, pthread_self()));
 
     if (pthread_join((pthread_t)thread, NULL) != 0) {
         bedrock_log_error("Joining a thread with 'pthread_join' (no cancel) failed.");
         return;
     }
-#elif defined(LAKE_PLATFORM_WINDOWS)
-#endif /* LAKE_PLATFORM_UNIX */
 }
 
 u32 bedrock_thread_array_index(
     const bedrock_thread_t *threads, 
     u32                     thread_count)
 {
-#if defined(LAKE_PLATFORM_UNIX)
     pthread_t self = pthread_self();
     for (u32 i = 0; i < thread_count; i++) {
         if (pthread_equal((pthread_t)threads[i], self)) {
@@ -73,16 +60,11 @@ u32 bedrock_thread_array_index(
         }
     }
     return 0;
-#elif defined(LAKE_PLATFORM_WINDOWS)
-#endif /* LAKE_PLATFORM_UNIX */
 }
 
 bedrock_thread_t bedrock_thread_current(void)
 {
-#if defined(LAKE_PLATFORM_UNIX)
     return (bedrock_thread_t)pthread_self();
-#elif defined(LAKE_PLATFORM_WINDOWS)
-#endif /* LAKE_PLATFORM_UNIX */
 }
 
 
@@ -93,7 +75,6 @@ void bedrock_thread_affinity(
     u32                 cpu_count,
     u32                 begin_cpu_index)
 {
-#if defined(LAKE_PLATFORM_UNIX)
     cpu_set_t *cpusets = (cpu_set_t *)stack_memory;
 
     u32 i = 0;
@@ -108,6 +89,5 @@ void bedrock_thread_affinity(
         }
         i++; j++;
     }
-#elif defined(LAKE_PLATFORM_WINDOWS)
-#endif /* LAKE_PLATFORM_UNIX */
 }
+#endif /* LAKE_PLATFORM_UNIX */

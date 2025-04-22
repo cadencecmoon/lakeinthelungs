@@ -33,7 +33,7 @@ static const char *extension_names[] = {
     VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
     VK_KHR_MAINTENANCE_4_EXTENSION_NAME,
 };
-bedrock_static_assert(lake_arraysize(extension_names) == physical_device_extension_count, "The number of physical device extensions and their name count must match");
+bedrock_static_assert(lake_arraysize(extension_names) == physical_device_extension_count, "The number of physical device extensions and their names count must match");
 
 FN_XAKU_LIST_DEVICES_PROPERTIES(vulkan);
 FN_XAKU_DEVICE_ASSEMBLY(vulkan);

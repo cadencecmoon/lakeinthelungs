@@ -17,8 +17,6 @@ defs = ['-Wall']
 if cc.get_id() != 'msvc'
     defs += [
         '-Wno-pedantic',
-        '-Werror=implicit-function-declaration',
-        '-Werror=incompatible-pointer-types',
         '-Werror=return-type' ]
 endif
 

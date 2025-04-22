@@ -58,7 +58,7 @@ LAKEAPI void LAKECALL bedrock_log_set_quiet(bool set);
 #elif defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L)
     #define bedrock_static_assert(x, desc) _Static_assert(x, desc)
 /* GCC 4.6 or later */
-#elif LAKE_CC_GNUC_VERSION_CHECK(4,6,0)
+#elif defined(LAKE_CC_GNUC_VERSION)
     /* It will work but it may throw a warning:
      * warning: ISO C99 does not support '_Static_assert' [-Wpedantic] */
     #define bedrock_static_assert(x, desc) _Static_assert(x, desc)

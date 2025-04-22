@@ -1,42 +1,7 @@
-sources += files(
-    'hadal.c',
-    'null_display.c',
-)
-
-if have_posix
-    dep_dl = cc.find_library('dl', required : true)
-    dep_rt = cc.find_library('rt', required : false)
-
-    defs += [ '-DLAKE_PLATFORM_UNIX=1', '-D_GNU_SOURCE']
-    deps += [ dep_threads, dep_rt, dep_dl ]
-
-    if cc.has_function('clock_gettime', dependencies : [dep_rt])
-        defs += '-DLAKE_HAS_CLOCK_GETTIME=1'
-    endif
-endif
-
-if sys == 'android'
-    #sources += files('android.c')
-    defs += [ '-DLAKE_PLATFORM_ANDROID=1', '-DVK_USE_PLATFORM_ANDROID_KHR' ]
-    cross_opts += [ '-u', 'ANativeActivity_onCreate' ]
-
-    # TODO meson.get_external_property('android_ndk', '')
-    # if android_ndk != ''
-    android_ndk = '/opt/android-ndk'
-
-    dep_android = cc.find_library('android', required : true)
-    dep_log = cc.find_library('log', required : true)
-
-    lib_android_native_glue = static_library('android_app_glue',
-        include_directories : [include_directories(android_ndk + '/sources/android/native_app_glue')],
-        [android_ndk + '/sources/android/native_app_glue/android_native_app_glue.c'])
-    dep_android_native_glue = declare_dependency(
-        include_directories : [include_directories(android_ndk + '/sources/android/native_app_glue')],
-        link_with : lib_android_native_glue)
-    deps += [ dep_android, dep_log, dep_android_native_glue ]
-endif
-
 if sys == 'android' or sys == 'linux' or sys == 'bsd'
+    sources += files(
+        'linux_process.c',
+    )
     defs += '-DLAKE_PLATFORM_LINUX=1'
     dep_udev = dependency('libudev', required : get_option('drmkms'))
     dep_drm = dependency('libdrm', required : get_option('drmkms'))
@@ -47,7 +12,6 @@ if sys == 'android' or sys == 'linux' or sys == 'bsd'
         #sources += files('drmkms.c')
         defs += [ '-DHADAL_DRMKMS=1', '-DVK_USE_PLATFORM_KMS_KHR' ]
     endif
-elif sys == 'emscripten'
 endif
 
 if sys == 'linux' or sys == 'bsd'
@@ -125,31 +89,27 @@ if sys == 'linux' or sys == 'bsd'
         endforeach
     endif
 
-elif sys == 'windows'
-    #sources += files('win32.c')
-    defs += [
-        '-DLAKE_PLATFORM_WINDOWS=1',
-        '-DUNICODE',
-        '-D_WIN32_WINNT=0x0A00',
-        '-DVK_USE_PLATFORM_WIN32_KHR' ]
+    dep_pipewire = dependency('libpipewire-0.3', required : get_option('pipewire'))
+    if dep_pipewire.found()
+        sources += files('pipewire.c')
+        defs += '-DSOMA_PIPEWIRE=1'
+    endif
 
-elif sys == 'darwin'
-    defs += [
-        '-DLAKE_PLATFORM_APPLE=1',
-        '-DVK_USE_PLATFORM_METAL_EXT' ]
-    add_languages('objc')
+    dep_pulse = dependency('libpulse-simple', required : get_option('pulse'))
+    if dep_pulse.found()
+        #sources += files('')
+        defs += '-DSOMA_PULSEAUDIO=1'
+    endif
 
-    iphone_check = '''#include <TargetConditionals.h>
-    #if !TARGET_OS_IPHONE
-    #error not iphone
-    #endif'''
+    dep_alsa = dependency('alsa', required : get_option('alsa'))
+    if dep_alsa.found()
+        #sources += files('')
+        defs += '-DSOMA_ALSA=1'
+    endif
 
-    if cc.compiles(iphone_check, name: 'iPhone target')
-        #sources += files('uikit.c')
-        defs += '-DLAKE_PLATFORM_APPLE_IOS=1'
-        deps += declare_dependency(link_args: [ '-framework', 'UIKit' ])
-    else
-        #sources += files('cocoa.c')
-        defs += '-DLAKE_PLATFORM_APPLE_MACOS=1'
+    found_oss = not get_option('oss').disabled() and ((sys == 'linux') or (sys == 'bsd'))
+    if found_oss
+        #sources += files()
+        defs += '-DSOMA_OSS=1'
     endif
 endif
