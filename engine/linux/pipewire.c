@@ -58,8 +58,8 @@ enum PW_READY_FLAGS {
 #define PW_ID_TO_HANDLE(x) (void *)((uptr)x)
 #define PW_HANDLE_TO_ID(x) (u32)((uptr)x)
 
-struct soma_sink {
-    SOMA_INTERFACE_SINK_HEADER
+struct soma_device {
+    SOMA_INTERFACE_DEVICE_HEADER
 };
 
 struct soma_encore {
@@ -94,7 +94,7 @@ struct soma_encore {
     s32                                 version_patch;
 };
 
-static FN_SOMA_SINK_QUERY(pipewire)
+static FN_SOMA_DEVICE_QUERY(pipewire)
 {
     (void)pipewire;
     (void)default_playback;
@@ -102,93 +102,93 @@ static FN_SOMA_SINK_QUERY(pipewire)
     return soma_result_success;
 }
 
-static FN_SOMA_SINK_OPEN(pipewire)
+static FN_SOMA_DEVICE_OPEN(pipewire)
 {
     (void)pipewire;
     return soma_result_success;
 }
 
-static FN_SOMA_SINK_CLOSE(pipewire)
+static FN_SOMA_DEVICE_CLOSE(pipewire)
 {
-    (void)sink;
+    (void)device;
 }
 
-static FN_SOMA_SINK_WAIT(pipewire)
+static FN_SOMA_DEVICE_WAIT(pipewire)
 {
-    (void)sink;
+    (void)device;
     return false;
 }
 
-static bool load_pipewire_symbols(struct soma_encore *pipewire, const char *msg)
+static bool load_pipewire_symbols(struct soma_encore *soma, const char *name)
 {
     /* should be already loaded */
-    bedrock_assert_debug(pipewire->pw_get_library_version && pipewire->pw_init);
+    bedrock_assert_debug(soma->pw_get_library_version && soma->pw_init);
 
-    void *module = pipewire->module_pipewire;
+    void *module = soma->module_pipewire;
 
-    pipewire->pw_deinit = (PFN_pw_deinit)
+    soma->pw_deinit = (PFN_pw_deinit)
         bedrock_get_proc_address(module, "pw_deinit");
-    pipewire->pw_loop_new = (PFN_pw_loop_new)
+    soma->pw_loop_new = (PFN_pw_loop_new)
         bedrock_get_proc_address(module, "pw_loop_new");           
-    pipewire->pw_loop_destroy = (PFN_pw_loop_destroy)
+    soma->pw_loop_destroy = (PFN_pw_loop_destroy)
         bedrock_get_proc_address(module, "pw_loop_destroy");
-    pipewire->pw_loop_set_name = (PFN_pw_loop_set_name)
+    soma->pw_loop_set_name = (PFN_pw_loop_set_name)
         bedrock_get_proc_address(module, "pw_loop_set_name");
-    pipewire->pw_context_new = (PFN_pw_context_new)
+    soma->pw_context_new = (PFN_pw_context_new)
         bedrock_get_proc_address(module, "pw_context_new");
-    pipewire->pw_context_destroy = (PFN_pw_context_destroy)
+    soma->pw_context_destroy = (PFN_pw_context_destroy)
         bedrock_get_proc_address(module, "pw_context_destroy");
-    pipewire->pw_context_connect = (PFN_pw_context_connect)
+    soma->pw_context_connect = (PFN_pw_context_connect)
         bedrock_get_proc_address(module, "pw_context_connect");
-    pipewire->pw_proxy_add_object_listener = (PFN_pw_proxy_add_object_listener)
+    soma->pw_proxy_add_object_listener = (PFN_pw_proxy_add_object_listener)
         bedrock_get_proc_address(module, "pw_proxy_add_object_listener");
-    pipewire->pw_proxy_get_user_data = (PFN_pw_proxy_get_user_data)
+    soma->pw_proxy_get_user_data = (PFN_pw_proxy_get_user_data)
         bedrock_get_proc_address(module, "pw_proxy_get_user_data");
-    pipewire->pw_proxy_destroy = (PFN_pw_proxy_destroy)
+    soma->pw_proxy_destroy = (PFN_pw_proxy_destroy)
         bedrock_get_proc_address(module, "pw_proxy_destroy");
-    pipewire->pw_core_disconnect = (PFN_pw_core_disconnect)
+    soma->pw_core_disconnect = (PFN_pw_core_disconnect)
         bedrock_get_proc_address(module, "pw_core_disconnect");
-    pipewire->pw_stream_new_simple = (PFN_pw_stream_new_simple)
+    soma->pw_stream_new_simple = (PFN_pw_stream_new_simple)
         bedrock_get_proc_address(module, "pw_stream_new_simple");
-    pipewire->pw_stream_destroy = (PFN_pw_stream_destroy)
+    soma->pw_stream_destroy = (PFN_pw_stream_destroy)
         bedrock_get_proc_address(module, "pw_stream_destroy");
-    pipewire->pw_stream_connect = (PFN_pw_stream_connect)
+    soma->pw_stream_connect = (PFN_pw_stream_connect)
         bedrock_get_proc_address(module, "pw_stream_connect");
-    pipewire->pw_stream_get_state = (PFN_pw_stream_get_state)
+    soma->pw_stream_get_state = (PFN_pw_stream_get_state)
         bedrock_get_proc_address(module, "pw_stream_get_state");
-    pipewire->pw_stream_dequeue_buffer = (PFN_pw_stream_dequeue_buffer)
+    soma->pw_stream_dequeue_buffer = (PFN_pw_stream_dequeue_buffer)
         bedrock_get_proc_address(module, "pw_stream_dequeue_buffer");
-    pipewire->pw_stream_queue_buffer = (PFN_pw_stream_queue_buffer)
+    soma->pw_stream_queue_buffer = (PFN_pw_stream_queue_buffer)
         bedrock_get_proc_address(module, "pw_stream_queue_buffer");
-    pipewire->pw_properties_new = (PFN_pw_properties_new)
+    soma->pw_properties_new = (PFN_pw_properties_new)
         bedrock_get_proc_address(module, "pw_properties_new");
-    pipewire->pw_properties_set = (PFN_pw_properties_set)
+    soma->pw_properties_set = (PFN_pw_properties_set)
         bedrock_get_proc_address(module, "pw_properties_set");
-    pipewire->pw_properties_setf = (PFN_pw_properties_setf)
+    soma->pw_properties_setf = (PFN_pw_properties_setf)
         bedrock_get_proc_address(module, "pw_properties_setf");
 
-    if (!pipewire->pw_deinit ||
-        !pipewire->pw_loop_new ||
-        !pipewire->pw_loop_destroy ||
-        !pipewire->pw_loop_set_name ||
-        !pipewire->pw_context_new ||
-        !pipewire->pw_context_destroy ||
-        !pipewire->pw_context_connect ||
-        !pipewire->pw_proxy_add_object_listener ||
-        !pipewire->pw_proxy_get_user_data ||
-        !pipewire->pw_proxy_destroy ||
-        !pipewire->pw_core_disconnect ||
-        !pipewire->pw_stream_new_simple ||
-        !pipewire->pw_stream_destroy ||
-        !pipewire->pw_stream_connect ||
-        !pipewire->pw_stream_get_state ||
-        !pipewire->pw_stream_dequeue_buffer ||
-        !pipewire->pw_stream_queue_buffer ||
-        !pipewire->pw_properties_new ||
-        !pipewire->pw_properties_set ||
-        !pipewire->pw_properties_setf)
+    if (!soma->pw_deinit ||
+        !soma->pw_loop_new ||
+        !soma->pw_loop_destroy ||
+        !soma->pw_loop_set_name ||
+        !soma->pw_context_new ||
+        !soma->pw_context_destroy ||
+        !soma->pw_context_connect ||
+        !soma->pw_proxy_add_object_listener ||
+        !soma->pw_proxy_get_user_data ||
+        !soma->pw_proxy_destroy ||
+        !soma->pw_core_disconnect ||
+        !soma->pw_stream_new_simple ||
+        !soma->pw_stream_destroy ||
+        !soma->pw_stream_connect ||
+        !soma->pw_stream_get_state ||
+        !soma->pw_stream_dequeue_buffer ||
+        !soma->pw_stream_queue_buffer ||
+        !soma->pw_properties_new ||
+        !soma->pw_properties_set ||
+        !soma->pw_properties_setf)
     {
-        bedrock_log_debug("%s can't load PipeWire procedures.", msg);
+        bedrock_log_debug("'%s' can't load PipeWire procedures.", name);
         return false;
     }
     return true;
@@ -196,7 +196,7 @@ static bool load_pipewire_symbols(struct soma_encore *pipewire, const char *msg)
 
 static struct soma_encore *g_pipewire = NULL;
 
-static void pipewire_encore_zero_ref(struct soma_encore *encore)
+static void soma_encore_zero_ref(struct soma_encore *encore)
 {
     if (!encore)
         return;
@@ -212,11 +212,7 @@ static void pipewire_encore_zero_ref(struct soma_encore *encore)
 
 FN_RIVEN_ENCORE(soma, pipewire)
 {
-    const char *msg = "'soma: pipewire'";
-
-    (void)metadata;
-    (void)riven_hints;
-    (void)userdata;
+    const char *name = "soma_pipewire";
 
     /* we allow only one PipeWire backend instance to exist at a time */
     if (lake_unlikely(g_pipewire != NULL))
@@ -224,7 +220,7 @@ FN_RIVEN_ENCORE(soma, pipewire)
 
     void *module_pipewire = bedrock_module_open("libpipewire-0.3.so");
     if (!module_pipewire) {
-        bedrock_log_debug("%s libpipewire-0.3.so is missing.", msg);
+        bedrock_log_debug("'%s' libpipewire-0.3.so is missing.", name);
         return NULL;
     }
 
@@ -233,7 +229,7 @@ FN_RIVEN_ENCORE(soma, pipewire)
     PFN_pw_init init = (PFN_pw_init)
         bedrock_get_proc_address(module_pipewire, "pw_init");
     if (!get_library_version || !init) {
-        bedrock_log_debug("%s can't load PipeWire entry point procedures.", msg);
+        bedrock_log_debug("'%s' can't load PipeWire entry point procedures.", name);
         bedrock_module_close(module_pipewire);
         return NULL;
     }
@@ -242,42 +238,41 @@ FN_RIVEN_ENCORE(soma, pipewire)
     s32 version_major, version_minor, version_patch;
     s32 nargs = sscanf(pipewire_version, "%d.%d.%d", &version_major, &version_minor, &version_patch);
     if (nargs < 3) {
-        bedrock_log_debug("%s an unsupported PipeWire version of %s.", msg, pipewire_version);
+        bedrock_log_debug("'%s' an unsupported PipeWire version of %s.", name, pipewire_version);
         bedrock_module_close(module_pipewire);
         return NULL;
     }
     init(NULL, NULL);
 
-    struct soma_encore *pipewire = (struct soma_encore *)
-        riven_thalloc(riven, tag, lake_sizeof(struct soma_encore), lake_alignof(struct soma_encore));
-    bedrock_zerop(pipewire);
+    struct soma_encore *soma = (struct soma_encore *)
+        riven_thalloc(context->self, tag, lake_sizeof(struct soma_encore), lake_alignof(struct soma_encore));
+    bedrock_zerop(soma);
 
-    pipewire->module_pipewire = module_pipewire;
-    pipewire->version_major = version_major;
-    pipewire->version_minor = version_minor;
-    pipewire->version_patch = version_patch;
-    pipewire->pw_get_library_version = get_library_version;
-    pipewire->pw_init = init;
+    soma->module_pipewire = module_pipewire;
+    soma->version_major = version_major;
+    soma->version_minor = version_minor;
+    soma->version_patch = version_patch;
+    soma->pw_get_library_version = get_library_version;
+    soma->pw_init = init;
 
-    if (!load_pipewire_symbols(pipewire, msg)) {
-        pipewire_encore_zero_ref(pipewire);
+    if (!load_pipewire_symbols(soma, name)) {
+        soma_encore_zero_ref(soma);
         return NULL;
     }
 
     /* write the interface header */
-    pipewire->interface.header.riven = riven;
-    pipewire->interface.header.tag = tag;
-    pipewire->interface.header.name = "soma";
-    pipewire->interface.header.backend = "pipewire";
-    pipewire->interface.header.zero_ref_callback = (PFN_riven_work)pipewire_encore_zero_ref;
-    g_pipewire = pipewire;
+    soma->interface.riven.context = *context;
+    soma->interface.riven.tag = tag;
+    soma->interface.riven.name = name;
+    soma->interface.riven.zero_ref_callback = (PFN_riven_work)soma_encore_zero_ref;
+    g_pipewire = soma;
 
     /* write the interface */
-    pipewire->interface.sink_query = _soma_pipewire_sink_query;
-    pipewire->interface.sink_open = _soma_pipewire_sink_open;
-    pipewire->interface.sink_close = _soma_pipewire_sink_close;
-    pipewire->interface.sink_wait = _soma_pipewire_sink_wait;
-    return pipewire;
+    soma->interface.device_query = _soma_pipewire_device_query;
+    soma->interface.device_open = _soma_pipewire_device_open;
+    soma->interface.device_close = _soma_pipewire_device_close;
+    soma->interface.device_wait = _soma_pipewire_device_wait;
+    return soma;
 }
 
 #endif /* SOMA_PIPEWIRE */

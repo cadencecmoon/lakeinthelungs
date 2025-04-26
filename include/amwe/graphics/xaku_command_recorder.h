@@ -1,8 +1,8 @@
 #pragma once
 
-#include <amwe/xaku/encore.h>
-#include <amwe/xaku/gpu_resources.h>
-#include <amwe/xaku/pipelines.h>
+#include <amwe/graphics/xaku_encore.h>
+#include <amwe/graphics/xaku_gpu_resources.h>
+#include <amwe/graphics/xaku_pipelines.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -552,7 +552,7 @@ typedef void (LAKECALL *PFN_xaku_cmd_end_label)(struct xaku_command_recorder *cm
 /** Compile the recorded commands into an executable buffer. Returns the index of the device in use. */
 typedef lake_nodiscard enum xaku_result (LAKECALL *PFN_xaku_compile_command_list)(struct xaku_command_recorder *cmd, u32 *out_device_index, struct xaku_executable_command_list **out_list);
 #define FN_XAKU_COMPILE_COMMAND_LIST(ENCORE) \
-    lake_nodiscard enum xaku_result LAKECALL *_xaku_##ENCORE##_compile_command_list(struct xaku_command_recorder *cmd, u32 *out_device_index, struct xaku_executable_command_list **out_list)
+    lake_nodiscard enum xaku_result LAKECALL _xaku_##ENCORE##_compile_command_list(struct xaku_command_recorder *cmd, u32 *out_device_index, struct xaku_executable_command_list **out_list)
 
 #ifdef __cplusplus
 }

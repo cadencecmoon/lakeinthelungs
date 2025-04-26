@@ -434,7 +434,6 @@ struct tls *get_thread_local_storage(struct riven *riven)
         bitmask = 0xFF;                                                             \
     }                                                                               \
 }
-
 orchestrate_bitmap(acquire, lake_atomic_and_explicit(&bitmap[index], ~bitmask, lake_memory_model_acquire));
 orchestrate_bitmap(release, lake_atomic_or_explicit(&bitmap[index], bitmask, lake_memory_model_release));
 
@@ -1135,7 +1134,7 @@ void the_work(sptr raw_tls)
     struct fiber *fiber = &riven->fibers[tls->fiber_in_use];
     for (;;) {
         /* do the work */
-        fiber->job.work.procedure(fiber->job.work.userdata);
+        fiber->job.work.procedure(fiber->job.work.argument);
 
         if (fiber->job.work_left) {
             usize last = lake_atomic_sub_explicit(fiber->job.work_left, 1lu, lake_memory_model_relaxed);
@@ -1227,11 +1226,11 @@ void execute_framework(void *raw)
     const u32 thread_count = riven->thread_count;
 
     /* execute the main function */
-    data->result = data->procedure(riven, riven->hints, riven->threads, data->argument);
+    data->result = data->procedure(riven, riven->hints, data->argument);
 
     for (u32 i = 0; i < thread_count; i++) {
         riven->ends[i].procedure = d4c_love_train;
-        riven->ends[i].userdata = (void *)riven;
+        riven->ends[i].argument = (void *)riven;
         riven->ends[i].name = "riven:d4c_love_train";
     }
     riven_split_work_and_unchain(riven, riven->ends, thread_count);
@@ -1287,37 +1286,82 @@ void riven_unchain(
     if (chain) lake_atomic_store_explicit(chain, RIVEN_FIBER_INVALID, lake_memory_model_release);
 }
 
-void riven_encore(struct riven_encore_work *restrict work)
+void riven_encore_assembly(const struct riven_encore_assembly_work *restrict work)
 {
-#ifdef LAKE_DEBUG
-    if (!work->encores || !work->encore_count) return;
-#endif /* LAKE_DEBUG */
+    bedrock_assert_debug(work->riven);
+    bedrock_assert_debug(work->out_interface);
 
-    union { void *data; struct riven_interface_header *header; } interface = { .data = NULL };
-    
-    for (u32 i = 0; i < work->encore_count; i++) {
-        interface.data = work->encores[i](work->riven, work->riven->hints, work->metadata, work->encore_userdata, work->tag);
+    union { void *data; struct riven_interface *riven; } interface = { .data = NULL };
 
-        /* the encore was discarded by internal means */
-        if (interface.data == NULL)
-            continue;
+    if (work->preferred_encore) {
+        /* if there is a preferred encore, try it first */
+        interface.data = work->preferred_encore(work->riven, work->tag);
 
-#ifdef LAKE_DEBUG
-        bedrock_assert_debug(interface.header->zero_ref_callback);
+        if (interface.data && work->interface_validation && !work->interface_validation(interface.data)) {
+            bedrock_assert_debug(interface.riven->zero_ref_callback);
+            interface.riven->zero_ref_callback(interface.data);
 
-        if (work->interface_validation && !work->interface_validation(interface.data)) {
-            /* destroy the interface and continue */
-            bedrock_log_debug("'%s' encore (%u out of %u) invalidated interface '%s', it will be destroyed.",
-                interface.header->name, i, work->encore_count, interface.header->name);
-            interface.header->zero_ref_callback(interface.data);
-            continue;
+            bedrock_log_debug("Preferred encore for '%s' assembly failed.", work->name);
+
+            if (work->flags & riven_flag_tag_is_owned)
+                riven_thfree(work->riven->self, work->tag);
+            interface.data = NULL;
+        } else {
+            /* accept this implementation */
+            bedrock_log_verbose("Encore '%s' assembled.", interface.riven->name);
+            riven_inc_refcnt(&interface.riven->refcnt);
+            *work->out_interface = interface.data;
+            return;
         }
-#endif /* LAKE_DEBUG */
+    }
+    if (interface.data == NULL && work->native_encores && work->native_encore_count) {
+        /* try native encores */
+        for (u32 i = 0; i < work->native_encore_count; i++) {
+            interface.data = work->native_encores[i](work->riven, work->tag);
 
-        /* accept this implementation, don't increment the reference count (externally synchronized) */
-        bedrock_log_verbose("'%s: %s' interface write.", interface.header->name, interface.header->backend);
-        *work->out_interface = interface.data;
-        return;
+            if (interface.data == NULL) continue;
+
+            bedrock_assert_debug(interface.riven->zero_ref_callback);
+            if (work->interface_validation && !work->interface_validation(interface.data)) {
+                interface.riven->zero_ref_callback(interface.data);
+
+                if (work->flags & riven_flag_tag_is_owned)
+                    riven_thfree(work->riven->self, work->tag);
+                continue;
+            }
+            /* accept this implementation */
+            bedrock_log_verbose("Encore '%s' assembled.", interface.riven->name);
+            riven_inc_refcnt(&interface.riven->refcnt);
+            *work->out_interface = interface.data;
+            return;
+        }
+    }
+    bedrock_log_debug("Could not resolve '%s' encore assembly.", work->name);
+    *work->out_interface = NULL;
+}
+
+void riven_encore_disassembly(void *encore)
+{
+    union { void *data; struct riven_interface *riven; } interface = { .data = encore };
+    if (!interface.data) return; /* leave early if there is no work */
+
+    const char *name = interface.riven->name;
+    u64 flags = lake_atomic_read(&interface.riven->flags);
+    u32 prev = riven_dec_refcnt(&interface.riven->refcnt);
+
+    if (lake_unlikely(prev == 0)) {
+        bedrock_log_warn("At encore '%s' disassembly refcnt is 0.", name);
+        lake_debugtrap();
+    } else if (prev == 1) {
+        struct riven *riven = interface.riven->context.self;
+        riven_tag_t tag = interface.riven->tag;
+
+        interface.riven->zero_ref_callback(interface.data);
+        if (flags & riven_flag_tag_is_owned)
+            riven_thfree(riven, tag);
+        bedrock_log_verbose("Encore '%s' disassembled.", name);
+    } else {
+        bedrock_log_verbose("Encore '%s' lost reference from disassembly, current encore reference count is %u.", name, prev - 1);
     }
 }
 
@@ -1516,9 +1560,10 @@ s32 riven_moonlit_walk(
     };
     struct riven_work work = {
         .procedure = execute_framework,
-        .userdata = (void *)&framework,
+        .argument = (void *)&framework,
         .name = "riven:framework",
     };
+    hints->threads = riven->threads;
 
     riven_split_work(riven, &work, 1, NULL);
     dirty_deeds_done_dirt_cheap((void *)&riven->tls[0]);

@@ -46,71 +46,17 @@ const PFN_riven_encore *soma_native_encores(bool null_fallback, u32 *out_encore_
 
 extern FN_RIVEN_INTERFACE_VALIDATION(soma)
 {
-    const char *fmt = "'%s: %s' is missing an interface procedure - 'PFN_soma_%s'.";
+    const char *fmt = "'%s' is missing an interface procedure - 'PFN_soma_%s'.";
     bool valid = true;
 
 #define VALIDATE(FN) \
-    if (interface->FN == NULL) { bedrock_log_debug(fmt, interface->header.name, interface->header.backend, #FN); valid = false; }
+    if (interface->FN == NULL) { bedrock_log_debug(fmt, interface->riven.name, #FN); valid = false; }
 
-    VALIDATE(sink_query)
-    VALIDATE(sink_open)
-    VALIDATE(sink_close)
-    VALIDATE(sink_wait)
+    VALIDATE(device_query)
+    VALIDATE(device_open)
+    VALIDATE(device_close)
+    VALIDATE(device_wait)
 #undef VALIDATE
 
     return valid;
-}
-
-#ifdef SOMA_WASAPI
-FN_RIVEN_ENCORE_STUB(soma, wasapi)
-#endif /* SOMA_WASAPI */
-#ifdef SOMA_XAUDIO2
-FN_RIVEN_ENCORE_STUB(soma, xaudio)
-#endif /* SOMA_XAUDIO2 */
-#ifdef SOMA_COREAUDIO
-FN_RIVEN_ENCORE_STUB(soma, coreaudio)
-#endif /* SOMA_COREAUDIO */
-#ifdef SOMA_AAUDIO
-FN_RIVEN_ENCORE_STUB(soma, aaudio)
-#endif /* SOMA_AAUDIO */
-#ifdef SOMA_WEBAUDIO
-FN_RIVEN_ENCORE_STUB(soma, webaudio)
-#endif /* SOMA_WEBAUDIO */
-#ifdef SOMA_PULSEAUDIO
-FN_RIVEN_ENCORE_STUB(soma, pulse)
-#endif /* SOMA_PULSEAUDIO */
-#ifdef SOMA_JACK
-FN_RIVEN_ENCORE_STUB(soma, jack)
-#endif /* SOMA_JACK */
-#ifdef SOMA_ALSA
-FN_RIVEN_ENCORE_STUB(soma, alsa)
-#endif /* SOMA_ALSA */
-#ifdef SOMA_OSS
-FN_RIVEN_ENCORE_STUB(soma, oss)
-#endif /* SOMA_OSS */
-
-enum soma_result soma_audio_init(
-    const struct soma_audio_assembly *assembly,
-    struct soma_audio                *out_audio)
-{
-    out_audio->soma = assembly->soma;
-    out_audio->strategy = assembly->strategy;
-
-    riven_inc_refcnt(&out_audio->soma.header->refcnt);
-    return soma_result_success;
-}
-
-u32 soma_audio_fini(struct soma_audio *audio, struct riven_work *out_zero_refcnt)
-{
-    if (!audio->soma.data)
-        return 0;
-
-    u32 prev = riven_dec_refcnt(&audio->soma.header->refcnt);
-    if (prev == 1) {
-        out_zero_refcnt->procedure = audio->soma.header->zero_ref_callback;
-        out_zero_refcnt->userdata = audio->soma.data;
-        out_zero_refcnt->name = "soma_fini:zero_refcnt";
-        bedrock_log_verbose("soma zero ref trace");
-    }
-    return prev;
 }

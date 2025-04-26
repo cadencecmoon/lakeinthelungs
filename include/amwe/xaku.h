@@ -1,22 +1,48 @@
 #pragma once
 
-#include <amwe/xaku/encore.h>
-#include <amwe/xaku/commands.h>
-#include <amwe/xaku/gpu_resources.h>
-#include <amwe/xaku/pipelines.h>
-#include <amwe/xaku/device.h>
-#include <amwe/render_graph.h>
+#include <amwe/graphics/xaku_encore.h>
+#include <amwe/graphics/xaku_command_recorder.h>
+#include <amwe/graphics/xaku_gpu_resources.h>
+#include <amwe/graphics/xaku_pipelines.h>
+#include <amwe/graphics/xaku_device.h>
+#include <amwe/graphics/pipeline_builder.h>
+#include <amwe/graphics/render_graph.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
 
-/** A public interface of the rendering engine, implemented by a backend 'xaku_encore'.
- *
- *  The encore 'userdata' type is 'struct xaku_encore_assembly'. */
-struct xaku_interface {
-    struct riven_interface_header                   header;
+/** Controls how rendering work is done. */
+enum xaku_rendering_strategy {
+    /** Allow the initialization process to figure out what strategy is best, not a valid strategy. */
+    xaku_rendering_strategy_auto = 0,
+    /** Rendering is done on a single primary device, no mGPU-related scheduling or transfer overhead.
+     *  It's the default */
+    xaku_rendering_strategy_primary_optimal,
+    /** Rendering on the discrete GPU is supported by the less-powerful integrated GPU.
+     *  The rendering work is distributed such that the integrated GPU may not be a bottleneck. */
+    xaku_rendering_strategy_dual_discrete_integrated,
+    /** Multi-device rendering, explicit primary device and multiple secondary devices. 
+     *  Sort first redistributes primitives early in the graphics pipeline, during geometry 
+     *  processing. This is achieved by dividing the screenspace such that each GPU renders 
+     *  it's own region, and the final image is composed from the contributing regions. */
+    xaku_rendering_strategy_mgpu_sort_first,
+    /** Multi-device rendering, explicit primary device and multiple secondary devices.
+     *  Sort last is defined as deferring primitive redistribution until the end of the graphics 
+     *  pipeline. It divides primitives such that each GPU renders it's own portion of mesh data 
+     *  into the framebuffer. Then these are composed into the final image. */
+    xaku_rendering_strategy_mgpu_sort_last,
+};
 
+/** A public interface of the rendering engine, implemented by a backend 'xaku_encore'. */
+struct xaku_interface {
+    struct riven_interface                          riven;
+    lake_dynamic_array(union xaku_device_view)      devices;
+
+    /* rendering settings */
+    enum xaku_rendering_strategy                    rendering_strategy;
+
+    /* procedures, implemented by the backend */
     PFN_xaku_list_devices_properties                list_devices_properties;
     PFN_xaku_device_assembly                        device_assembly;
     PFN_xaku_device_disassembly                     device_disassembly;
@@ -58,8 +84,8 @@ struct xaku_interface {
     PFN_xaku_create_texture_view                    create_texture_view;
     PFN_xaku_create_sampler                         create_sampler;
     PFN_xaku_create_tlas                            create_tlas;
-    PFN_xaku_create_blas                            create_blas;
     PFN_xaku_create_tlas_from_buffer                create_tlas_from_buffer;
+    PFN_xaku_create_blas                            create_blas;
     PFN_xaku_create_blas_from_buffer                create_blas_from_buffer;
 
     PFN_xaku_get_buffer_assembly                    get_buffer_assembly;
@@ -119,53 +145,12 @@ struct xaku_interface {
     PFN_xaku_cmd_end_label                          cmd_end_label;
     PFN_xaku_compile_command_list                   compile_command_list;
 };
-
-/** Implies different strategies for the rendering engine. */
-enum xaku_strategy {
-    /** Allow the initialization process to figure out what strategy is best, not a valid strategy. */
-    xaku_strategy_auto = 0,
-    /** Rendering is done on a single primary device, no mGPU scheduling overhead. */
-    xaku_strategy_optimal_primary,
-    /** TODO Rendering on the discrete GPU is supported by the less-powerful integrated GPU.
-     *  The rendering work is distributed such that the integrated GPU may not be a bottleneck. */
-    xaku_strategy_optimal_discrete_integrated,
-    /** TODO Multi-device rendering, explicit primary device and multiple secondary devices. 
-     *  Sort first redistributes primitives early in the graphics pipeline, during geometry 
-     *  processing. This is achieved by dividing the screenspace such that each GPU renders 
-     *  it's own region, and the final image is composed from the contributing regions. */
-    xaku_strategy_mgpu_sort_first,
-    /** TODO Multi-device rendering, explicit primary device and multiple secondary devices.
-     *  Sort last is defined as deferring primitive redistribution until the end of the graphics 
-     *  pipeline. It divides primitives such that each GPU renders it's own portion of mesh data 
-     *  into the framebuffer. Then these are composed into the final image. */
-    xaku_strategy_mgpu_sort_last,
+union xaku_renderer {
+    struct riven_interface     *riven;
+    struct xaku_interface      *interface;
+    struct xaku_encore         *encore;
+    void                       *data;
 };
-
-/** An engine structure for GPU renderering. */
-struct xaku_renderer {
-    enum xaku_strategy                          strategy;
-    atomic_u32                                  flags;
-    union xaku_encore_view                      xaku;
-
-    lake_dynamic_array(union xaku_device_view)  devices;
-};
-
-struct xaku_renderer_assembly {
-    union xaku_encore_view      xaku;
-    enum xaku_strategy          strategy;
-};
-
-LAKEAPI lake_nonnull_all lake_nodiscard
-enum xaku_result LAKECALL xaku_renderer_init(
-    const struct xaku_renderer_assembly *assembly,
-    struct xaku_renderer                *out_renderer);
-
-/** Returns previous reference count of the encore:
- *  - 0 means invalid backend.
- *  - 1 means the backend may be safely destroyed. 
- *  - >1 means that another system holds onto the backend. */
-LAKEAPI lake_nonnull_all u32 LAKECALL
-xaku_renderer_fini(struct xaku_renderer *renderer, struct riven_work *out_zero_refcnt);
 
 #ifdef __cplusplus
 }

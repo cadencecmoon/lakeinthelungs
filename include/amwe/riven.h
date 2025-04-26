@@ -43,27 +43,27 @@ typedef void (LAKECALL *PFN_riven_work)(void *userdata);
 /** Defines a job that will be running within a fiber's context. Name is used for profilling, can be NULL. */
 struct riven_work {
     PFN_riven_work  procedure;
-    void           *userdata;
+    void           *argument;
     const char     *name;
 };
 
 /** Parameters for Riven, after being evaluated a read-only pointer is given forward into the framework. */
 struct riven_hints {
-    usize               memory_budget;
-    usize               fiber_stack_size;
-    u32                 fiber_count;
-    u32                 thread_count;
-    u32                 tagged_heap_count;
-    u32                 log2_job_count;
-    u32                 log2_arena_count;
+    usize                           memory_budget;
+    usize                           fiber_stack_size;
+    u32                             fiber_count;
+    u32                             thread_count;
+    u32                             tagged_heap_count;
+    u32                             log2_job_count;
+    u32                             log2_arena_count;
+    /* written by riven */
+    bedrock_thread_t               *threads;
 };
-struct pelagial_metadata;
 
 /** An entry point to the entire system, defined by a framework. */
 typedef s32 (LAKECALL *PFN_riven_framework)(
     struct riven                   *riven,
     const struct riven_hints       *riven_hints,
-    bedrock_thread_t               *threads,
     void                           *userdata);
 
 /** Returns an array index of the current thread. The index is acquired by a hash lookup of the thread id. */
@@ -135,9 +135,7 @@ riven_realloc(struct riven *riven, void *memory, usize size) {
 /** Frees memory that was returned from 'riven_malloc_aligned'. Must not be called
  *  with a pointer returned by 'riven_talloc'. */
 LAKEAPI lake_hot lake_nonnull(1,2) void LAKECALL
-riven_free(
-    struct riven   *riven,
-    void           *memory);
+riven_free(struct riven *riven, void *memory);
 
 /** A linear allocation under a tagged heap arena. */
 LAKEAPI lake_hot lake_nonnull(1) lake_malloc void *LAKECALL 
@@ -149,9 +147,7 @@ riven_thalloc(
 
 /** Frees resources used by an arena under the given tagged heap. */
 LAKEAPI lake_hot void LAKECALL 
-riven_thfree(
-    struct riven   *riven,
-    riven_tag_t     tag);
+riven_thfree(struct riven *riven, riven_tag_t tag);
 
 /** Rotate the deffered thread-local heaps and free just the last resources. */
 LAKEAPI lake_hot lake_nonnull(1) void LAKECALL 
@@ -161,10 +157,7 @@ riven_rotate_deferred(struct riven *riven);
  *  On growth request, the heap will only commit if there is not enough contiguous space. On freeing
  *  resources, changes will be made only if the heap can be safely trimmed. */
 LAKEAPI lake_nonnull(1) usize LAKECALL 
-riven_advise_commitment(
-    struct riven             *riven,
-    usize                     size,
-    enum bedrock_madvise_mode mode);
+riven_advise_commitment(struct riven *riven, usize size, enum bedrock_madvise_mode mode);
 
 /** Runs 'work_count' amount of jobs, passed in the flat array 'work'. This will return immediately, and the 
  *  provided jobs will be resolved in the background in parallel. If 'chain' is not NULL, it will be set to 
@@ -181,9 +174,7 @@ riven_split_work(
  *  to the job system before returning. Chains can be acquired outside of a job queue, to be used as 'locks' 
  *  that continue work with a context switch instead of busy-waiting for the work to finish. */
 LAKEAPI lake_hot lake_nonnull(1) lake_thread_release_shared(2) void LAKECALL 
-riven_unchain(
-    struct riven   *riven,
-    riven_chain_t   chain);
+riven_unchain(struct riven *riven, riven_chain_t chain);
 
 /** Combines the effects of 'rivens_split_work' and 'rivens_unchain', by providing a chain. 
  *  This function does not return until all submitted work has completed. */
@@ -198,87 +189,92 @@ riven_split_work_and_unchain(
     riven_unchain(riven, chain);
 }
 
-/** Arguments for implementations of PFN_riven_encore. */
-#define ARGS_RIVEN_ENCORE \
-    struct riven                   *riven, \
-    const struct riven_hints       *riven_hints, \
-    const struct pelagial_metadata *metadata, \
-    void                           *userdata, \
-    riven_tag_t                     tag
-typedef void *(LAKECALL *PFN_riven_encore)(ARGS_RIVEN_ENCORE);
+/** Parameters given to different systems via interfaces, should be provided by the framework. */
+struct riven_app {
+    void                       *engine; /* engine structure */
+    const char                 *engine_name;
+    u32                         engine_build_ver;
+
+    u32                         app_build_ver;
+    u64                         app_timer_start;
+    const char                 *app_name;
+
+    bool                        enable_devtools; /* debug modes, validation layers, profiling, etc. */
+#if defined(LAKE_PLATFORM_WINDOWS)
+#elif defined(LAKE_PLATFORM_APPLE)
+#elif defined(LAKE_PLATFORM_EMSCRIPTEN)
+#elif defined(LAKE_PLATFORM_ANDROID)
+#else /* LAKE_PLATFORM_LINUX || LAKE_PLATFORM_UNIX */
+#endif
+    /* from main */
+    s32                         argc;
+    char                      **argv;
+};
+
+struct riven_context {
+    struct riven               *self;
+    const struct riven_hints   *hints;
+    const struct riven_app     *app;
+};
+typedef void *(LAKECALL *PFN_riven_encore)(const struct riven_context *context, const riven_tag_t tag);
 
 /** Defines an interface implementation to an engine subsystem, can be run as a job. */
 #define FN_RIVEN_ENCORE(INTERFACE, IMPLEMENTATION) \
-    struct INTERFACE##_encore *LAKECALL \
-    INTERFACE##_encore_##IMPLEMENTATION(ARGS_RIVEN_ENCORE)
+    struct INTERFACE##_encore *LAKECALL INTERFACE##_encore_##IMPLEMENTATION(const struct riven_context *context, const riven_tag_t tag)
 
 /** Definitions of reserved encores, when there is no valid implementation yet. */
 #define FN_RIVEN_ENCORE_STUB(INTERFACE, IMPLEMENTATION) \
     FN_RIVEN_ENCORE(INTERFACE, IMPLEMENTATION) { \
-        bedrock_log_debug("Interface '%s: %s' not yet implemented.", #INTERFACE, #IMPLEMENTATION); \
-        (void)riven; (void)riven_hints; (void)metadata; (void)userdata; (void)tag; \
-        return NULL; \
+        bedrock_log_debug("Interface '%s_%s' not yet implemented.", #INTERFACE, #IMPLEMENTATION); \
+        (void)context; (void)tag; return NULL; \
     }
 
+/** Common flags for use by different systems. */
+enum riven_flag {
+    riven_flag_valid        = (1ull << 0), /**< True for all valid interfaces. */
+    riven_flag_tag_is_owned = (1ull << 1), /**< The system is the owner of the tagged heap and can free it when it's finished. */
+};
+#define riven_flag_extend 1
+
 /** Abstracts away an interface structure that defines this header. */
-struct riven_interface_header {
-    /** An interface implementation may live until it is in use by any independent system.
-     *  Losing all reference points will zombify */
-    atomic_u64                      refcnt;
-    struct riven                   *riven;          /**< The context for Riven. */
-    riven_tag_t                     tag;            /**< The lifetime of this interface. */
-    const char                     *name;           /**< The name of this interface. */
-    const char                     *backend;        /**< The name of this implementation. */
-    /**< Callback used to destroy the encore, the work argument is 'encore' of the interface. */
+struct riven_interface {
+    /** A copy of the riven context given when the interface was created */
+    struct riven_context            context;
+    riven_tag_t                     tag;            /**< The lifetime of this interface, it's the tagged heap that will be in use. */
+    /** Tracks the use by different systems and child objects, a refcnt of 0 means it's safe to destroy this interface. */
+    atomic_u32                      refcnt;
+    atomic_u64                      flags;          /**< Flags to control interface state, known values may be extended by other systems. */
+    const char                     *name;           /**< The name of the implementation. */
+    /** Callback used to destroy the encore, the work argument is 'encore' of the interface. */
     PFN_riven_work                  zero_ref_callback;
 };
 
 #define riven_inc_refcnt(REFCNT) \
-    (u64)lake_atomic_add_explicit(REFCNT, 1llu, lake_memory_model_relaxed)
+    (u32)lake_atomic_add_explicit(REFCNT, 1u, lake_memory_model_relaxed)
 #define riven_dec_refcnt(REFCNT) \
-    (u64)lake_atomic_sub_explicit(REFCNT, 1llu, lake_memory_model_relaxed)
+    (u32)lake_atomic_sub_explicit(REFCNT, 1u, lake_memory_model_relaxed)
 
 typedef bool (LAKECALL *PFN_riven_interface_validation)(const void *interface);
 #define FN_RIVEN_INTERFACE_VALIDATION(INTERFACE) \
     bool LAKECALL INTERFACE##_interface_validation(const struct INTERFACE##_interface *interface)
 
-/** Work argument to execute a list of encores related to a single interface,
- *  and perform other work to validate the interface. Encores are executed
- *  one-by-one, until one is valid, and this encore is then written (returned). */
-struct riven_encore_work {
-    struct riven                   *riven;
-    /** A list of encore implementations to try, should be sorted by the user by most important. */
-    const PFN_riven_encore         *encores;
-    /** Custom argument into the encores. */
-    void                           *encore_userdata;
-    /** Maximum number of encores to try. */
-    u32                             encore_count;
-    /** The lifetime of the interface, handled by the application. */
+struct riven_encore_assembly_work {
+    const struct riven_context     *riven;
+    const char                     *name;
+    PFN_riven_encore                preferred_encore;
+    const PFN_riven_encore         *native_encores;
+    u32                             native_encore_count;
     riven_tag_t                     tag;
-    /** Information about the engine and application. */
-    const struct pelagial_metadata *metadata;
-    /** Optional, performs a validation on the public interface structure.
-     *  Must return true if the interface implementation is accepted,
-     *  otherwise if false is returned, the interface will be discarded. */
+    u64                             flags;
     PFN_riven_interface_validation  interface_validation;
-    /** The interface will be written here. */
     void                          **out_interface;
 };
 
-/** Executes a list of encores for one interface, until one implementation is valid. */
-LAKEAPI lake_nonnull_all void LAKECALL
-riven_encore(struct riven_encore_work *restrict work);
+LAKEAPI lake_nonnull(1) void LAKECALL
+riven_encore_assembly(const struct riven_encore_assembly_work *restrict work);
 
-/** Forces an interface to destroy itself, it's unsafe. */
-#define riven_destroy_interface(ENCORE) ({          \
-    if (ENCORE) {                                   \
-        union {                                     \
-            void *data;                             \
-            struct riven_interface_header *header;  \
-        } view = { .data = ENCORE };                \
-        view.header->zero_ref_callback(view.data);  \
-        ENCORE = NULL;                              \
-    }})
+LAKEAPI void LAKECALL
+riven_encore_disassembly(void *encore);
 
 /** Setups the job system and maps virtual memory to be used within the engine. The resource requirements of 
  *  internal systems depends on given argument hints and on the capabilities of the host system. Passing 0 as 

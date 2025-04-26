@@ -1,6 +1,6 @@
 #pragma once
 
-#include <amwe/xaku/device.h>
+#include <amwe/graphics/xaku_device.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -71,7 +71,7 @@ enum render_task_type {
     render_task_type_ray_tracing,
     render_task_type_transfer,
     render_task_type_sparse_binding,
-    render_task_type_video,
+    render_task_type_video_decode,
 };
 
 struct render_gpu_resource_view {

@@ -1,7 +1,7 @@
 #pragma once
 
-#include <amwe/xaku/encore.h>
-#include <amwe/xaku/gpu_resources.h>
+#include <amwe/graphics/xaku_encore.h>
+#include <amwe/graphics/xaku_gpu_resources.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -15,7 +15,7 @@ enum xaku_shader_create_flag_bits {
     xaku_shader_create_flag_require_full_subgroups      = (1u << 1),
 };
 
-/** For now only SLang is supported: https://shader-slang.org/ */
+/** For now only Slang is supported: https://shader-slang.org/ */
 enum xaku_shader_language {
     xaku_shader_language_slang,
     xaku_shader_language_max_enum = 0x7fffffff,
@@ -348,29 +348,6 @@ struct xaku_ray_tracing_pipeline_compile_assembly {
     .push_constant_size = XAKU_MAX_PUSH_CONSTANT_BYTE_SIZE, \
     .name = LAKE_ZERO_INIT, \
 }
-
-/** Custom preprocessor for a pipeline manager. TODO filesystem path */
-typedef void (LAKECALL *PFN_xaku_shader_custom_preprocessor)(const char *code, const char *path);
-
-/** Not used within encores! */
-struct xaku_pipeline_manager_assembly {
-    lake_dynamic_array(const char *)                root_paths;                     /* TODO filesystem path */ 
-    const char                                     *write_out_preprocessed_code;    /* TODO filesystem path */  
-    const char                                     *write_out_spirv;                /* TODO filesystem path */  
-    const char                                     *spirv_cache_folder;             /* TODO filesystem path */  
-    PFN_xaku_shader_custom_preprocessor             custom_preprocessor;
-    enum xaku_shader_language                       default_language;
-    u32                                             default_create_flags; /**< enum xaku_shader_create_flag_bits */
-    lake_dynamic_array(struct xaku_shader_define)   default_defines;
-    u32                                             default_required_subgroup_size;
-    bool                                            default_enable_debug_utils;
-    bool                                            has_default_required_subgroup_size;
-    bool                                            has_write_out_preprocessed_code;   
-    bool                                            has_write_out_spirv;               
-    bool                                            has_spirv_cache_folder;            
-    bool                                            register_null_pipelines_when_first_compile_fails;
-    lake_small_string                               name;
-};
 
 #ifdef __cplusplus
 }

@@ -36,11 +36,11 @@ const PFN_riven_encore *hadal_native_encores(bool null_fallback, u32 *out_encore
 
 extern FN_RIVEN_INTERFACE_VALIDATION(hadal)
 {
-    const char *fmt = "'%s: %s' is missing an interface procedure - 'PFN_hadal_%s'.";
+    const char *fmt = "'%s' is missing an interface procedure - 'PFN_hadal_%s'.";
     bool valid = true;
 
 #define VALIDATE(FN) \
-    if (interface->FN == NULL) { bedrock_log_debug(fmt, interface->header.name, interface->header.backend, #FN); valid = false; }
+    if (interface->FN == NULL) { bedrock_log_debug(fmt, interface->riven.name, #FN); valid = false; }
 
     VALIDATE(window_create)
     VALIDATE(window_destroy)
@@ -53,48 +53,4 @@ extern FN_RIVEN_INTERFACE_VALIDATION(hadal)
 #undef VALIDATE
 
     return valid;
-}
-
-#if defined(LAKE_PLATFORM_WINDOWS)
-FN_RIVEN_ENCORE_STUB(hadal, win32)
-#elif defined(LAKE_PLATFORM_APPLE_MACOS)
-FN_RIVEN_ENCORE_STUB(hadal, cocoa)
-#elif defined(LAKE_PLATFORM_APPLE_IOS)
-FN_RIVEN_ENCORE_STUB(hadal, uikit)
-#elif defined(LAKE_PLATFORM_ANDROID)
-FN_RIVEN_ENCORE_STUB(hadal, android)
-#elif defined(LAKE_PLATFORM_EMSCRIPTEN)
-FN_RIVEN_ENCORE_STUB(hadal, html5)
-#endif /* LAKE_PLATFORM_WINDOWS */
-#ifdef HADAL_XCB
-FN_RIVEN_ENCORE_STUB(hadal, xcb)
-#endif /* HADAL_XCB */
-#ifdef HADAL_DRMKMS
-FN_RIVEN_ENCORE_STUB(hadal, drmkms)
-#endif /* HADAL_DRMKMS */
-
-enum hadal_result hadal_display_init(
-    const struct hadal_display_assembly *assembly,
-    struct hadal_display                *out_display)
-{
-    out_display->hadal = assembly->hadal;
-    out_display->strategy = assembly->strategy;
-
-    riven_inc_refcnt(&out_display->hadal.header->refcnt);
-    return hadal_result_success;
-}
-
-u32 hadal_display_fini(struct hadal_display *display, struct riven_work *out_zero_refcnt)
-{
-    if (!display->hadal.data)
-        return 0;
-
-    u32 prev = riven_dec_refcnt(&display->hadal.header->refcnt);
-    if (prev == 1) {
-        out_zero_refcnt->procedure = display->hadal.header->zero_ref_callback;
-        out_zero_refcnt->userdata = display->hadal.data;
-        out_zero_refcnt->name = "hadal_fini:zero_refcnt";
-        bedrock_log_verbose("hadal zero ref trace");
-    }
-    return prev;
 }

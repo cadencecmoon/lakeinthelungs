@@ -7,9 +7,8 @@
 #include <amwe/hash_table.h>
 
 #include <amwe/hadal.h>
-#include <amwe/soma.h>
 #include <amwe/xaku.h>
-#include <amwe/pelagial.h>
+#include <amwe/soma.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -17,9 +16,30 @@ extern "C" {
 
 #define AMWE_VERSION_MAJOR 0
 #define AMWE_VERSION_MINOR 1
-#define AMWE_VERSION_REVISION 5
+#define AMWE_VERSION_REVISION 6
 
 #define AMWE_VERSION (LAKE_VERSION_NUM(AMWE_VERSION_MAJOR, AMWE_VERSION_MINOR, AMWE_VERSION_REVISION))
+#define AMWE_CSTR_NAME "A Moonlit Walk Engine"
+
+/** Implemented by the application. The pointer 'engine' inside 'struct riven_app' can be safely cast 
+ *  into 'struct a_moonlit_walk_engine *'. When the framework calls a lake encore, it is assumed that 
+ *  all other core systems (e.g. display, renderer, audio engine, etc.) are initialized.
+ *
+ *  XXX maybe i can implement an additional init/fini inside the lake interface, to decouple the 
+ *  core systems dependency from setting up an application instance. */
+struct lake_encore;
+
+/** Interface of the application. */
+struct lake_interface {
+    struct riven_interface          riven;
+    struct a_moonlit_walk_engine   *amwe;
+};
+union lake_app {
+    struct riven_interface         *riven;
+    struct lake_interface          *interface;
+    struct lake_encore             *encore;
+    void                           *data;
+};
 
 enum amwe_hint_pipeline_setting {
     amwe_hint_pipeline_setting_auto = 0,
@@ -38,7 +58,7 @@ amwe_hint_framework(u32 hint, u32 value);
 #define AMWE_HINT_ENCORE_HADAL     10000
 #define AMWE_HINT_ENCORE_XAKU      10001
 #define AMWE_HINT_ENCORE_SOMA      10002
-#define AMWE_HINT_ENCORE_PELAGIAL  10003
+#define AMWE_HINT_ENCORE_LAKE      10003
 
 /** The following encores (in array order) will be tried for the framework initialization.
  *  If an encore fails or no hint was given, native encores will be tried with the 
@@ -74,15 +94,11 @@ struct amwe_pipeline_work {
 };
 
 struct a_moonlit_walk_engine {
-    struct riven                   *riven;
-    const struct riven_hints       *riven_hints;
-    const struct pelagial_metadata *metadata;
-    bedrock_thread_t               *threads;
-
-    union pelagial_encore_view      application;
-    struct hadal_display            display;
-    struct soma_audio               audio;
-    struct xaku_renderer            renderer;
+    struct riven_context            riven;
+    union lake_app                  lake;
+    union hadal_display             hadal;
+    union soma_audio                soma;
+    union xaku_renderer             xaku;
 };
 
 /* can be cast into PFN_riven_work */
@@ -92,15 +108,14 @@ LAKEAPI void LAKECALL a_moonlit_walk_gpuexec(struct amwe_pipeline_work *work);
 
 LAKEAPI s32 LAKECALL 
 a_moonlit_walk(
-    struct riven                   *riven,
-    const struct riven_hints       *riven_hints,
-    bedrock_thread_t               *threads,
-    struct pelagial_metadata       *metadata);
+    struct riven             *riven,
+    const struct riven_hints *riven_hints,
+    struct riven_app         *riven_app);
 
 LAKEAPI s32 LAKECALL 
 a_moonlit_walk_entry_point__(
     PFN_riven_framework (LAKECALL *app_main)(
-        struct riven_hints *, struct pelagial_metadata *),
+        struct riven_hints *, struct riven_app *),
     s32 argc, char **argv);
 
 #ifdef __cplusplus
@@ -111,9 +126,9 @@ a_moonlit_walk_entry_point__(
 #undef A_MOONLIT_WALK_FRAMEWORK
 
 extern PFN_riven_framework LAKECALL
-pelagial_main(
-    struct riven_hints         *hints,
-    struct pelagial_metadata   *metadata);
+lake_main(
+    struct riven_hints *hints,
+    struct riven_app   *app);
 
 #if defined(LAKE_PLATFORM_WINDOWS)
 #include <amwe/private/windows.h>
@@ -129,7 +144,7 @@ s32 WINAPI WinMain(
     (void)lpCmdLine;
     (void)nCmdShow;
     /* TODO */
-    return a_moonlit_walk_entry_point__(pelagial_main, 0, NULL);
+    return a_moonlit_walk_entry_point__(lake_main, 0, NULL);
 }
 
 #elif defined(LAKE_PLATFORM_APPLE_MACOS)
@@ -155,12 +170,12 @@ JNIEXPORT void ANativeActivity_onCreate(
     (void)saved_state;
     (void)saved_state_size;
     /* TODO */
-    return a_moonlit_walk_entry_point__(pelagial_main, 0, NULL);
+    return a_moonlit_walk_entry_point__(lake_main, 0, NULL);
 }
 #else /* unix/linux */
 s32 main(s32 argc, char **argv)
 {
-    return a_moonlit_walk_entry_point__(pelagial_main, argc, argv);
+    return a_moonlit_walk_entry_point__(lake_main, argc, argv);
 }
 #endif /* LAKE_PLATFORM_WINDOWS */
 #endif /* A_MOONLIT_WALK_FRAMEWORK */

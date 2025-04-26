@@ -1,10 +1,12 @@
 #pragma once
 
-#include <amwe/hadal/encore.h>
+#include <amwe/display/hadal_encore.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
+
+/** An output monitor is owned by the backend, it is not created by the user. */
 
 #define HADAL_INTERFACE_MONITOR_HEADER \
     /**< The encore that owns this output monitor. */ \

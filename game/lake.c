@@ -7,44 +7,40 @@
 #define VERTICES_COUNT (2 + (STACKS-2) * SLICES)
 #define INDICES_COUNT (100 * 3)
 
-static void lake_encore_zero_ref_callback(struct pelagial_encore *lake)
+static void lake_encore_zero_ref(struct lake_encore *lake)
 {
-    (void)lake;
+    bedrock_zerop(lake);
 }
 
-static FN_RIVEN_ENCORE(pelagial, lake)
+static FN_RIVEN_ENCORE(lake, in_the_lungs)
 {
-    (void)metadata;
-    (void)riven_hints;
+    struct a_moonlit_walk_engine *amwe = (struct a_moonlit_walk_engine *)context->app->engine;
 
-    struct a_moonlit_walk_engine *amwe = (struct a_moonlit_walk_engine *)userdata;
-
-    struct pelagial_encore *lake = (struct pelagial_encore *)
-        riven_thalloc(riven, tag, lake_sizeof(struct pelagial_encore), lake_alignof(struct pelagial_encore));
+    struct lake_encore *lake = (struct lake_encore *)
+        riven_thalloc(context->self, tag, lake_sizeof(struct lake_encore), lake_alignof(struct lake_encore));
     bedrock_zerop(lake);
 
-    lake->amwe = amwe;
-
     /* write interface header */
-    lake->interface.header.riven = riven;
-    lake->interface.header.tag = tag;
-    lake->interface.header.name = "pelagial";
-    lake->interface.header.backend = "lake";
-    lake->interface.header.zero_ref_callback = (PFN_riven_work)lake_encore_zero_ref_callback;
+    lake->interface.riven.context = *context;
+    lake->interface.riven.tag = tag;
+    lake->interface.riven.name = "lake_in_the_lungs";
+    lake->interface.riven.zero_ref_callback = (PFN_riven_work)lake_encore_zero_ref;
+
+    lake->interface.amwe = amwe;
     return lake; 
 }
 
-PFN_riven_framework pelagial_main(
-    struct riven_hints         *hints,
-    struct pelagial_metadata   *metadata)
+PFN_riven_framework lake_main(
+    struct riven_hints *hints,
+    struct riven_app   *app)
 {
-    metadata->app_name = "Lake in the Lungs";
-    metadata->app_build_ver = AMWE_VERSION;
+    app->app_name = "Lake in the Lungs";
+    app->app_build_ver = AMWE_VERSION;
     hints->thread_count = 0; /* debug */
 
-    bedrock_log_set_verbose(metadata->argc-1);
+    bedrock_log_set_verbose(app->argc-1);
     amwe_hint_framework(AMWE_HINT_PIPELINE_SETTING, amwe_hint_pipeline_setting_auto);
 
-    amwe_hint_encore(AMWE_HINT_ENCORE_PELAGIAL, (PFN_riven_encore)pelagial_encore_lake);
+    amwe_hint_encore(AMWE_HINT_ENCORE_LAKE, (PFN_riven_encore)lake_encore_in_the_lungs);
     return (PFN_riven_framework)a_moonlit_walk;
 }

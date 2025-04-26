@@ -1,47 +1,311 @@
 #include "vk_xaku.h"
+
 #ifdef XAKU_VULKAN
+FN_XAKU_DEVICE_ASSEMBLY(vulkan)
+{
+    /* get memory requirements */
+    usize device_bytes = A16(lake_sizeof(struct xaku_device));
+    usize total_bytes = 
+        device_bytes;
+    usize alignment = lake_alignof(struct xaku_device);
 
-static const char *extension_names[] = {
-    VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-    VK_EXT_DEVICE_FAULT_EXTENSION_NAME,
-    VK_EXT_MEMORY_BUDGET_EXTENSION_NAME,
-    VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME,
-    VK_EXT_MESH_SHADER_EXTENSION_NAME,
-    VK_KHR_FRAGMENT_SHADING_RATE_EXTENSION_NAME,
-    VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
-    VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
-    VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME,
-    VK_KHR_RAY_QUERY_EXTENSION_NAME,
-    VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
-    VK_KHR_RAY_TRACING_MAINTENANCE_1_EXTENSION_NAME,
-    VK_KHR_RAY_TRACING_POSITION_FETCH_EXTENSION_NAME,
-    VK_KHR_VIDEO_QUEUE_EXTENSION_NAME,
-    VK_KHR_VIDEO_DECODE_QUEUE_EXTENSION_NAME,
-    VK_KHR_VIDEO_DECODE_AV1_EXTENSION_NAME,
-    VK_KHR_VIDEO_DECODE_H264_EXTENSION_NAME,
-    VK_KHR_VIDEO_MAINTENANCE_1_EXTENSION_NAME,
-    VK_EXT_EXTENDED_DYNAMIC_STATE_3_EXTENSION_NAME,
-    VK_EXT_ROBUSTNESS_2_EXTENSION_NAME,
-    VK_EXT_SHADER_IMAGE_ATOMIC_INT64_EXTENSION_NAME,
-    VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME,
-    VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME,
-    VK_NV_RAY_TRACING_INVOCATION_REORDER_EXTENSION_NAME,
-    VK_AMD_DEVICE_COHERENT_MEMORY_EXTENSION_NAME,
-    VK_KHR_DYNAMIC_RENDERING_LOCAL_READ_EXTENSION_NAME,
-    VK_KHR_MAINTENANCE_5_EXTENSION_NAME,
-    VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
-    VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
-    VK_KHR_MAINTENANCE_4_EXTENSION_NAME,
-};
-bedrock_static_assert(lake_arraysize(extension_names) == physical_device_extension_count, "The number of physical device extensions and their names count must match");
+    if (!assembly->allocation.data || assembly->allocation.size < total_bytes) {
+        assembly->allocation.size = total_bytes;
+        assembly->allocation.alignment = alignment;
+        return xaku_result_allocation_callback;
+    }
+    struct xaku_device *device = (struct xaku_device *)assembly->allocation.data;
+    bedrock_memset(assembly->allocation.data, 0, total_bytes);
 
-FN_XAKU_LIST_DEVICES_PROPERTIES(vulkan);
-FN_XAKU_DEVICE_ASSEMBLY(vulkan);
-FN_XAKU_DEVICE_DISASSEMBLY(vulkan);
-FN_XAKU_DEVICE_QUEUE_COUNT(vulkan);
-FN_XAKU_DEVICE_QUEUE_WAIT_IDLE(vulkan);
-FN_XAKU_DEVICE_WAIT_IDLE(vulkan);
-FN_XAKU_DEVICE_SUBMIT(vulkan);
-FN_XAKU_DEVICE_PRESENT(vulkan);
+    u32 pd_index = assembly->physical_device_index;
+    if (pd_index >= xaku->physical_device_count)
+        pd_index = 0;
+    const struct vulkan_physical_device *physical_device = &xaku->physical_devices[pd_index];
+
+    device->xaku = xaku;
+    device->riven = &xaku->interface.riven.context;
+    device->properties = &physical_device->xaku_properties;
+    device->assembly = *assembly;
+    device->assembly.physical_device_index = pd_index;
+    device->physical_details = physical_device;
+    device->physical = physical_device->vk_physical_device;
+    device->host_allocator = &xaku->allocator;
+
+    /* TODO process required, explicit and implicit features */
+
+    /* TODO call the helper to create the device itself */
+
+    /* TODO assemble data structures of the device */
+
+    riven_inc_refcnt(&device->refcnt);
+    *out_device = device;
+    return xaku_result_success;
+}
+
+FN_XAKU_DEVICE_DISASSEMBLY(vulkan)
+{
+    bedrock_assert_debug(device);
+
+    /* TODO */
+
+    if (device->logical)
+        device->vkDestroyDevice(device->logical, device->host_allocator);
+    bedrock_zerop(device);
+}
+
+FN_XAKU_DEVICE_QUEUE_COUNT(vulkan)
+{
+    (void)device;
+    (void)queue_type;
+    (void)out_count;
+    return xaku_result_success;
+}
+
+FN_XAKU_DEVICE_QUEUE_WAIT_IDLE(vulkan)
+{
+    (void)device;
+    (void)queue;
+    return xaku_result_success;
+}
+
+FN_XAKU_DEVICE_WAIT_IDLE(vulkan)
+{
+    (void)device;
+    return xaku_result_success;
+}
+
+FN_XAKU_DEVICE_SUBMIT(vulkan)
+{
+    (void)device;
+    (void)cmd_list;
+    return xaku_result_success;
+}
+
+FN_XAKU_DEVICE_PRESENT(vulkan)
+{
+    (void)device;
+    (void)swapchains;
+    (void)swapchain_count;
+    return xaku_result_success;
+}
+
+FN_XAKU_MEMORY_BUFFER_REQUIREMENTS(vulkan)
+{
+    (void)device;
+    (void)assembly;
+    (void)out_requirements;
+}
+
+FN_XAKU_MEMORY_TEXTURE_REQUIREMENTS(vulkan)
+{
+    (void)device;
+    (void)assembly;
+    (void)out_requirements;
+}
+
+FN_XAKU_MEMORY_ASSEMBLY(vulkan)
+{
+    (void)device;
+    (void)assembly;
+    (void)out_memory;
+    return xaku_result_max_enum;
+}
+
+FN_XAKU_MEMORY_DISASSEMBLY(vulkan)
+{
+    (void)memory;
+}
+
+FN_XAKU_DEFERRED_RESOURCE_DISASSEMBLY(vulkan)
+{
+    (void)device;
+    return xaku_result_max_enum;
+}
+
+FN_XAKU_CREATE_BUFFER(vulkan)
+{
+    (void)device;
+    (void)assembly;
+    (void)out_buffer;
+    return xaku_result_max_enum;
+}
+
+FN_XAKU_CREATE_BUFFER_FROM_MEMORY(vulkan)
+{
+    (void)device;
+    (void)assembly;
+    (void)out_buffer;
+    return xaku_result_max_enum;
+}
+
+FN_XAKU_CREATE_TEXTURE(vulkan)
+{
+    (void)device;
+    (void)assembly;
+    (void)out_texture;
+    return xaku_result_max_enum;
+}
+
+FN_XAKU_CREATE_TEXTURE_FROM_MEMORY(vulkan)
+{
+    (void)device;
+    (void)assembly;
+    (void)out_texture;
+    return xaku_result_max_enum;
+}
+
+FN_XAKU_CREATE_TEXTURE_VIEW(vulkan)
+{
+    (void)device;
+    (void)assembly;
+    (void)out_texture_view;
+    return xaku_result_max_enum;
+}
+
+FN_XAKU_CREATE_SAMPLER(vulkan)
+{
+    (void)device;
+    (void)assembly;
+    (void)out_sampler;
+    return xaku_result_max_enum;
+}
+
+FN_XAKU_CREATE_TLAS(vulkan)
+{
+    (void)device;
+    (void)assembly;
+    (void)out_tlas;
+    return xaku_result_max_enum;
+}
+
+FN_XAKU_CREATE_TLAS_FROM_BUFFER(vulkan)
+{
+    (void)device;
+    (void)assembly;
+    (void)out_tlas;
+    return xaku_result_max_enum;
+}
+
+FN_XAKU_CREATE_BLAS(vulkan)
+{
+    (void)device;
+    (void)assembly;
+    (void)out_blas;
+    return xaku_result_max_enum;
+}
+
+FN_XAKU_CREATE_BLAS_FROM_BUFFER(vulkan)
+{
+    (void)device;
+    (void)assembly;
+    (void)out_blas;
+    return xaku_result_max_enum;
+}
+
+FN_XAKU_GET_BUFFER_ASSEMBLY(vulkan)
+{
+    (void)device;
+    (void)buffer;
+    (void)out_assembly;
+    return xaku_result_max_enum;
+}
+
+FN_XAKU_GET_TEXTURE_ASSEMBLY(vulkan)
+{
+    (void)device;
+    (void)texture;
+    (void)out_assembly;
+    return xaku_result_max_enum;
+}
+
+FN_XAKU_GET_TEXTURE_VIEW_ASSEMBLY(vulkan)
+{
+    (void)device;
+    (void)texture_view;
+    (void)out_assembly;
+    return xaku_result_max_enum;
+}
+
+FN_XAKU_GET_SAMPLER_ASSEMBLY(vulkan)
+{
+    (void)device;
+    (void)sampler;
+    (void)out_assembly;
+    return xaku_result_max_enum;
+}
+
+FN_XAKU_GET_TLAS_BUILD_SIZES(vulkan)
+{
+    (void)device;
+    (void)assembly;
+    (void)out_sizes;
+    return xaku_result_max_enum;
+}
+
+FN_XAKU_GET_TLAS_ASSEMBLY(vulkan)
+{
+    (void)device;
+    (void)tlas;
+    (void)out_assembly;
+    return xaku_result_max_enum;
+}
+
+FN_XAKU_GET_BLAS_BUILD_SIZES(vulkan)
+{
+    (void)device;
+    (void)assembly;
+    (void)out_sizes;
+    return xaku_result_max_enum;
+}
+
+FN_XAKU_GET_BLAS_ASSEMBLY(vulkan)
+{
+    (void)device;
+    (void)blas;
+    (void)out_assembly;
+    return xaku_result_max_enum;
+}
+
+FN_XAKU_DESTROY_BUFFER(vulkan)
+{
+    (void)device;
+    (void)buffer;
+    return xaku_result_max_enum;
+}
+
+FN_XAKU_DESTROY_TEXTURE(vulkan)
+{
+    (void)device;
+    (void)texture;
+    return xaku_result_max_enum;
+}
+
+FN_XAKU_DESTROY_TEXTURE_VIEW(vulkan)
+{
+    (void)device;
+    (void)texture_view;
+    return xaku_result_max_enum;
+}
+
+FN_XAKU_DESTROY_SAMPLER(vulkan)
+{
+    (void)device;
+    (void)sampler;
+    return xaku_result_max_enum;
+}
+
+FN_XAKU_DESTROY_TLAS(vulkan)
+{
+    (void)device;
+    (void)tlas;
+    return xaku_result_max_enum;
+}
+
+FN_XAKU_DESTROY_BLAS(vulkan)
+{
+    (void)device;
+    (void)blas;
+    return xaku_result_max_enum;
+}
 
 #endif /* XAKU_VULKAN */

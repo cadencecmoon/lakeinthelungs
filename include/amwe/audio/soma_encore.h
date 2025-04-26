@@ -7,12 +7,8 @@ extern "C" {
 #endif /* __cplusplus */
 
 /* opaque handles, implemented by the backend */
-struct soma_sink;
+struct soma_device;
 struct soma_encore;
-
-struct soma_encore_assembly {
-    u32 todo;
-};
 
 #ifdef SOMA_WASAPI
 LAKEAPI FN_RIVEN_ENCORE(soma, wasapi);
@@ -52,20 +48,13 @@ LAKEAPI FN_RIVEN_ENCORE(soma, null);
 LAKEAPI lake_nonnull(2) const PFN_riven_encore *LAKECALL 
 soma_native_encores(bool null_fallback, u32 *out_encore_count);
 
-#define SOMA_INTERFACE_SINK_HEADER \
+#define SOMA_INTERFACE_DEVICE_HEADER \
     /** The encore used to open this sink. */ \
     struct soma_encore *encore;
 
 enum soma_result {
     soma_result_success = 0,
-};
-
-/** A view into the backend. */
-union soma_encore_view {
-    struct riven_interface_header          *header;
-    struct soma_interface                  *interface;
-    struct soma_encore                     *encore;
-    void                                   *data;
+    soma_result_max_enum = 0x7FFFFFFF,
 };
 
 #ifdef __cplusplus

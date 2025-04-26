@@ -3,7 +3,7 @@
 /* XXX delete later */
 #define DEBUG_CLOSE_COUNTER 128
 
-#define ENCORE_COUNT 3
+#define ENCORE_COUNT 4
 #define PIPELINE_WORK_COUNT 16
 bedrock_static_assert(((PIPELINE_WORK_COUNT != 0) && ((PIPELINE_WORK_COUNT & (PIPELINE_WORK_COUNT - 1)) == 0)), 
         "pipeline work count must be a power of 2");
@@ -13,10 +13,6 @@ bedrock_static_assert(((PIPELINE_WORK_COUNT != 0) && ((PIPELINE_WORK_COUNT & (PI
 #define RENDERING_WORK_INDEX  1
 #define GPUEXEC_WORK_INDEX    2
 
-extern FN_RIVEN_INTERFACE_VALIDATION(hadal);
-extern FN_RIVEN_INTERFACE_VALIDATION(soma);
-extern FN_RIVEN_INTERFACE_VALIDATION(xaku);
-
 static struct framework_hints {
     enum amwe_hint_pipeline_setting pipeline_setting;
 
@@ -25,27 +21,15 @@ static struct framework_hints {
     PFN_riven_encore                encore_hadal;
     PFN_riven_encore                encore_xaku;
     PFN_riven_encore                encore_soma;
-    PFN_riven_encore                encore_pelagial;
+    PFN_riven_encore                encore_lake;
 
-    struct hadal_display_assembly   display_assembly;
-    struct xaku_renderer_assembly   renderer_assembly;
-    struct soma_audio_assembly      audio_assembly;
 } g_hints = {
     .pipeline_setting = amwe_hint_pipeline_setting_auto,
     .null_fallback_native_encores = false,
     .encore_hadal = NULL,
     .encore_xaku = NULL,
     .encore_soma = NULL,
-    .encore_pelagial = NULL,
-    .display_assembly = {
-        .strategy = hadal_strategy_auto,
-    },
-    .renderer_assembly = {
-        .strategy = xaku_strategy_auto,
-    },
-    .audio_assembly = {
-        .strategy = soma_strategy_auto,
-    },
+    .encore_lake = NULL,
 };
 
 void amwe_hint_framework(u32 hint, u32 value)
@@ -69,129 +53,79 @@ void amwe_hint_encore(u32 hint, PFN_riven_encore encore)
         g_hints.encore_xaku = encore; break;
     case AMWE_HINT_ENCORE_SOMA:
         g_hints.encore_soma = encore; break;
-    case AMWE_HINT_ENCORE_PELAGIAL:
-        g_hints.encore_pelagial = encore; break;
+    case AMWE_HINT_ENCORE_LAKE:
+        g_hints.encore_lake = encore; break;
     default: break;
     }
 }
 
-static lake_nonnull_all 
-bool engine_init_encores(
-    struct riven                   *riven,
-    const struct riven_hints       *riven_hints,
-    const struct pelagial_metadata *metadata)
-{
-    const riven_tag_t tag = riven_tag_roots; /* later i may give different backends different tags */
-    union hadal_encore_view hadal = {0};
-    union xaku_encore_view xaku = {0};
-    union soma_encore_view soma = {0};
-    struct hadal_encore_assembly hadal_assembly = {0};
-    struct xaku_encore_assembly xaku_assembly = {0};
-    struct soma_encore_assembly soma_assembly = {0};
+extern FN_RIVEN_INTERFACE_VALIDATION(hadal);
+extern FN_RIVEN_INTERFACE_VALIDATION(xaku);
+extern FN_RIVEN_INTERFACE_VALIDATION(soma);
 
-    struct riven_encore_work encores[ENCORE_COUNT] = {
-#define ENCORE_ARRAY_SETUP(T)                                                                   \
-        (struct riven_encore_work){                                                             \
-            .encores = &g_hints.encore_##T,                                                     \
-            .encore_userdata = &T##_assembly,                                                   \
-            .interface_validation = (PFN_riven_interface_validation)T##_interface_validation,   \
-            .out_interface = &T.data,                                                           \
-        }
-        ENCORE_ARRAY_SETUP(hadal),
-        ENCORE_ARRAY_SETUP(xaku),
-        ENCORE_ARRAY_SETUP(soma),
-#undef ENCORE_ARRAY_SETUP
-    };
+static s32 engine_init(struct a_moonlit_walk_engine *amwe)
+{
+    s32 result = 0;
     struct riven_work begins[ENCORE_COUNT];
+    struct riven_encore_assembly_work encore_assembly_work[ENCORE_COUNT]; 
+    bedrock_zeroa(encore_assembly_work);
+    bedrock_log_verbose("- - - engine initialize - - -");
 
     for (u32 i = 0; i < ENCORE_COUNT; i++) {
-        encores[i].encore_count = 1,
-        encores[i].riven = riven;
-        encores[i].tag = tag;
-        encores[i].metadata = metadata;
-        begins[i].procedure = (PFN_riven_work)riven_encore;
-        begins[i].userdata = &encores[i];
-        begins[i].name = "amwe:init:riven_encore";
+        encore_assembly_work[i].riven = &amwe->riven;
+        /* for now don't own the tag */
+        encore_assembly_work[i].flags = 0;
+        encore_assembly_work[i].tag = riven_tag_roots;
+        begins[i].procedure = (PFN_riven_work)riven_encore_assembly;
+        begins[i].argument = &encore_assembly_work[i];
+        begins[i].name = "amwe:init:encore_assembly";
     }
+#define ENGINE_INIT_ENCORE(IDX, T) \
+    encore_assembly_work[IDX].name = #T; \
+    encore_assembly_work[IDX].preferred_encore = g_hints.encore_##T; \
+    encore_assembly_work[IDX].native_encores = T##_native_encores(true, &encore_assembly_work[IDX].native_encore_count); \
+    encore_assembly_work[IDX].interface_validation = (PFN_riven_interface_validation)T##_interface_validation; \
+    encore_assembly_work[IDX].out_interface = &amwe->T.data;
+    ENGINE_INIT_ENCORE(0, hadal)
+    ENGINE_INIT_ENCORE(1, xaku)
+    ENGINE_INIT_ENCORE(2, soma)
+#undef ENGINE_INIT_ENCORE
+    encore_assembly_work[3].name = "lake";
+    encore_assembly_work[3].preferred_encore = g_hints.encore_lake;
+    encore_assembly_work[3].out_interface = &amwe->lake.data;
+    riven_split_work_and_unchain(amwe->riven.self, begins, ENCORE_COUNT);
 
-    /* fallback native encores */
-#define ENCORE_EARLY_FALLBACK(IDX, T) \
-    if (*encores[IDX].encores == NULL) \
-        encores[IDX].encores = T##_native_encores(g_hints.null_fallback_native_encores, &encores[IDX].encore_count);
-    ENCORE_EARLY_FALLBACK(0, hadal);
-    ENCORE_EARLY_FALLBACK(1, xaku);
-    ENCORE_EARLY_FALLBACK(2, soma);
-#undef ENCORE_EARLY_FALLBACK
+    /* check results and exit on errors */
+    for (u32 i = 0; i < ENCORE_COUNT; i++)
+        if (*encore_assembly_work[i].out_interface == NULL) result = -1;
+    if (result != 0) return result;
 
-    /* run encores */
-    riven_split_work_and_unchain(riven, begins, ENCORE_COUNT);
+    /* TODO continue */
 
-    bool valid = true;
-    if (!hadal.data || !xaku.data || !soma.data) {
-        const char *err = "Failed to encore '%s' at engine init.";
-        const char *flbk = "Trying a NULL '%s' fallback...";
-        const char *done = "'%s: %s' interface write.";
-#define ENCORE_FALLBACK(T)                                                                  \
-        if (!T.data) {                                                                      \
-            if (g_hints.null_fallback_native_encores) {                                     \
-                bedrock_log_warn(flbk, #T);                                                 \
-                T.data = T##_encore_null(riven, riven_hints, metadata, &T##_assembly, tag); \
-            }                                                                               \
-            if (!T.data) {                                                                  \
-                bedrock_log_error(err, #T);                                                 \
-                valid = false;                                                              \
-            } else {                                                                        \
-                bedrock_log_verbose(done, T.header->name, T.header->backend);               \
-            }                                                                               \
-        }
-        ENCORE_FALLBACK(hadal);
-        ENCORE_FALLBACK(xaku);
-        ENCORE_FALLBACK(soma);
-#undef ENCORE_FALLBACK
-    }
-    /* exit early if we couldn't resolve the encores */
-    if (!valid) {
-        riven_destroy_interface(soma.data);
-        riven_destroy_interface(xaku.data);
-        riven_destroy_interface(hadal.data);
-    }
-    g_hints.display_assembly.hadal = hadal;
-    g_hints.renderer_assembly.xaku = xaku;
-    g_hints.audio_assembly.soma = soma;
-    return valid;
+    return result;
 }
 
 static void engine_fini(struct a_moonlit_walk_engine *amwe)
 {
-    /* destroy the game interface first, before anything else */
-    if (amwe->application.encore)
-        amwe->application.header->zero_ref_callback(amwe->application.encore);
-    amwe->application.encore = NULL;
+    bedrock_log_verbose("- - - engine finalize - - -");
+    /* destroy child objects to decouple dependencies in core systems */
+    /* TODO windows, swapchains, pipelines, devices, etc. */
 
-    /* destroy in order: audio engine, renderer, display */
+    /* destroy encores */
     struct riven_work ends[ENCORE_COUNT];
-    u32 end_index = 0;
-    /* 0 means uninitialized, 1 means we can destroy it,
-     * anything else means we misused the encores at some point */
-    u32 prev_refcnt = 0;
-
-#define ENCORE_ENDS(T, MEMBER) \
-    prev_refcnt = T##_##MEMBER##_fini(&amwe->MEMBER, &ends[end_index]); \
-    bedrock_assert_debug(prev_refcnt < 2); \
-    end_index += prev_refcnt;
-
-    ENCORE_ENDS(soma, audio);
-    ENCORE_ENDS(xaku, renderer);
-    ENCORE_ENDS(hadal, display);
-#undef ENCORE_ENDS
-
-    /* destroy the encores */
-    if (end_index) 
-        riven_split_work_and_unchain(amwe->riven, ends, end_index);
+    for (u32 i = 0; i < ENCORE_COUNT; i++) {
+        ends[i].procedure = (PFN_riven_work)riven_encore_disassembly;
+        ends[i].name = "amwe:fini:encore_disassembly";
+    }
+    ends[0].argument = amwe->hadal.data;
+    ends[1].argument = amwe->xaku.data;
+    ends[2].argument = amwe->soma.data;
+    ends[3].argument = amwe->lake.data;
+    riven_split_work_and_unchain(amwe->riven.self, ends, ENCORE_COUNT);
     bedrock_zerop(amwe);
 }
 
-lake_force_inline void prepare_pipeline_work(struct amwe_pipeline_work *work, u64 index, f64 dt)
+static lake_hot void LAKECALL prepare_pipeline_work(struct amwe_pipeline_work *work, u64 index, f64 dt)
 {
     work->frame_index = index;
     work->delta_time = dt;
@@ -205,16 +139,16 @@ lake_force_inline void prepare_pipeline_work(struct amwe_pipeline_work *work, u6
 }
 
 s32 a_moonlit_walk(
-    struct riven                   *riven,
-    const struct riven_hints       *riven_hints,
-    bedrock_thread_t               *threads,
-    struct pelagial_metadata       *metadata)
+    struct riven             *riven,
+    const struct riven_hints *riven_hints,
+    struct riven_app         *riven_app)
 {
     struct a_moonlit_walk_engine amwe = {
-        .riven = riven,
-        .riven_hints = riven_hints,
-        .threads = threads,
-        .metadata = metadata,
+        .riven = {
+            .self = riven,
+            .hints = riven_hints,
+            .app = riven_app,
+        },
     };
     enum amwe_pipeline_stage_result stage_result = amwe_pipeline_stage_result_fatal_error;
     s32 exitcode = 0;
@@ -234,21 +168,13 @@ s32 a_moonlit_walk(
         frames[i].last_work = &frames[(i - 1 + PIPELINE_WORK_COUNT) & (PIPELINE_WORK_MASK)];
         frames[i].next_work = &frames[(i + 1 + PIPELINE_WORK_COUNT) & (PIPELINE_WORK_MASK)];
     }
+    riven_app->engine = &amwe;
 
-    {/* early engine initialization */
-        if (!engine_init_encores(riven, riven_hints, metadata))
-            goto fini;
-
-        if (hadal_display_init(&g_hints.display_assembly, &amwe.display) != hadal_result_success) 
-            goto fini;
-        if (xaku_renderer_init(&g_hints.renderer_assembly, &amwe.renderer) != xaku_result_success)
-            goto fini;
-        if (soma_audio_init(&g_hints.audio_assembly, &amwe.audio) != soma_result_success)
-            goto fini;
-
-        /* run pelagial game encore */
-        bedrock_assert_debug(g_hints.encore_pelagial);
-        amwe.application.data = g_hints.encore_pelagial(riven, riven_hints, metadata, &amwe, riven_tag_roots);
+    /* early initialization */
+    exitcode = engine_init(&amwe);
+    if (exitcode != 0) {
+        engine_fini(&amwe);
+        return exitcode;
     }
 
     /* this additional loop controls engine state updates */
@@ -287,13 +213,13 @@ s32 a_moonlit_walk(
             pipeline_work[GPUEXEC_WORK_INDEX].name = stage_names[GPUEXEC_WORK_INDEX];
             bool continue_gameloop = true;
 
-            bedrock_log_verbose("GAMELOOP ENTER: parallel");
+            bedrock_log_verbose("- - - gameloop entry - - - parallel - - -");
             while (simulation || rendering || gpuexec || cleanup) {
                 time_last = time_now;
                 time_now = bedrock_rtc_counter();
                 delta_time = ((f64)(time_now - time_last) * delta_time_frequency);
 
-                bedrock_frame_time_record(metadata->app_timer_start, time_now, delta_time_frequency);
+                bedrock_frame_time_record(riven_app->app_timer_start, time_now, delta_time_frequency);
                 bedrock_frame_time_print(1000.f);
 
                 if (cleanup) { /* frame N-3 */
@@ -314,7 +240,7 @@ s32 a_moonlit_walk(
                     if (gpuexec->stage_result != amwe_pipeline_stage_result_continue)
                         stage_result = rendering->stage_result;
 
-                    pipeline_work[GPUEXEC_WORK_INDEX].userdata = gpuexec;
+                    pipeline_work[GPUEXEC_WORK_INDEX].argument = gpuexec;
                     riven_split_work(riven, &pipeline_work[GPUEXEC_WORK_INDEX], 1, &gpuexec->chain);
                 }
 
@@ -326,13 +252,13 @@ s32 a_moonlit_walk(
                     if (rendering->stage_result != amwe_pipeline_stage_result_continue)
                         stage_result = rendering->stage_result;
 
-                    pipeline_work[RENDERING_WORK_INDEX].userdata = rendering;
+                    pipeline_work[RENDERING_WORK_INDEX].argument = rendering;
                     riven_split_work(riven, &pipeline_work[RENDERING_WORK_INDEX], 1, &rendering->chain);
                 }
 
                 if (simulation) { /* frame N */
                     prepare_pipeline_work(simulation, frame_index, delta_time);
-                    pipeline_work[SIMULATION_WORK_INDEX].userdata = simulation;
+                    pipeline_work[SIMULATION_WORK_INDEX].argument = simulation;
                     riven_split_work(riven, &pipeline_work[SIMULATION_WORK_INDEX], 1, &simulation->chain);
                 }
                 continue_gameloop &= stage_result == amwe_pipeline_stage_result_continue;
@@ -348,7 +274,7 @@ s32 a_moonlit_walk(
                 simulation = continue_gameloop ? &frames[(++frame_index) & PIPELINE_WORK_MASK] : NULL;
             }
             /* wait for all work to finish before leaving the gameloop */
-            for (u32 i = 0; i < 3; i++)
+            for (u32 i = 0; i < PIPELINE_WORK_COUNT; i++)
                 riven_unchain(riven, frames[i].chain);
 
         } else {
@@ -362,13 +288,13 @@ s32 a_moonlit_walk(
                 (PFN_riven_work)a_moonlit_walk_gpuexec,
             };
 
-            bedrock_log_verbose("GAMELOOP ENTER: sequential");
+            bedrock_log_verbose("- - - gameloop entry - - - sequential - - -");
             while (frame) {
                 time_last = time_now;
                 time_now = bedrock_rtc_counter();
                 delta_time = ((f64)(time_now - time_last) * delta_time_frequency);
 
-                bedrock_frame_time_record(metadata->app_timer_start, time_now, delta_time_frequency);
+                bedrock_frame_time_record(riven_app->app_timer_start, time_now, delta_time_frequency);
                 bedrock_frame_time_print(1000.f);
 
                 prepare_pipeline_work(frame, frame_index, delta_time);
@@ -389,7 +315,7 @@ s32 a_moonlit_walk(
                     ? &frames[(++frame_index) & PIPELINE_WORK_MASK] : NULL;
             }
         } /* LEAVE GAMELOOP */
-        bedrock_log_verbose("GAMELOOP LEAVE: at frame %lu", frame_index);
+        bedrock_log_verbose("- - - gameloop leave - - - at frame %lu - - -", frame_index);
 
 #ifdef RIVEN_ENABLE_PROFILER
         if (stage_result == amwe_pipeline_stage_result_fatal_error) {
@@ -406,7 +332,6 @@ s32 a_moonlit_walk(
 #endif /* RIVEN_ENABLE_PROFILER */
     } while (stage_result == amwe_pipeline_stage_result_reload_settings);
 
-fini:
     engine_fini(&amwe);
     if (stage_result == amwe_pipeline_stage_result_restart_application)
         exitcode = INT32_MAX;
@@ -415,7 +340,7 @@ fini:
 
 s32 a_moonlit_walk_entry_point__(
     PFN_riven_framework (LAKECALL *app_main)(
-        struct riven_hints *, struct pelagial_metadata *),
+        struct riven_hints *, struct riven_app *),
     s32 argc, char **argv)
 {
     /* provide defaults */
@@ -428,8 +353,8 @@ s32 a_moonlit_walk_entry_point__(
         .log2_job_count = 0,
         .log2_arena_count = 0,
     };
-    struct pelagial_metadata metadata = {
-        .engine_name = "A Moonlit Walk Engine",
+    struct riven_app riven_app = {
+        .engine_name = AMWE_CSTR_NAME,
         .engine_build_ver = AMWE_VERSION,
         .app_timer_start = bedrock_rtc_counter(),
         .argc = argc,
@@ -437,14 +362,15 @@ s32 a_moonlit_walk_entry_point__(
     };
 
     s32 res = 0;
-    do {PFN_riven_framework framework = app_main(&riven_hints, &metadata);
+    do {PFN_riven_framework framework = app_main(&riven_hints, &riven_app);
         if (!framework) return 0;
 
-        if (g_hints.encore_pelagial == NULL) {
-            bedrock_log_fatal("The application must set 'pelagial' encore via 'amwe_hint_encore()' in main.");
+        if (g_hints.encore_lake == NULL) {
+            bedrock_log_fatal("The application must set 'lake' encore via 'amwe_hint_encore(AMWE_HINT_ENCORE_LAKE, fn)' from entry point.");
             return -1;
         }
-        res = riven_moonlit_walk(&riven_hints, framework, &metadata);
+        res = riven_moonlit_walk(&riven_hints, framework, &riven_app);
+        riven_app.engine = NULL;
     } while (res == INT32_MAX);
 
     return res;

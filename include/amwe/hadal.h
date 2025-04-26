@@ -1,26 +1,38 @@
 #pragma once
 
-#include <amwe/hadal/encore.h>
-#include <amwe/hadal/keycodes.h>
-#include <amwe/hadal/monitor.h>
-#include <amwe/hadal/scancodes.h>
-#include <amwe/hadal/window.h>
+#include <amwe/display/hadal_encore.h>
+#include <amwe/display/hadal_monitor.h>
+#include <amwe/display/hadal_window.h>
+#include <amwe/display/keycodes.h>
+#include <amwe/display/scancodes.h>
+
+#ifndef HADAL_INTERFACE_MAX_MONITOR_COUNT
+#define HADAL_INTERFACE_MAX_MONITOR_COUNT 8
+#endif
+#ifndef HADAL_INTERFACE_MAX_WINDOW_COUNT
+#define HADAL_INTERFACE_MAX_WINDOW_COUNT 8
+#endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
 
-/** A public interface of the display engine, implemented by a backend 'hadal_encore'.
- *
- *  The encore 'userdata' type is 'struct hadal_encore_assembly'. */
+/** A public interface of the display engine, implemented by a backend 'hadal_encore'. */
 struct hadal_interface {
-    struct riven_interface_header               header;
+    struct riven_interface                      riven;
+
+    union hadal_monitor_view                    monitors[HADAL_INTERFACE_MAX_MONITOR_COUNT];
+    u32                                         monitor_count;
+
+    union hadal_window_view                     windows[HADAL_INTERFACE_MAX_WINDOW_COUNT];
+    atomic_u32                                  active_window_count;
 
     s16                                         keycodes[256];
     s16                                         scancodes[hadal_keycode_last + 1];
     s8                                          keynames[hadal_keycode_last + 1][5];
     s8                                          keys[hadal_keycode_last + 1];
 
+    /* procedures, implemented by the backend */
     PFN_hadal_window_create                     window_create;
     PFN_hadal_window_destroy                    window_destroy;
     PFN_hadal_window_visibility                 window_visibility;
@@ -30,44 +42,12 @@ struct hadal_interface {
     PFN_hadal_vulkan_surface_create             vulkan_surface_create;
 #endif /* XAKU_VULKAN */
 };
-
-/** Implies different strategies for the display engine. */
-enum hadal_strategy {
-    /** Allow the initialization process to figure out what strategy is best, not a valid strategy. */
-    hadal_strategy_auto = 0,
-    /** Only the main window may be present, no modals, popups or multiple windows allowed. */
-    hadal_strategy_optimal_one_viewport = 0,
-    /** One backend, but it is allowed and expected to run more than one system window */
-    hadal_strategy_optimal_multi_viewport,
-    /** Allows to run multiple backends, may be used for testing. */
-    hadal_strategy_debug,
+union hadal_display {
+    struct riven_interface     *riven;
+    struct hadal_interface     *interface;
+    struct hadal_encore        *encore;
+    void                       *data;
 };
-
-/** An engine structure for display communication and windowing. */
-struct hadal_display {
-    enum hadal_strategy                         strategy;
-    atomic_u32                                  flags;
-    union hadal_encore_view                     hadal;
-
-    lake_dynamic_array(union hadal_window_view) windows;
-};
-
-struct hadal_display_assembly {
-    union hadal_encore_view     hadal;
-    enum hadal_strategy         strategy;
-};
-
-LAKEAPI lake_nonnull_all lake_nodiscard
-enum hadal_result LAKECALL hadal_display_init(
-    const struct hadal_display_assembly *assembly,
-    struct hadal_display                *out_display);
-
-/** Returns previous reference count of the encore:
- *  - 0 means invalid backend.
- *  - 1 means the backend may be safely destroyed. 
- *  - >1 means that another system holds onto the backend. */
-LAKEAPI lake_nonnull_all u32 LAKECALL
-hadal_display_fini(struct hadal_display *display, struct riven_work *out_zero_refcnt);
 
 #ifdef __cplusplus
 }

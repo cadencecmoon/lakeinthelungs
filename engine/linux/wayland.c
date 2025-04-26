@@ -813,10 +813,10 @@ static const struct xdg_toplevel_listener xdg_toplevel_listener = {
 
 static bool create_window_shell_xdg_toplevel(struct hadal_window *window)
 {
-    struct hadal_encore *encore = window->encore;
-    bedrock_assert_debug(encore->shell.xdg);
+    struct hadal_encore *hadal = window->hadal;
+    bedrock_assert_debug(hadal->shell.xdg);
 
-    window->shell_surface.xdg.surface = xdg_wm_base_get_xdg_surface(encore->shell.xdg, window->surface);
+    window->shell_surface.xdg.surface = xdg_wm_base_get_xdg_surface(hadal->shell.xdg, window->surface);
     if (!window->shell_surface.xdg.surface) {
         bedrock_log_error("Wayland: failed to create xdg-surface for window of title '%s'.", window->title);
         return false;
@@ -833,7 +833,7 @@ static bool create_window_shell_xdg_toplevel(struct hadal_window *window)
     xdg_toplevel_set_title(window->shell_surface.xdg.roleobj.toplevel, window->title);
 
     wl_surface_commit(window->surface);
-    wl_display_roundtrip(encore->display);
+    wl_display_roundtrip(hadal->display);
     return true;
 }
 
@@ -898,7 +898,7 @@ static void destroy_window_shell_objects(struct hadal_window *window)
 
 static FN_HADAL_WINDOW_CREATE(wayland)
 {
-    (void)wayland;
+    (void)hadal;
     (void)out_window;
     return hadal_result_success;
 }
@@ -937,19 +937,19 @@ static FN_HADAL_WINDOW_VISIBILITY(wayland)
 
 static FN_HADAL_VULKAN_WRITE_INSTANCE(wayland)
 {
-    if (!wayland || !instance || !vkGetInstanceProcAddr)
+    if (!hadal|| !instance || !vkGetInstanceProcAddr)
         return false;
 
-    wayland->vulkan.instance = instance;
-    wayland->vulkan.vkCreateWaylandSurfaceKHR = (PFN_vkCreateWaylandSurfaceKHR)
+    hadal->vulkan.instance = instance;
+    hadal->vulkan.vkCreateWaylandSurfaceKHR = (PFN_vkCreateWaylandSurfaceKHR)
         (void *)vkGetInstanceProcAddr(instance, "vkCreateWaylandSurfaceKHR");
-    wayland->vulkan.vkGetPhysicalDeviceWaylandPresentationSupportKHR = (PFN_vkGetPhysicalDeviceWaylandPresentationSupportKHR)
+    hadal->vulkan.vkGetPhysicalDeviceWaylandPresentationSupportKHR = (PFN_vkGetPhysicalDeviceWaylandPresentationSupportKHR)
         (void *)vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceWaylandPresentationSupportKHR");
-    if (!wayland->vulkan.vkCreateWaylandSurfaceKHR || !wayland->vulkan.vkGetPhysicalDeviceWaylandPresentationSupportKHR)
+    if (!hadal->vulkan.vkCreateWaylandSurfaceKHR || !hadal->vulkan.vkGetPhysicalDeviceWaylandPresentationSupportKHR)
     {
-        wayland->vulkan.instance = NULL;
-        wayland->vulkan.vkCreateWaylandSurfaceKHR = NULL;
-        wayland->vulkan.vkGetPhysicalDeviceWaylandPresentationSupportKHR = NULL;
+        hadal->vulkan.instance = NULL;
+        hadal->vulkan.vkCreateWaylandSurfaceKHR = NULL;
+        hadal->vulkan.vkGetPhysicalDeviceWaylandPresentationSupportKHR = NULL;
         return false;
     }
     return true;
@@ -957,8 +957,8 @@ static FN_HADAL_VULKAN_WRITE_INSTANCE(wayland)
 
 static FN_HADAL_VULKAN_PRESENTATION_SUPPORT(wayland)
 {
-    bedrock_assert_debug(wayland->vulkan.vkGetPhysicalDeviceWaylandPresentationSupportKHR);
-    return (bool)wayland->vulkan.vkGetPhysicalDeviceWaylandPresentationSupportKHR(physical_device, queue_family_index, wayland->display);
+    bedrock_assert_debug(hadal->vulkan.vkGetPhysicalDeviceWaylandPresentationSupportKHR);
+    return (bool)hadal->vulkan.vkGetPhysicalDeviceWaylandPresentationSupportKHR(physical_device, queue_family_index, hadal->display);
 }
 
 static FN_HADAL_VULKAN_SURFACE_CREATE(wayland)
@@ -966,15 +966,15 @@ static FN_HADAL_VULKAN_SURFACE_CREATE(wayland)
     bedrock_assert_debug(lake_atomic_read_explicit(&window->flags, lake_memory_model_relaxed) 
         & (hadal_window_flag_vulkan | hadal_window_flag_is_valid));
 
-    struct hadal_encore *wayland = window->encore;
+    struct hadal_encore *hadal = window->hadal;
     struct VkWaylandSurfaceCreateInfoKHR surface_info = {
         .sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR,
         .pNext = NULL,
         .flags = 0,
-        .display = wayland->display,
+        .display = hadal->display,
         .surface = window->surface,
     };
-    return (enum xaku_result)wayland->vulkan.vkCreateWaylandSurfaceKHR(wayland->vulkan.instance, &surface_info, callbacks, out_surface);
+    return (enum xaku_result)hadal->vulkan.vkCreateWaylandSurfaceKHR(hadal->vulkan.instance, &surface_info, callbacks, out_surface);
 }
 #endif /* XAKU_VULKAN */
 
@@ -998,32 +998,32 @@ static void handle_registry_global(
     char const         *interface,
     u32                 version)
 {
-    struct hadal_encore *wayland = (struct hadal_encore *)data;
+    struct hadal_encore *hadal = (struct hadal_encore *)data;
 
     if (!strcmp(interface, "wl_compositor")) {
-        wayland->compositor = wl_registry_bind(registry, name, &wl_compositor_interface, lake_min(3, version));
+        hadal->compositor = wl_registry_bind(registry, name, &wl_compositor_interface, lake_min(3, version));
 
     } else if (!strcmp(interface, "wl_subcompositor")) {
-        wayland->subcompositor = wl_registry_bind(registry, name, &wl_subcompositor_interface, 1);
+        hadal->subcompositor = wl_registry_bind(registry, name, &wl_subcompositor_interface, 1);
 
     } else if (!strcmp(interface, "wl_shm")) {
-        wayland->shm = wl_registry_bind(registry, name, &wl_shm_interface, 1);
+        hadal->shm = wl_registry_bind(registry, name, &wl_shm_interface, 1);
 
     } else if (!strcmp(interface, "wl_output")) {
         bedrock_log_debug("Add wayland output: %u ver. %u", name, version);
 
     } else if (!strcmp(interface, "wl_seat")) {
-        if (!wayland->seat) {
-            wayland->seat = wl_registry_bind(registry, name, &wl_seat_interface, lake_min(4, version));
+        if (!hadal->seat) {
+            hadal->seat = wl_registry_bind(registry, name, &wl_seat_interface, lake_min(4, version));
             /* TODO listener */
 
-            if (wl_seat_get_version(wayland->seat) >= WL_KEYBOARD_REPEAT_INFO_SINCE_VERSION) {
-                wayland->key_repeat_timerfd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
+            if (wl_seat_get_version(hadal->seat) >= WL_KEYBOARD_REPEAT_INFO_SINCE_VERSION) {
+                hadal->key_repeat_timerfd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
             }
         }
     } else if (!strcmp(interface, "xdg_wm_base")) {
-        wayland->shell.xdg = wl_registry_bind(registry, name, &xdg_wm_base_interface, 1);
-        xdg_wm_base_add_listener(wayland->shell.xdg, &wm_base_listener, wayland);
+        hadal->shell.xdg = wl_registry_bind(registry, name, &xdg_wm_base_interface, 1);
+        xdg_wm_base_add_listener(hadal->shell.xdg, &wm_base_listener, hadal);
     }
 }
 
@@ -1044,569 +1044,565 @@ static const struct wl_registry_listener registry_listener = {
     .global_remove = handle_registry_global_remove,
 };
 
-static bool load_symbols(struct hadal_encore *wayland, const char *fn)
+static bool load_symbols(struct hadal_encore *hadal, const char *name)
 {
     /* should be already loaded */
-    bedrock_assert_debug(wayland->wl.display_connect);
+    bedrock_assert_debug(hadal->wl.display_connect);
 
-    void *module_client = wayland->module_client;
-    void *module_cursor = wayland->module_cursor;
-    void *module_xkbcommon = wayland->module_xkbcommon;
+    void *module_client = hadal->module_client;
+    void *module_cursor = hadal->module_cursor;
+    void *module_xkbcommon = hadal->module_xkbcommon;
 
-    wayland->wl.proxy_marshal = (PFN_wl_proxy_marshal)
+    hadal->wl.proxy_marshal = (PFN_wl_proxy_marshal)
         bedrock_get_proc_address(module_client, "wl_proxy_marshal");
-    wayland->wl.proxy_create = (PFN_wl_proxy_create)
+    hadal->wl.proxy_create = (PFN_wl_proxy_create)
         bedrock_get_proc_address(module_client, "wl_proxy_create");
-    wayland->wl.proxy_destroy = (PFN_wl_proxy_destroy)
+    hadal->wl.proxy_destroy = (PFN_wl_proxy_destroy)
         bedrock_get_proc_address(module_client, "wl_proxy_destroy");
-    wayland->wl.proxy_add_listener = (PFN_wl_proxy_add_listener)
+    hadal->wl.proxy_add_listener = (PFN_wl_proxy_add_listener)
         bedrock_get_proc_address(module_client, "wl_proxy_add_listener");
-    wayland->wl.proxy_set_user_data = (PFN_wl_proxy_set_user_data)
+    hadal->wl.proxy_set_user_data = (PFN_wl_proxy_set_user_data)
         bedrock_get_proc_address(module_client, "wl_proxy_set_user_data");
-    wayland->wl.proxy_get_user_data = (PFN_wl_proxy_get_user_data)
+    hadal->wl.proxy_get_user_data = (PFN_wl_proxy_get_user_data)
         bedrock_get_proc_address(module_client, "wl_proxy_get_user_data");
-    wayland->wl.proxy_get_version = (PFN_wl_proxy_get_version)
+    hadal->wl.proxy_get_version = (PFN_wl_proxy_get_version)
         bedrock_get_proc_address(module_client, "wl_proxy_get_version");
-    wayland->wl.proxy_get_id = (PFN_wl_proxy_get_id)
+    hadal->wl.proxy_get_id = (PFN_wl_proxy_get_id)
         bedrock_get_proc_address(module_client, "wl_proxy_get_id");
-    wayland->wl.proxy_get_class = (PFN_wl_proxy_get_class)
+    hadal->wl.proxy_get_class = (PFN_wl_proxy_get_class)
         bedrock_get_proc_address(module_client, "wl_proxy_get_class");
-    wayland->wl.proxy_set_queue = (PFN_wl_proxy_set_queue)
+    hadal->wl.proxy_set_queue = (PFN_wl_proxy_set_queue)
         bedrock_get_proc_address(module_client, "wl_proxy_set_queue");
-    wayland->wl.proxy_create_wrapper = (PFN_wl_proxy_create_wrapper)
+    hadal->wl.proxy_create_wrapper = (PFN_wl_proxy_create_wrapper)
         bedrock_get_proc_address(module_client, "wl_proxy_create_wrapper");
-    wayland->wl.proxy_wrapper_destroy = (PFN_wl_proxy_wrapper_destroy)
+    hadal->wl.proxy_wrapper_destroy = (PFN_wl_proxy_wrapper_destroy)
         bedrock_get_proc_address(module_client, "wl_proxy_wrapper_destroy");
-    wayland->wl.proxy_marshal_constructor = (PFN_wl_proxy_marshal_constructor)
+    hadal->wl.proxy_marshal_constructor = (PFN_wl_proxy_marshal_constructor)
         bedrock_get_proc_address(module_client, "wl_proxy_marshal_constructor");
-    wayland->wl.proxy_marshal_constructor_versioned = (PFN_wl_proxy_marshal_constructor_versioned)
+    hadal->wl.proxy_marshal_constructor_versioned = (PFN_wl_proxy_marshal_constructor_versioned)
         bedrock_get_proc_address(module_client, "wl_proxy_marshal_constructor_versioned");
-    wayland->wl.proxy_marshal_flags = (PFN_wl_proxy_marshal_flags)
+    hadal->wl.proxy_marshal_flags = (PFN_wl_proxy_marshal_flags)
         bedrock_get_proc_address(module_client, "wl_proxy_marshal_flags");
-    wayland->wl.proxy_marshal_array_flags = (PFN_wl_proxy_marshal_array_flags)
+    hadal->wl.proxy_marshal_array_flags = (PFN_wl_proxy_marshal_array_flags)
         bedrock_get_proc_address(module_client, "wl_proxy_marshal_array_flags");
-    wayland->wl.proxy_set_tag = (PFN_wl_proxy_set_tag)
+    hadal->wl.proxy_set_tag = (PFN_wl_proxy_set_tag)
         bedrock_get_proc_address(module_client, "wl_proxy_set_tag");
-    wayland->wl.proxy_get_tag = (PFN_wl_proxy_get_tag)
+    hadal->wl.proxy_get_tag = (PFN_wl_proxy_get_tag)
         bedrock_get_proc_address(module_client, "wl_proxy_get_tag");
-    wayland->wl.display_connect_to_fd = (PFN_wl_display_connect_to_fd)
+    hadal->wl.display_connect_to_fd = (PFN_wl_display_connect_to_fd)
         bedrock_get_proc_address(module_client, "wl_display_connect_to_fd");
-    wayland->wl.display_disconnect = (PFN_wl_display_disconnect)
+    hadal->wl.display_disconnect = (PFN_wl_display_disconnect)
         bedrock_get_proc_address(module_client, "wl_display_disconnect");
-    wayland->wl.display_get_fd = (PFN_wl_display_get_fd)
+    hadal->wl.display_get_fd = (PFN_wl_display_get_fd)
         bedrock_get_proc_address(module_client, "wl_display_get_fd");
-    wayland->wl.display_dispatch = (PFN_wl_display_dispatch)
+    hadal->wl.display_dispatch = (PFN_wl_display_dispatch)
         bedrock_get_proc_address(module_client, "wl_display_dispatch");
-    wayland->wl.display_dispatch_queue = (PFN_wl_display_dispatch_queue)
+    hadal->wl.display_dispatch_queue = (PFN_wl_display_dispatch_queue)
         bedrock_get_proc_address(module_client, "wl_display_dispatch_queue");
-    wayland->wl.display_dispatch_queue_pending = (PFN_wl_display_dispatch_queue_pending)
+    hadal->wl.display_dispatch_queue_pending = (PFN_wl_display_dispatch_queue_pending)
         bedrock_get_proc_address(module_client, "wl_display_dispatch_queue_pending");
-    wayland->wl.display_dispatch_pending = (PFN_wl_display_dispatch_pending)
+    hadal->wl.display_dispatch_pending = (PFN_wl_display_dispatch_pending)
         bedrock_get_proc_address(module_client, "wl_display_dispatch_pending");
-    wayland->wl.display_prepare_read = (PFN_wl_display_prepare_read)
+    hadal->wl.display_prepare_read = (PFN_wl_display_prepare_read)
         bedrock_get_proc_address(module_client, "wl_display_prepare_read");
-    wayland->wl.display_prepare_read_queue = (PFN_wl_display_prepare_read_queue)
+    hadal->wl.display_prepare_read_queue = (PFN_wl_display_prepare_read_queue)
         bedrock_get_proc_address(module_client, "wl_display_prepare_read_queue");
-    wayland->wl.display_read_events = (PFN_wl_display_read_events)
+    hadal->wl.display_read_events = (PFN_wl_display_read_events)
         bedrock_get_proc_address(module_client, "wl_display_read_events");
-    wayland->wl.display_cancel_read = (PFN_wl_display_cancel_read)
+    hadal->wl.display_cancel_read = (PFN_wl_display_cancel_read)
         bedrock_get_proc_address(module_client, "wl_display_cancel_read");
-    wayland->wl.display_get_error = (PFN_wl_display_get_error)
+    hadal->wl.display_get_error = (PFN_wl_display_get_error)
         bedrock_get_proc_address(module_client, "wl_display_get_error");
-    wayland->wl.display_flush = (PFN_wl_display_flush)
+    hadal->wl.display_flush = (PFN_wl_display_flush)
         bedrock_get_proc_address(module_client, "wl_display_flush");
-    wayland->wl.display_roundtrip = (PFN_wl_display_roundtrip)
+    hadal->wl.display_roundtrip = (PFN_wl_display_roundtrip)
         bedrock_get_proc_address(module_client, "wl_display_roundtrip");
-    wayland->wl.display_create_queue = (PFN_wl_display_create_queue)
+    hadal->wl.display_create_queue = (PFN_wl_display_create_queue)
         bedrock_get_proc_address(module_client, "wl_display_create_queue");
-    wayland->wl.event_queue_destroy = (PFN_wl_event_queue_destroy)
+    hadal->wl.event_queue_destroy = (PFN_wl_event_queue_destroy)
         bedrock_get_proc_address(module_client, "wl_event_queue_destroy");
-    wayland->wl.log_set_handler_client = (PFN_wl_log_set_handler_client)
+    hadal->wl.log_set_handler_client = (PFN_wl_log_set_handler_client)
         bedrock_get_proc_address(module_client, "wl_log_set_handler_client");
-    wayland->wl.list_init = (PFN_wl_list_init)
+    hadal->wl.list_init = (PFN_wl_list_init)
         bedrock_get_proc_address(module_client, "wl_list_init");
-    wayland->wl.list_insert = (PFN_wl_list_insert)
+    hadal->wl.list_insert = (PFN_wl_list_insert)
         bedrock_get_proc_address(module_client, "wl_list_insert");
-    wayland->wl.list_remove = (PFN_wl_list_remove)
+    hadal->wl.list_remove = (PFN_wl_list_remove)
         bedrock_get_proc_address(module_client, "wl_list_remove");
-    wayland->wl.list_length = (PFN_wl_list_length)
+    hadal->wl.list_length = (PFN_wl_list_length)
         bedrock_get_proc_address(module_client, "wl_list_length");
-    wayland->wl.list_empty = (PFN_wl_list_empty)
+    hadal->wl.list_empty = (PFN_wl_list_empty)
         bedrock_get_proc_address(module_client, "wl_list_empty");
-    wayland->wl.list_insert_list = (PFN_wl_list_insert_list)
+    hadal->wl.list_insert_list = (PFN_wl_list_insert_list)
         bedrock_get_proc_address(module_client, "wl_list_insert_list");
 
-    if (!wayland->wl.proxy_marshal ||
-        !wayland->wl.proxy_create ||
-        !wayland->wl.proxy_destroy ||
-        !wayland->wl.proxy_add_listener ||
-        !wayland->wl.proxy_set_user_data ||
-        !wayland->wl.proxy_get_user_data ||
-        !wayland->wl.proxy_get_version ||
-        !wayland->wl.proxy_get_id ||
-        !wayland->wl.proxy_get_class ||
-        !wayland->wl.proxy_set_queue ||
-        !wayland->wl.proxy_create_wrapper ||
-        !wayland->wl.proxy_wrapper_destroy ||
-        !wayland->wl.proxy_marshal_constructor ||
-        !wayland->wl.proxy_marshal_constructor_versioned ||
-        !wayland->wl.proxy_marshal_flags ||
-        !wayland->wl.proxy_marshal_array_flags ||
-        !wayland->wl.proxy_set_tag ||
-        !wayland->wl.proxy_get_tag ||
-        !wayland->wl.display_connect_to_fd ||
-        !wayland->wl.display_disconnect ||
-        !wayland->wl.display_get_fd ||
-        !wayland->wl.display_dispatch ||
-        !wayland->wl.display_dispatch_queue ||
-        !wayland->wl.display_dispatch_queue_pending ||
-        !wayland->wl.display_dispatch_pending ||
-        !wayland->wl.display_prepare_read ||
-        !wayland->wl.display_prepare_read_queue ||
-        !wayland->wl.display_read_events ||
-        !wayland->wl.display_cancel_read ||
-        !wayland->wl.display_get_error ||
-        !wayland->wl.display_flush ||
-        !wayland->wl.display_roundtrip ||
-        !wayland->wl.display_create_queue ||
-        !wayland->wl.event_queue_destroy ||
-        !wayland->wl.log_set_handler_client ||
-        !wayland->wl.list_init ||
-        !wayland->wl.list_insert ||
-        !wayland->wl.list_remove ||
-        !wayland->wl.list_length ||
-        !wayland->wl.list_empty ||
-        !wayland->wl.list_insert_list)
+    if (!hadal->wl.proxy_marshal ||
+        !hadal->wl.proxy_create ||
+        !hadal->wl.proxy_destroy ||
+        !hadal->wl.proxy_add_listener ||
+        !hadal->wl.proxy_set_user_data ||
+        !hadal->wl.proxy_get_user_data ||
+        !hadal->wl.proxy_get_version ||
+        !hadal->wl.proxy_get_id ||
+        !hadal->wl.proxy_get_class ||
+        !hadal->wl.proxy_set_queue ||
+        !hadal->wl.proxy_create_wrapper ||
+        !hadal->wl.proxy_wrapper_destroy ||
+        !hadal->wl.proxy_marshal_constructor ||
+        !hadal->wl.proxy_marshal_constructor_versioned ||
+        !hadal->wl.proxy_marshal_flags ||
+        !hadal->wl.proxy_marshal_array_flags ||
+        !hadal->wl.proxy_set_tag ||
+        !hadal->wl.proxy_get_tag ||
+        !hadal->wl.display_connect_to_fd ||
+        !hadal->wl.display_disconnect ||
+        !hadal->wl.display_get_fd ||
+        !hadal->wl.display_dispatch ||
+        !hadal->wl.display_dispatch_queue ||
+        !hadal->wl.display_dispatch_queue_pending ||
+        !hadal->wl.display_dispatch_pending ||
+        !hadal->wl.display_prepare_read ||
+        !hadal->wl.display_prepare_read_queue ||
+        !hadal->wl.display_read_events ||
+        !hadal->wl.display_cancel_read ||
+        !hadal->wl.display_get_error ||
+        !hadal->wl.display_flush ||
+        !hadal->wl.display_roundtrip ||
+        !hadal->wl.display_create_queue ||
+        !hadal->wl.event_queue_destroy ||
+        !hadal->wl.log_set_handler_client ||
+        !hadal->wl.list_init ||
+        !hadal->wl.list_insert ||
+        !hadal->wl.list_remove ||
+        !hadal->wl.list_length ||
+        !hadal->wl.list_empty ||
+        !hadal->wl.list_insert_list)
     {
-        bedrock_log_error("%s can't load libwayland-client procedures, can't continue.", fn);
+        bedrock_log_error("'%s' can't load libwayland-client procedures, can't continue.", name);
         return false;
     }
 
-    wayland->wl.cursor_theme_load = (PFN_wl_cursor_theme_load)
+    hadal->wl.cursor_theme_load = (PFN_wl_cursor_theme_load)
         bedrock_get_proc_address(module_cursor, "wl_cursor_theme_load");
-    wayland->wl.cursor_theme_destroy = (PFN_wl_cursor_theme_destroy)
+    hadal->wl.cursor_theme_destroy = (PFN_wl_cursor_theme_destroy)
         bedrock_get_proc_address(module_cursor, "wl_cursor_theme_destroy");
-    wayland->wl.cursor_theme_get_cursor = (PFN_wl_cursor_theme_get_cursor)
+    hadal->wl.cursor_theme_get_cursor = (PFN_wl_cursor_theme_get_cursor)
         bedrock_get_proc_address(module_cursor, "wl_cursor_theme_get_cursor");
-    wayland->wl.cursor_image_get_buffer = (PFN_wl_cursor_image_get_buffer)
+    hadal->wl.cursor_image_get_buffer = (PFN_wl_cursor_image_get_buffer)
         bedrock_get_proc_address(module_cursor, "wl_cursor_image_get_buffer");
-    wayland->wl.cursor_frame = (PFN_wl_cursor_frame)
+    hadal->wl.cursor_frame = (PFN_wl_cursor_frame)
         bedrock_get_proc_address(module_cursor, "wl_cursor_frame");
 
-    if (!wayland->wl.cursor_theme_load ||
-        !wayland->wl.cursor_theme_destroy ||
-        !wayland->wl.cursor_theme_get_cursor ||
-        !wayland->wl.cursor_image_get_buffer ||
-        !wayland->wl.cursor_frame)
+    if (!hadal->wl.cursor_theme_load ||
+        !hadal->wl.cursor_theme_destroy ||
+        !hadal->wl.cursor_theme_get_cursor ||
+        !hadal->wl.cursor_image_get_buffer ||
+        !hadal->wl.cursor_frame)
     {
-        bedrock_log_error("%s can't load libwayland-cursor procedures, can't continue.", fn);
+        bedrock_log_error("'%s' can't load libwayland-cursor procedures, can't continue.", name);
         return false;
     }
 
-    wayland->xkb.context_new = (PFN_xkb_context_new)
+    hadal->xkb.context_new = (PFN_xkb_context_new)
         bedrock_get_proc_address(module_xkbcommon, "xkb_context_new");
-    wayland->xkb.context_unref = (PFN_xkb_context_unref)
+    hadal->xkb.context_unref = (PFN_xkb_context_unref)
         bedrock_get_proc_address(module_xkbcommon, "xkb_context_unref");
-    wayland->xkb.keymap_new_from_string = (PFN_xkb_keymap_new_from_string)
+    hadal->xkb.keymap_new_from_string = (PFN_xkb_keymap_new_from_string)
         bedrock_get_proc_address(module_xkbcommon, "xkb_keymap_new_from_string");
-    wayland->xkb.keymap_unref = (PFN_xkb_keymap_unref)
+    hadal->xkb.keymap_unref = (PFN_xkb_keymap_unref)
         bedrock_get_proc_address(module_xkbcommon, "xkb_keymap_unref");
-    wayland->xkb.keymap_mod_get_index = (PFN_xkb_keymap_mod_get_index)
+    hadal->xkb.keymap_mod_get_index = (PFN_xkb_keymap_mod_get_index)
         bedrock_get_proc_address(module_xkbcommon, "xkb_keymap_mod_get_index");
-    wayland->xkb.keymap_key_repeats = (PFN_xkb_keymap_key_repeats)
+    hadal->xkb.keymap_key_repeats = (PFN_xkb_keymap_key_repeats)
         bedrock_get_proc_address(module_xkbcommon, "xkb_keymap_key_repeats");
-    wayland->xkb.keymap_key_for_each = (PFN_xkb_keymap_key_for_each)
+    hadal->xkb.keymap_key_for_each = (PFN_xkb_keymap_key_for_each)
         bedrock_get_proc_address(module_xkbcommon, "xkb_keymap_key_for_each");
-    wayland->xkb.keymap_key_get_syms_by_level = (PFN_xkb_keymap_key_get_syms_by_level)
+    hadal->xkb.keymap_key_get_syms_by_level = (PFN_xkb_keymap_key_get_syms_by_level)
         bedrock_get_proc_address(module_xkbcommon, "xkb_keymap_key_get_syms_by_level");
-    wayland->xkb.keymap_layout_get_name = (PFN_xkb_keymap_layout_get_name)
+    hadal->xkb.keymap_layout_get_name = (PFN_xkb_keymap_layout_get_name)
         bedrock_get_proc_address(module_xkbcommon, "xkb_keymap_layout_get_name");
-    wayland->xkb.keysym_to_utf8 = (PFN_xkb_keysym_to_utf8)
+    hadal->xkb.keysym_to_utf8 = (PFN_xkb_keysym_to_utf8)
         bedrock_get_proc_address(module_xkbcommon, "xkb_keysym_to_utf8");
-    wayland->xkb.keysym_to_utf32 = (PFN_xkb_keysym_to_utf32)
+    hadal->xkb.keysym_to_utf32 = (PFN_xkb_keysym_to_utf32)
         bedrock_get_proc_address(module_xkbcommon, "xkb_keysym_to_utf32");
-    wayland->xkb.state_new = (PFN_xkb_state_new)
+    hadal->xkb.state_new = (PFN_xkb_state_new)
         bedrock_get_proc_address(module_xkbcommon, "xkb_state_new");
-    wayland->xkb.state_unref = (PFN_xkb_state_unref)
+    hadal->xkb.state_unref = (PFN_xkb_state_unref)
         bedrock_get_proc_address(module_xkbcommon, "xkb_state_unref");
-    wayland->xkb.state_key_get_syms = (PFN_xkb_state_key_get_syms)
+    hadal->xkb.state_key_get_syms = (PFN_xkb_state_key_get_syms)
         bedrock_get_proc_address(module_xkbcommon, "xkb_state_key_get_syms");
-    wayland->xkb.state_key_get_layout = (PFN_xkb_state_key_get_layout)
+    hadal->xkb.state_key_get_layout = (PFN_xkb_state_key_get_layout)
         bedrock_get_proc_address(module_xkbcommon, "xkb_state_key_get_layout");
-    wayland->xkb.state_mod_index_is_active = (PFN_xkb_state_mod_index_is_active)
+    hadal->xkb.state_mod_index_is_active = (PFN_xkb_state_mod_index_is_active)
         bedrock_get_proc_address(module_xkbcommon, "xkb_state_mod_index_is_active");
-    wayland->xkb.state_update_mask = (PFN_xkb_state_update_mask)
+    hadal->xkb.state_update_mask = (PFN_xkb_state_update_mask)
         bedrock_get_proc_address(module_xkbcommon, "xkb_state_update_mask");
-    wayland->xkb.compose_table_new_from_locale = (PFN_xkb_compose_table_new_from_locale)
+    hadal->xkb.compose_table_new_from_locale = (PFN_xkb_compose_table_new_from_locale)
         bedrock_get_proc_address(module_xkbcommon, "xkb_compose_table_new_from_locale");
-    wayland->xkb.compose_table_unref = (PFN_xkb_compose_table_unref)
+    hadal->xkb.compose_table_unref = (PFN_xkb_compose_table_unref)
         bedrock_get_proc_address(module_xkbcommon, "xkb_compose_table_unref");
-    wayland->xkb.compose_state_new = (PFN_xkb_compose_state_new)
+    hadal->xkb.compose_state_new = (PFN_xkb_compose_state_new)
         bedrock_get_proc_address(module_xkbcommon, "xkb_compose_state_new");
-    wayland->xkb.compose_state_reset = (PFN_xkb_compose_state_reset)
+    hadal->xkb.compose_state_reset = (PFN_xkb_compose_state_reset)
         bedrock_get_proc_address(module_xkbcommon, "xkb_compose_state_reset");
-    wayland->xkb.compose_state_feed = (PFN_xkb_compose_state_feed)
+    hadal->xkb.compose_state_feed = (PFN_xkb_compose_state_feed)
         bedrock_get_proc_address(module_xkbcommon, "xkb_compose_state_feed");
-    wayland->xkb.compose_state_get_status = (PFN_xkb_compose_state_get_status)
+    hadal->xkb.compose_state_get_status = (PFN_xkb_compose_state_get_status)
         bedrock_get_proc_address(module_xkbcommon, "xkb_compose_state_get_status");
-    wayland->xkb.compose_state_get_one_sym = (PFN_xkb_compose_state_get_one_sym)
+    hadal->xkb.compose_state_get_one_sym = (PFN_xkb_compose_state_get_one_sym)
         bedrock_get_proc_address(module_xkbcommon, "xkb_compose_state_get_one_sym");
 
-    if (!wayland->xkb.context_new ||
-        !wayland->xkb.context_unref ||
-        !wayland->xkb.keymap_new_from_string ||
-        !wayland->xkb.keymap_unref ||
-        !wayland->xkb.keymap_mod_get_index ||
-        !wayland->xkb.keymap_key_repeats ||
-        !wayland->xkb.keymap_key_for_each ||
-        !wayland->xkb.keymap_key_get_syms_by_level ||
-        !wayland->xkb.keymap_layout_get_name ||
-        !wayland->xkb.keysym_to_utf8 ||
-        !wayland->xkb.keysym_to_utf32 ||
-        !wayland->xkb.state_new ||
-        !wayland->xkb.state_unref ||
-        !wayland->xkb.state_key_get_syms ||
-        !wayland->xkb.state_key_get_layout ||
-        !wayland->xkb.state_mod_index_is_active ||
-        !wayland->xkb.state_update_mask ||
-        !wayland->xkb.compose_table_new_from_locale ||
-        !wayland->xkb.compose_table_unref ||
-        !wayland->xkb.compose_state_new ||
-        !wayland->xkb.compose_state_reset ||
-        !wayland->xkb.compose_state_feed ||
-        !wayland->xkb.compose_state_get_status ||
-        !wayland->xkb.compose_state_get_one_sym)
+    if (!hadal->xkb.context_new ||
+        !hadal->xkb.context_unref ||
+        !hadal->xkb.keymap_new_from_string ||
+        !hadal->xkb.keymap_unref ||
+        !hadal->xkb.keymap_mod_get_index ||
+        !hadal->xkb.keymap_key_repeats ||
+        !hadal->xkb.keymap_key_for_each ||
+        !hadal->xkb.keymap_key_get_syms_by_level ||
+        !hadal->xkb.keymap_layout_get_name ||
+        !hadal->xkb.keysym_to_utf8 ||
+        !hadal->xkb.keysym_to_utf32 ||
+        !hadal->xkb.state_new ||
+        !hadal->xkb.state_unref ||
+        !hadal->xkb.state_key_get_syms ||
+        !hadal->xkb.state_key_get_layout ||
+        !hadal->xkb.state_mod_index_is_active ||
+        !hadal->xkb.state_update_mask ||
+        !hadal->xkb.compose_table_new_from_locale ||
+        !hadal->xkb.compose_table_unref ||
+        !hadal->xkb.compose_state_new ||
+        !hadal->xkb.compose_state_reset ||
+        !hadal->xkb.compose_state_feed ||
+        !hadal->xkb.compose_state_get_status ||
+        !hadal->xkb.compose_state_get_one_sym)
     {
-        bedrock_log_error("%s can't load libxkbcommon procedures, can't continue.", fn);
+        bedrock_log_error("'%s' can't load libxkbcommon procedures, can't continue.", name);
         return false;
     }
 
     /* optional */
 #ifdef HADAL_WAYLAND_LIBDECOR
-    void *module_libdecor = wayland->module_libdecor;
+    void *module_libdecor = hadal->module_libdecor;
 
     if (!module_libdecor) return true;
 
-    wayland->libdecor.new = (PFN_libdecor_new)
+    hadal->libdecor.new = (PFN_libdecor_new)
         bedrock_get_proc_address(module_libdecor, "libdecor_new");
-    wayland->libdecor.unref = (PFN_libdecor_unref)
+    hadal->libdecor.unref = (PFN_libdecor_unref)
         bedrock_get_proc_address(module_libdecor, "libdecor_unref");
-    wayland->libdecor.get_fd = (PFN_libdecor_get_fd)
+    hadal->libdecor.get_fd = (PFN_libdecor_get_fd)
         bedrock_get_proc_address(module_libdecor, "libdecor_get_fd");
-    wayland->libdecor.decorate = (PFN_libdecor_decorate)
+    hadal->libdecor.decorate = (PFN_libdecor_decorate)
         bedrock_get_proc_address(module_libdecor, "libdecor_decorate");
-    wayland->libdecor.frame_unref = (PFN_libdecor_frame_unref)
+    hadal->libdecor.frame_unref = (PFN_libdecor_frame_unref)
         bedrock_get_proc_address(module_libdecor, "libdecor_frame_unref");
-    wayland->libdecor.frame_set_title = (PFN_libdecor_frame_set_title)
+    hadal->libdecor.frame_set_title = (PFN_libdecor_frame_set_title)
         bedrock_get_proc_address(module_libdecor, "libdecor_frame_set_title");
-    wayland->libdecor.frame_set_app_id = (PFN_libdecor_frame_set_app_id)
+    hadal->libdecor.frame_set_app_id = (PFN_libdecor_frame_set_app_id)
         bedrock_get_proc_address(module_libdecor, "libdecor_frame_set_app_id");
-    wayland->libdecor.frame_set_max_content_size = (PFN_libdecor_frame_set_max_content_size)
+    hadal->libdecor.frame_set_max_content_size = (PFN_libdecor_frame_set_max_content_size)
         bedrock_get_proc_address(module_libdecor, "libdecor_frame_set_max_content_size");
-    wayland->libdecor.frame_get_max_content_size = (PFN_libdecor_frame_get_max_content_size)
+    hadal->libdecor.frame_get_max_content_size = (PFN_libdecor_frame_get_max_content_size)
         bedrock_get_proc_address(module_libdecor, "libdecor_frame_get_max_content_size");
-    wayland->libdecor.frame_set_min_content_size = (PFN_libdecor_frame_set_min_content_size)
+    hadal->libdecor.frame_set_min_content_size = (PFN_libdecor_frame_set_min_content_size)
         bedrock_get_proc_address(module_libdecor, "libdecor_frame_set_min_content_size");
-    wayland->libdecor.frame_get_min_content_size = (PFN_libdecor_frame_get_min_content_size)
+    hadal->libdecor.frame_get_min_content_size = (PFN_libdecor_frame_get_min_content_size)
         bedrock_get_proc_address(module_libdecor, "libdecor_frame_get_min_content_size");
-    wayland->libdecor.frame_resize = (PFN_libdecor_frame_resize)
+    hadal->libdecor.frame_resize = (PFN_libdecor_frame_resize)
         bedrock_get_proc_address(module_libdecor, "libdecor_frame_resize");
-    wayland->libdecor.frame_move = (PFN_libdecor_frame_move)
+    hadal->libdecor.frame_move = (PFN_libdecor_frame_move)
         bedrock_get_proc_address(module_libdecor, "libdecor_frame_move");
-    wayland->libdecor.frame_commit = (PFN_libdecor_frame_commit)
+    hadal->libdecor.frame_commit = (PFN_libdecor_frame_commit)
         bedrock_get_proc_address(module_libdecor, "libdecor_frame_commit");
-    wayland->libdecor.frame_set_minimized = (PFN_libdecor_frame_set_minimized)
+    hadal->libdecor.frame_set_minimized = (PFN_libdecor_frame_set_minimized)
         bedrock_get_proc_address(module_libdecor, "libdecor_frame_set_minimized");
-    wayland->libdecor.frame_set_maximized = (PFN_libdecor_frame_set_maximized)
+    hadal->libdecor.frame_set_maximized = (PFN_libdecor_frame_set_maximized)
         bedrock_get_proc_address(module_libdecor, "libdecor_frame_set_maximized");
-    wayland->libdecor.frame_unset_maximized = (PFN_libdecor_frame_unset_maximized)
+    hadal->libdecor.frame_unset_maximized = (PFN_libdecor_frame_unset_maximized)
         bedrock_get_proc_address(module_libdecor, "libdecor_frame_unset_maximized");
-    wayland->libdecor.frame_set_fullscreen = (PFN_libdecor_frame_set_fullscreen)
+    hadal->libdecor.frame_set_fullscreen = (PFN_libdecor_frame_set_fullscreen)
         bedrock_get_proc_address(module_libdecor, "libdecor_frame_set_fullscreen");
-    wayland->libdecor.frame_unset_fullscreen = (PFN_libdecor_frame_unset_fullscreen)
+    hadal->libdecor.frame_unset_fullscreen = (PFN_libdecor_frame_unset_fullscreen)
         bedrock_get_proc_address(module_libdecor, "libdecor_frame_unset_fullscreen");
-    wayland->libdecor.frame_set_capabilities = (PFN_libdecor_frame_set_capabilities)
+    hadal->libdecor.frame_set_capabilities = (PFN_libdecor_frame_set_capabilities)
         bedrock_get_proc_address(module_libdecor, "libdecor_frame_set_capabilities");
-    wayland->libdecor.frame_unset_capabilities = (PFN_libdecor_frame_unset_capabilities)
+    hadal->libdecor.frame_unset_capabilities = (PFN_libdecor_frame_unset_capabilities)
         bedrock_get_proc_address(module_libdecor, "libdecor_frame_unset_capabilities");
-    wayland->libdecor.frame_has_capability = (PFN_libdecor_frame_has_capability)
+    hadal->libdecor.frame_has_capability = (PFN_libdecor_frame_has_capability)
         bedrock_get_proc_address(module_libdecor, "libdecor_frame_has_capability");
-    wayland->libdecor.frame_set_visibility = (PFN_libdecor_frame_set_visibility)
+    hadal->libdecor.frame_set_visibility = (PFN_libdecor_frame_set_visibility)
         bedrock_get_proc_address(module_libdecor, "libdecor_frame_set_visibility");
-    wayland->libdecor.frame_is_visible = (PFN_libdecor_frame_is_visible)
+    hadal->libdecor.frame_is_visible = (PFN_libdecor_frame_is_visible)
         bedrock_get_proc_address(module_libdecor, "libdecor_frame_is_visible");
-    wayland->libdecor.frame_is_floating = (PFN_libdecor_frame_is_floating)
+    hadal->libdecor.frame_is_floating = (PFN_libdecor_frame_is_floating)
         bedrock_get_proc_address(module_libdecor, "libdecor_frame_is_floating");
-    wayland->libdecor.frame_set_parent = (PFN_libdecor_frame_set_parent)
+    hadal->libdecor.frame_set_parent = (PFN_libdecor_frame_set_parent)
         bedrock_get_proc_address(module_libdecor, "libdecor_frame_set_parent");
-    wayland->libdecor.frame_get_xdg_surface = (PFN_libdecor_frame_get_xdg_surface)
+    hadal->libdecor.frame_get_xdg_surface = (PFN_libdecor_frame_get_xdg_surface)
         bedrock_get_proc_address(module_libdecor, "libdecor_frame_get_xdg_surface");
-    wayland->libdecor.frame_get_xdg_toplevel = (PFN_libdecor_frame_get_xdg_toplevel)
+    hadal->libdecor.frame_get_xdg_toplevel = (PFN_libdecor_frame_get_xdg_toplevel)
         bedrock_get_proc_address(module_libdecor, "libdecor_frame_get_xdg_toplevel");
-    wayland->libdecor.frame_map = (PFN_libdecor_frame_map)
+    hadal->libdecor.frame_map = (PFN_libdecor_frame_map)
         bedrock_get_proc_address(module_libdecor, "libdecor_frame_map");
-    wayland->libdecor.state_new = (PFN_libdecor_state_new)
+    hadal->libdecor.state_new = (PFN_libdecor_state_new)
         bedrock_get_proc_address(module_libdecor, "libdecor_state_new");
-    wayland->libdecor.state_free = (PFN_libdecor_state_free)
+    hadal->libdecor.state_free = (PFN_libdecor_state_free)
         bedrock_get_proc_address(module_libdecor, "libdecor_state_free");
-    wayland->libdecor.configuration_get_content_size = (PFN_libdecor_configuration_get_content_size)
+    hadal->libdecor.configuration_get_content_size = (PFN_libdecor_configuration_get_content_size)
         bedrock_get_proc_address(module_libdecor, "libdecor_configuration_get_content_size");
-    wayland->libdecor.configuration_get_window_state = (PFN_libdecor_configuration_get_window_state)
+    hadal->libdecor.configuration_get_window_state = (PFN_libdecor_configuration_get_window_state)
         bedrock_get_proc_address(module_libdecor, "libdecor_configuration_get_window_state");
-    wayland->libdecor.dispatch = (PFN_libdecor_dispatch)
+    hadal->libdecor.dispatch = (PFN_libdecor_dispatch)
         bedrock_get_proc_address(module_libdecor, "libdecor_dispatch");
 
-    if (!wayland->libdecor.new ||
-        !wayland->libdecor.unref ||
-        !wayland->libdecor.get_fd ||
-        !wayland->libdecor.decorate ||
-        !wayland->libdecor.frame_unref ||
-        !wayland->libdecor.frame_set_title ||
-        !wayland->libdecor.frame_set_app_id ||
-        !wayland->libdecor.frame_set_max_content_size ||
-        !wayland->libdecor.frame_get_max_content_size ||
-        !wayland->libdecor.frame_set_min_content_size ||
-        !wayland->libdecor.frame_get_min_content_size ||
-        !wayland->libdecor.frame_resize ||
-        !wayland->libdecor.frame_move ||
-        !wayland->libdecor.frame_commit ||
-        !wayland->libdecor.frame_set_minimized ||
-        !wayland->libdecor.frame_set_maximized ||
-        !wayland->libdecor.frame_unset_maximized ||
-        !wayland->libdecor.frame_set_fullscreen ||
-        !wayland->libdecor.frame_unset_fullscreen ||
-        !wayland->libdecor.frame_set_capabilities ||
-        !wayland->libdecor.frame_unset_capabilities ||
-        !wayland->libdecor.frame_has_capability ||
-        !wayland->libdecor.frame_set_visibility ||
-        !wayland->libdecor.frame_is_visible ||
-        !wayland->libdecor.frame_is_floating ||
-        !wayland->libdecor.frame_set_parent ||
-        !wayland->libdecor.frame_get_xdg_surface ||
-        !wayland->libdecor.frame_get_xdg_toplevel ||
-        !wayland->libdecor.frame_map ||
-        !wayland->libdecor.state_new ||
-        !wayland->libdecor.state_free ||
-        !wayland->libdecor.configuration_get_content_size ||
-        !wayland->libdecor.configuration_get_window_state ||
-        !wayland->libdecor.dispatch) 
+    if (!hadal->libdecor.new ||
+        !hadal->libdecor.unref ||
+        !hadal->libdecor.get_fd ||
+        !hadal->libdecor.decorate ||
+        !hadal->libdecor.frame_unref ||
+        !hadal->libdecor.frame_set_title ||
+        !hadal->libdecor.frame_set_app_id ||
+        !hadal->libdecor.frame_set_max_content_size ||
+        !hadal->libdecor.frame_get_max_content_size ||
+        !hadal->libdecor.frame_set_min_content_size ||
+        !hadal->libdecor.frame_get_min_content_size ||
+        !hadal->libdecor.frame_resize ||
+        !hadal->libdecor.frame_move ||
+        !hadal->libdecor.frame_commit ||
+        !hadal->libdecor.frame_set_minimized ||
+        !hadal->libdecor.frame_set_maximized ||
+        !hadal->libdecor.frame_unset_maximized ||
+        !hadal->libdecor.frame_set_fullscreen ||
+        !hadal->libdecor.frame_unset_fullscreen ||
+        !hadal->libdecor.frame_set_capabilities ||
+        !hadal->libdecor.frame_unset_capabilities ||
+        !hadal->libdecor.frame_has_capability ||
+        !hadal->libdecor.frame_set_visibility ||
+        !hadal->libdecor.frame_is_visible ||
+        !hadal->libdecor.frame_is_floating ||
+        !hadal->libdecor.frame_set_parent ||
+        !hadal->libdecor.frame_get_xdg_surface ||
+        !hadal->libdecor.frame_get_xdg_toplevel ||
+        !hadal->libdecor.frame_map ||
+        !hadal->libdecor.state_new ||
+        !hadal->libdecor.state_free ||
+        !hadal->libdecor.configuration_get_content_size ||
+        !hadal->libdecor.configuration_get_window_state ||
+        !hadal->libdecor.dispatch) 
     {
         /* disable libdecor */
-        bedrock_log_error("%s can't load libdecor procedures, this functionality will be disabled.", fn);
+        bedrock_log_error("'%s' can't load libdecor procedures, this functionality will be disabled.", name);
         bedrock_module_close(module_libdecor);
-        wayland->module_libdecor = NULL;
+        hadal->module_libdecor = NULL;
     }
 #endif /* HADAL_WAYLAND_LIBDECOR */
     return true;
 }
 
-static void create_key_tables(struct hadal_encore *wayland)
+static void create_key_tables(struct hadal_encore *hadal)
 {
-    bedrock_memset(wayland->interface.keycodes, -1, sizeof(wayland->interface.keycodes));
-    bedrock_memset(wayland->interface.scancodes, -1, sizeof(wayland->interface.scancodes));
+    bedrock_memset(hadal->interface.keycodes, -1, lake_sizeof(hadal->interface.keycodes));
+    bedrock_memset(hadal->interface.scancodes, -1, lake_sizeof(hadal->interface.scancodes));
 
-    wayland->interface.keycodes[KEY_GRAVE]      = hadal_keycode_grave_accent;
-    wayland->interface.keycodes[KEY_1]          = hadal_keycode_1;
-    wayland->interface.keycodes[KEY_2]          = hadal_keycode_2;
-    wayland->interface.keycodes[KEY_3]          = hadal_keycode_3;
-    wayland->interface.keycodes[KEY_4]          = hadal_keycode_4;
-    wayland->interface.keycodes[KEY_5]          = hadal_keycode_5;
-    wayland->interface.keycodes[KEY_6]          = hadal_keycode_6;
-    wayland->interface.keycodes[KEY_7]          = hadal_keycode_7;
-    wayland->interface.keycodes[KEY_8]          = hadal_keycode_8;
-    wayland->interface.keycodes[KEY_9]          = hadal_keycode_9;
-    wayland->interface.keycodes[KEY_0]          = hadal_keycode_0;
-    wayland->interface.keycodes[KEY_SPACE]      = hadal_keycode_space;
-    wayland->interface.keycodes[KEY_MINUS]      = hadal_keycode_minus;
-    wayland->interface.keycodes[KEY_EQUAL]      = hadal_keycode_equal;
-    wayland->interface.keycodes[KEY_Q]          = hadal_keycode_q;
-    wayland->interface.keycodes[KEY_W]          = hadal_keycode_w;
-    wayland->interface.keycodes[KEY_E]          = hadal_keycode_e;
-    wayland->interface.keycodes[KEY_R]          = hadal_keycode_r;
-    wayland->interface.keycodes[KEY_T]          = hadal_keycode_t;
-    wayland->interface.keycodes[KEY_Y]          = hadal_keycode_y;
-    wayland->interface.keycodes[KEY_U]          = hadal_keycode_u;
-    wayland->interface.keycodes[KEY_I]          = hadal_keycode_i;
-    wayland->interface.keycodes[KEY_O]          = hadal_keycode_o;
-    wayland->interface.keycodes[KEY_P]          = hadal_keycode_p;
-    wayland->interface.keycodes[KEY_LEFTBRACE]  = hadal_keycode_left_bracket;
-    wayland->interface.keycodes[KEY_RIGHTBRACE] = hadal_keycode_right_bracket;
-    wayland->interface.keycodes[KEY_A]          = hadal_keycode_a;
-    wayland->interface.keycodes[KEY_S]          = hadal_keycode_s;
-    wayland->interface.keycodes[KEY_D]          = hadal_keycode_d;
-    wayland->interface.keycodes[KEY_F]          = hadal_keycode_f;
-    wayland->interface.keycodes[KEY_G]          = hadal_keycode_g;
-    wayland->interface.keycodes[KEY_H]          = hadal_keycode_h;
-    wayland->interface.keycodes[KEY_J]          = hadal_keycode_j;
-    wayland->interface.keycodes[KEY_K]          = hadal_keycode_k;
-    wayland->interface.keycodes[KEY_L]          = hadal_keycode_l;
-    wayland->interface.keycodes[KEY_SEMICOLON]  = hadal_keycode_semicolon;
-    wayland->interface.keycodes[KEY_APOSTROPHE] = hadal_keycode_apostrophe;
-    wayland->interface.keycodes[KEY_Z]          = hadal_keycode_z;
-    wayland->interface.keycodes[KEY_X]          = hadal_keycode_x;
-    wayland->interface.keycodes[KEY_C]          = hadal_keycode_c;
-    wayland->interface.keycodes[KEY_V]          = hadal_keycode_v;
-    wayland->interface.keycodes[KEY_B]          = hadal_keycode_b;
-    wayland->interface.keycodes[KEY_N]          = hadal_keycode_n;
-    wayland->interface.keycodes[KEY_M]          = hadal_keycode_m;
-    wayland->interface.keycodes[KEY_COMMA]      = hadal_keycode_comma;
-    wayland->interface.keycodes[KEY_DOT]        = hadal_keycode_period;
-    wayland->interface.keycodes[KEY_SLASH]      = hadal_keycode_slash;
-    wayland->interface.keycodes[KEY_BACKSLASH]  = hadal_keycode_backslash;
-    wayland->interface.keycodes[KEY_ESC]        = hadal_keycode_escape;
-    wayland->interface.keycodes[KEY_TAB]        = hadal_keycode_tab;
-    wayland->interface.keycodes[KEY_LEFTSHIFT]  = hadal_keycode_left_shift;
-    wayland->interface.keycodes[KEY_RIGHTSHIFT] = hadal_keycode_right_shift;
-    wayland->interface.keycodes[KEY_LEFTCTRL]   = hadal_keycode_left_control;
-    wayland->interface.keycodes[KEY_RIGHTCTRL]  = hadal_keycode_right_control;
-    wayland->interface.keycodes[KEY_LEFTALT]    = hadal_keycode_left_alt;
-    wayland->interface.keycodes[KEY_RIGHTALT]   = hadal_keycode_right_alt;
-    wayland->interface.keycodes[KEY_LEFTMETA]   = hadal_keycode_left_super;
-    wayland->interface.keycodes[KEY_RIGHTMETA]  = hadal_keycode_right_super;
-    wayland->interface.keycodes[KEY_COMPOSE]    = hadal_keycode_menu;
-    wayland->interface.keycodes[KEY_NUMLOCK]    = hadal_keycode_num_lock;
-    wayland->interface.keycodes[KEY_CAPSLOCK]   = hadal_keycode_caps_lock;
-    wayland->interface.keycodes[KEY_PRINT]      = hadal_keycode_print_screen;
-    wayland->interface.keycodes[KEY_SCROLLLOCK] = hadal_keycode_scroll_lock;
-    wayland->interface.keycodes[KEY_PAUSE]      = hadal_keycode_pause;
-    wayland->interface.keycodes[KEY_DELETE]     = hadal_keycode_delete;
-    wayland->interface.keycodes[KEY_BACKSPACE]  = hadal_keycode_backspace;
-    wayland->interface.keycodes[KEY_ENTER]      = hadal_keycode_enter;
-    wayland->interface.keycodes[KEY_HOME]       = hadal_keycode_home;
-    wayland->interface.keycodes[KEY_END]        = hadal_keycode_end;
-    wayland->interface.keycodes[KEY_PAGEUP]     = hadal_keycode_page_up;
-    wayland->interface.keycodes[KEY_PAGEDOWN]   = hadal_keycode_page_down;
-    wayland->interface.keycodes[KEY_INSERT]     = hadal_keycode_insert;
-    wayland->interface.keycodes[KEY_LEFT]       = hadal_keycode_left;
-    wayland->interface.keycodes[KEY_RIGHT]      = hadal_keycode_right;
-    wayland->interface.keycodes[KEY_DOWN]       = hadal_keycode_down;
-    wayland->interface.keycodes[KEY_UP]         = hadal_keycode_up;
-    wayland->interface.keycodes[KEY_F1]         = hadal_keycode_f1;
-    wayland->interface.keycodes[KEY_F2]         = hadal_keycode_f2;
-    wayland->interface.keycodes[KEY_F3]         = hadal_keycode_f3;
-    wayland->interface.keycodes[KEY_F4]         = hadal_keycode_f4;
-    wayland->interface.keycodes[KEY_F5]         = hadal_keycode_f5;
-    wayland->interface.keycodes[KEY_F6]         = hadal_keycode_f6;
-    wayland->interface.keycodes[KEY_F7]         = hadal_keycode_f7;
-    wayland->interface.keycodes[KEY_F8]         = hadal_keycode_f8;
-    wayland->interface.keycodes[KEY_F9]         = hadal_keycode_f9;
-    wayland->interface.keycodes[KEY_F10]        = hadal_keycode_f10;
-    wayland->interface.keycodes[KEY_F11]        = hadal_keycode_f11;
-    wayland->interface.keycodes[KEY_F12]        = hadal_keycode_f12;
-    wayland->interface.keycodes[KEY_F13]        = hadal_keycode_f13;
-    wayland->interface.keycodes[KEY_F14]        = hadal_keycode_f14;
-    wayland->interface.keycodes[KEY_F15]        = hadal_keycode_f15;
-    wayland->interface.keycodes[KEY_F16]        = hadal_keycode_f16;
-    wayland->interface.keycodes[KEY_F17]        = hadal_keycode_f17;
-    wayland->interface.keycodes[KEY_F18]        = hadal_keycode_f18;
-    wayland->interface.keycodes[KEY_F19]        = hadal_keycode_f19;
-    wayland->interface.keycodes[KEY_F20]        = hadal_keycode_f20;
-    wayland->interface.keycodes[KEY_F21]        = hadal_keycode_f21;
-    wayland->interface.keycodes[KEY_F22]        = hadal_keycode_f22;
-    wayland->interface.keycodes[KEY_F23]        = hadal_keycode_f23;
-    wayland->interface.keycodes[KEY_F24]        = hadal_keycode_f24;
-    wayland->interface.keycodes[KEY_KPSLASH]    = hadal_keycode_kp_divide;
-    wayland->interface.keycodes[KEY_KPASTERISK] = hadal_keycode_kp_multiply;
-    wayland->interface.keycodes[KEY_KPMINUS]    = hadal_keycode_kp_subtract;
-    wayland->interface.keycodes[KEY_KPPLUS]     = hadal_keycode_kp_add;
-    wayland->interface.keycodes[KEY_KP0]        = hadal_keycode_kp_0;
-    wayland->interface.keycodes[KEY_KP1]        = hadal_keycode_kp_1;
-    wayland->interface.keycodes[KEY_KP2]        = hadal_keycode_kp_2;
-    wayland->interface.keycodes[KEY_KP3]        = hadal_keycode_kp_3;
-    wayland->interface.keycodes[KEY_KP4]        = hadal_keycode_kp_4;
-    wayland->interface.keycodes[KEY_KP5]        = hadal_keycode_kp_5;
-    wayland->interface.keycodes[KEY_KP6]        = hadal_keycode_kp_6;
-    wayland->interface.keycodes[KEY_KP7]        = hadal_keycode_kp_7;
-    wayland->interface.keycodes[KEY_KP8]        = hadal_keycode_kp_8;
-    wayland->interface.keycodes[KEY_KP9]        = hadal_keycode_kp_9;
-    wayland->interface.keycodes[KEY_KPDOT]      = hadal_keycode_kp_decimal;
-    wayland->interface.keycodes[KEY_KPEQUAL]    = hadal_keycode_kp_equal;
-    wayland->interface.keycodes[KEY_KPENTER]    = hadal_keycode_kp_enter;
-    wayland->interface.keycodes[KEY_102ND]      = hadal_keycode_world_2;
+    hadal->interface.keycodes[KEY_GRAVE]      = hadal_keycode_grave_accent;
+    hadal->interface.keycodes[KEY_1]          = hadal_keycode_1;
+    hadal->interface.keycodes[KEY_2]          = hadal_keycode_2;
+    hadal->interface.keycodes[KEY_3]          = hadal_keycode_3;
+    hadal->interface.keycodes[KEY_4]          = hadal_keycode_4;
+    hadal->interface.keycodes[KEY_5]          = hadal_keycode_5;
+    hadal->interface.keycodes[KEY_6]          = hadal_keycode_6;
+    hadal->interface.keycodes[KEY_7]          = hadal_keycode_7;
+    hadal->interface.keycodes[KEY_8]          = hadal_keycode_8;
+    hadal->interface.keycodes[KEY_9]          = hadal_keycode_9;
+    hadal->interface.keycodes[KEY_0]          = hadal_keycode_0;
+    hadal->interface.keycodes[KEY_SPACE]      = hadal_keycode_space;
+    hadal->interface.keycodes[KEY_MINUS]      = hadal_keycode_minus;
+    hadal->interface.keycodes[KEY_EQUAL]      = hadal_keycode_equal;
+    hadal->interface.keycodes[KEY_Q]          = hadal_keycode_q;
+    hadal->interface.keycodes[KEY_W]          = hadal_keycode_w;
+    hadal->interface.keycodes[KEY_E]          = hadal_keycode_e;
+    hadal->interface.keycodes[KEY_R]          = hadal_keycode_r;
+    hadal->interface.keycodes[KEY_T]          = hadal_keycode_t;
+    hadal->interface.keycodes[KEY_Y]          = hadal_keycode_y;
+    hadal->interface.keycodes[KEY_U]          = hadal_keycode_u;
+    hadal->interface.keycodes[KEY_I]          = hadal_keycode_i;
+    hadal->interface.keycodes[KEY_O]          = hadal_keycode_o;
+    hadal->interface.keycodes[KEY_P]          = hadal_keycode_p;
+    hadal->interface.keycodes[KEY_LEFTBRACE]  = hadal_keycode_left_bracket;
+    hadal->interface.keycodes[KEY_RIGHTBRACE] = hadal_keycode_right_bracket;
+    hadal->interface.keycodes[KEY_A]          = hadal_keycode_a;
+    hadal->interface.keycodes[KEY_S]          = hadal_keycode_s;
+    hadal->interface.keycodes[KEY_D]          = hadal_keycode_d;
+    hadal->interface.keycodes[KEY_F]          = hadal_keycode_f;
+    hadal->interface.keycodes[KEY_G]          = hadal_keycode_g;
+    hadal->interface.keycodes[KEY_H]          = hadal_keycode_h;
+    hadal->interface.keycodes[KEY_J]          = hadal_keycode_j;
+    hadal->interface.keycodes[KEY_K]          = hadal_keycode_k;
+    hadal->interface.keycodes[KEY_L]          = hadal_keycode_l;
+    hadal->interface.keycodes[KEY_SEMICOLON]  = hadal_keycode_semicolon;
+    hadal->interface.keycodes[KEY_APOSTROPHE] = hadal_keycode_apostrophe;
+    hadal->interface.keycodes[KEY_Z]          = hadal_keycode_z;
+    hadal->interface.keycodes[KEY_X]          = hadal_keycode_x;
+    hadal->interface.keycodes[KEY_C]          = hadal_keycode_c;
+    hadal->interface.keycodes[KEY_V]          = hadal_keycode_v;
+    hadal->interface.keycodes[KEY_B]          = hadal_keycode_b;
+    hadal->interface.keycodes[KEY_N]          = hadal_keycode_n;
+    hadal->interface.keycodes[KEY_M]          = hadal_keycode_m;
+    hadal->interface.keycodes[KEY_COMMA]      = hadal_keycode_comma;
+    hadal->interface.keycodes[KEY_DOT]        = hadal_keycode_period;
+    hadal->interface.keycodes[KEY_SLASH]      = hadal_keycode_slash;
+    hadal->interface.keycodes[KEY_BACKSLASH]  = hadal_keycode_backslash;
+    hadal->interface.keycodes[KEY_ESC]        = hadal_keycode_escape;
+    hadal->interface.keycodes[KEY_TAB]        = hadal_keycode_tab;
+    hadal->interface.keycodes[KEY_LEFTSHIFT]  = hadal_keycode_left_shift;
+    hadal->interface.keycodes[KEY_RIGHTSHIFT] = hadal_keycode_right_shift;
+    hadal->interface.keycodes[KEY_LEFTCTRL]   = hadal_keycode_left_control;
+    hadal->interface.keycodes[KEY_RIGHTCTRL]  = hadal_keycode_right_control;
+    hadal->interface.keycodes[KEY_LEFTALT]    = hadal_keycode_left_alt;
+    hadal->interface.keycodes[KEY_RIGHTALT]   = hadal_keycode_right_alt;
+    hadal->interface.keycodes[KEY_LEFTMETA]   = hadal_keycode_left_super;
+    hadal->interface.keycodes[KEY_RIGHTMETA]  = hadal_keycode_right_super;
+    hadal->interface.keycodes[KEY_COMPOSE]    = hadal_keycode_menu;
+    hadal->interface.keycodes[KEY_NUMLOCK]    = hadal_keycode_num_lock;
+    hadal->interface.keycodes[KEY_CAPSLOCK]   = hadal_keycode_caps_lock;
+    hadal->interface.keycodes[KEY_PRINT]      = hadal_keycode_print_screen;
+    hadal->interface.keycodes[KEY_SCROLLLOCK] = hadal_keycode_scroll_lock;
+    hadal->interface.keycodes[KEY_PAUSE]      = hadal_keycode_pause;
+    hadal->interface.keycodes[KEY_DELETE]     = hadal_keycode_delete;
+    hadal->interface.keycodes[KEY_BACKSPACE]  = hadal_keycode_backspace;
+    hadal->interface.keycodes[KEY_ENTER]      = hadal_keycode_enter;
+    hadal->interface.keycodes[KEY_HOME]       = hadal_keycode_home;
+    hadal->interface.keycodes[KEY_END]        = hadal_keycode_end;
+    hadal->interface.keycodes[KEY_PAGEUP]     = hadal_keycode_page_up;
+    hadal->interface.keycodes[KEY_PAGEDOWN]   = hadal_keycode_page_down;
+    hadal->interface.keycodes[KEY_INSERT]     = hadal_keycode_insert;
+    hadal->interface.keycodes[KEY_LEFT]       = hadal_keycode_left;
+    hadal->interface.keycodes[KEY_RIGHT]      = hadal_keycode_right;
+    hadal->interface.keycodes[KEY_DOWN]       = hadal_keycode_down;
+    hadal->interface.keycodes[KEY_UP]         = hadal_keycode_up;
+    hadal->interface.keycodes[KEY_F1]         = hadal_keycode_f1;
+    hadal->interface.keycodes[KEY_F2]         = hadal_keycode_f2;
+    hadal->interface.keycodes[KEY_F3]         = hadal_keycode_f3;
+    hadal->interface.keycodes[KEY_F4]         = hadal_keycode_f4;
+    hadal->interface.keycodes[KEY_F5]         = hadal_keycode_f5;
+    hadal->interface.keycodes[KEY_F6]         = hadal_keycode_f6;
+    hadal->interface.keycodes[KEY_F7]         = hadal_keycode_f7;
+    hadal->interface.keycodes[KEY_F8]         = hadal_keycode_f8;
+    hadal->interface.keycodes[KEY_F9]         = hadal_keycode_f9;
+    hadal->interface.keycodes[KEY_F10]        = hadal_keycode_f10;
+    hadal->interface.keycodes[KEY_F11]        = hadal_keycode_f11;
+    hadal->interface.keycodes[KEY_F12]        = hadal_keycode_f12;
+    hadal->interface.keycodes[KEY_F13]        = hadal_keycode_f13;
+    hadal->interface.keycodes[KEY_F14]        = hadal_keycode_f14;
+    hadal->interface.keycodes[KEY_F15]        = hadal_keycode_f15;
+    hadal->interface.keycodes[KEY_F16]        = hadal_keycode_f16;
+    hadal->interface.keycodes[KEY_F17]        = hadal_keycode_f17;
+    hadal->interface.keycodes[KEY_F18]        = hadal_keycode_f18;
+    hadal->interface.keycodes[KEY_F19]        = hadal_keycode_f19;
+    hadal->interface.keycodes[KEY_F20]        = hadal_keycode_f20;
+    hadal->interface.keycodes[KEY_F21]        = hadal_keycode_f21;
+    hadal->interface.keycodes[KEY_F22]        = hadal_keycode_f22;
+    hadal->interface.keycodes[KEY_F23]        = hadal_keycode_f23;
+    hadal->interface.keycodes[KEY_F24]        = hadal_keycode_f24;
+    hadal->interface.keycodes[KEY_KPSLASH]    = hadal_keycode_kp_divide;
+    hadal->interface.keycodes[KEY_KPASTERISK] = hadal_keycode_kp_multiply;
+    hadal->interface.keycodes[KEY_KPMINUS]    = hadal_keycode_kp_subtract;
+    hadal->interface.keycodes[KEY_KPPLUS]     = hadal_keycode_kp_add;
+    hadal->interface.keycodes[KEY_KP0]        = hadal_keycode_kp_0;
+    hadal->interface.keycodes[KEY_KP1]        = hadal_keycode_kp_1;
+    hadal->interface.keycodes[KEY_KP2]        = hadal_keycode_kp_2;
+    hadal->interface.keycodes[KEY_KP3]        = hadal_keycode_kp_3;
+    hadal->interface.keycodes[KEY_KP4]        = hadal_keycode_kp_4;
+    hadal->interface.keycodes[KEY_KP5]        = hadal_keycode_kp_5;
+    hadal->interface.keycodes[KEY_KP6]        = hadal_keycode_kp_6;
+    hadal->interface.keycodes[KEY_KP7]        = hadal_keycode_kp_7;
+    hadal->interface.keycodes[KEY_KP8]        = hadal_keycode_kp_8;
+    hadal->interface.keycodes[KEY_KP9]        = hadal_keycode_kp_9;
+    hadal->interface.keycodes[KEY_KPDOT]      = hadal_keycode_kp_decimal;
+    hadal->interface.keycodes[KEY_KPEQUAL]    = hadal_keycode_kp_equal;
+    hadal->interface.keycodes[KEY_KPENTER]    = hadal_keycode_kp_enter;
+    hadal->interface.keycodes[KEY_102ND]      = hadal_keycode_world_2;
 
     for (s32 scancode = 0; scancode < 256; scancode++)
-        if (wayland->interface.keycodes[scancode] > 0)
-            wayland->interface.scancodes[wayland->interface.keycodes[scancode]] = scancode;
+        if (hadal->interface.keycodes[scancode] > 0)
+            hadal->interface.scancodes[hadal->interface.keycodes[scancode]] = scancode;
 }
 
-static void wayland_encore_zero_ref(struct hadal_encore *wayland)
+static void hadal_encore_zero_ref(struct hadal_encore *hadal)
 {
-    if (!wayland)
+    if (!hadal)
         return;
 
 #ifdef HADAL_WAYLAND_LIBDECOR
-    if (wayland->shell.libdecor)
-        libdecor_unref(wayland->shell.libdecor);
-    if (wayland->module_libdecor)
-        bedrock_module_close(wayland->module_libdecor);
+    if (hadal->shell.libdecor)
+        libdecor_unref(hadal->shell.libdecor);
+    if (hadal->module_libdecor)
+        bedrock_module_close(hadal->module_libdecor);
 #endif /* HADAL_WAYLAND_LIBDECOR */
 
-    if (wayland->xkb_compose_state)
-        xkb_compose_state_unref(wayland->xkb_compose_state);
-    if (wayland->xkb_keymap)
-        xkb_keymap_unref(wayland->xkb_keymap);
-    if (wayland->xkb_state)
-        xkb_state_unref(wayland->xkb_state);
-    if (wayland->xkb_context)
-        xkb_context_unref(wayland->xkb_context);
-    if (wayland->module_xkbcommon)
-        bedrock_module_close(wayland->module_xkbcommon);
+    if (hadal->xkb_compose_state)
+        xkb_compose_state_unref(hadal->xkb_compose_state);
+    if (hadal->xkb_keymap)
+        xkb_keymap_unref(hadal->xkb_keymap);
+    if (hadal->xkb_state)
+        xkb_state_unref(hadal->xkb_state);
+    if (hadal->xkb_context)
+        xkb_context_unref(hadal->xkb_context);
+    if (hadal->module_xkbcommon)
+        bedrock_module_close(hadal->module_xkbcommon);
 
-    for (u32 i = 0; i < wayland->cursor_themes_count; i++)
-        wl_cursor_theme_destroy(wayland->cursor_themes[i].theme);
-    if (wayland->cursor_shape_manager)
-        wp_cursor_shape_manager_v1_destroy(wayland->cursor_shape_manager);
-    if (wayland->module_cursor)
-        bedrock_module_close(wayland->module_cursor);
+    for (u32 i = 0; i < hadal->cursor_themes_count; i++)
+        wl_cursor_theme_destroy(hadal->cursor_themes[i].theme);
+    if (hadal->cursor_shape_manager)
+        wp_cursor_shape_manager_v1_destroy(hadal->cursor_shape_manager);
+    if (hadal->module_cursor)
+        bedrock_module_close(hadal->module_cursor);
 
-    if (wayland->subcompositor)
-        wl_subcompositor_destroy(wayland->subcompositor);
-    if (wayland->compositor)
-        wl_compositor_destroy(wayland->compositor);
-    if (wayland->shm)
-        wl_shm_destroy(wayland->shm);
-    if (wayland->shell.xdg)
-        xdg_wm_base_destroy(wayland->shell.xdg);
-    if (wayland->seat)
-        wl_seat_destroy(wayland->seat);
-    if (wayland->viewporter)
-        wp_viewporter_destroy(wayland->viewporter);
-    if (wayland->decoration_manager)
-        zxdg_decoration_manager_v1_destroy(wayland->decoration_manager);
-    if (wayland->primary_selection_device_manager)
-        zwp_primary_selection_device_manager_v1_destroy(wayland->primary_selection_device_manager);
-    if (wayland->data_device_manager)
-        wl_data_device_manager_destroy(wayland->data_device_manager);
-    if (wayland->relative_pointer_manager)
-        zwp_relative_pointer_manager_v1_destroy(wayland->relative_pointer_manager);
-    if (wayland->pointer_constraints)
-        zwp_pointer_constraints_v1_destroy(wayland->pointer_constraints);
-    if (wayland->idle_inhibit_manager)
-        zwp_idle_inhibit_manager_v1_destroy(wayland->idle_inhibit_manager);
-    if (wayland->activation_manager)
-        xdg_activation_v1_destroy(wayland->activation_manager);
-    if (wayland->fractional_scale_manager)
-        wp_fractional_scale_manager_v1_destroy(wayland->fractional_scale_manager);
-    if (wayland->registry)
-        wl_registry_destroy(wayland->registry);
-    if (wayland->display) {
-        wayland->wl.display_flush(wayland->display);
-        wayland->wl.display_disconnect(wayland->display);
+    if (hadal->subcompositor)
+        wl_subcompositor_destroy(hadal->subcompositor);
+    if (hadal->compositor)
+        wl_compositor_destroy(hadal->compositor);
+    if (hadal->shm)
+        wl_shm_destroy(hadal->shm);
+    if (hadal->shell.xdg)
+        xdg_wm_base_destroy(hadal->shell.xdg);
+    if (hadal->seat)
+        wl_seat_destroy(hadal->seat);
+    if (hadal->viewporter)
+        wp_viewporter_destroy(hadal->viewporter);
+    if (hadal->decoration_manager)
+        zxdg_decoration_manager_v1_destroy(hadal->decoration_manager);
+    if (hadal->primary_selection_device_manager)
+        zwp_primary_selection_device_manager_v1_destroy(hadal->primary_selection_device_manager);
+    if (hadal->data_device_manager)
+        wl_data_device_manager_destroy(hadal->data_device_manager);
+    if (hadal->relative_pointer_manager)
+        zwp_relative_pointer_manager_v1_destroy(hadal->relative_pointer_manager);
+    if (hadal->pointer_constraints)
+        zwp_pointer_constraints_v1_destroy(hadal->pointer_constraints);
+    if (hadal->idle_inhibit_manager)
+        zwp_idle_inhibit_manager_v1_destroy(hadal->idle_inhibit_manager);
+    if (hadal->activation_manager)
+        xdg_activation_v1_destroy(hadal->activation_manager);
+    if (hadal->fractional_scale_manager)
+        wp_fractional_scale_manager_v1_destroy(hadal->fractional_scale_manager);
+    if (hadal->registry)
+        wl_registry_destroy(hadal->registry);
+    if (hadal->display) {
+        hadal->wl.display_flush(hadal->display);
+        hadal->wl.display_disconnect(hadal->display);
     }
-    if (wayland->module_client)
-        bedrock_module_close(wayland->module_client);
+    if (hadal->module_client)
+        bedrock_module_close(hadal->module_client);
 
-    bedrock_zerop(wayland);
+    bedrock_zerop(hadal);
     g_wayland = NULL;
 }
 
 FN_RIVEN_ENCORE(hadal, wayland)
 {
-    const char *msg = "'hadal: wayland'";
-
-    (void)metadata;
-    (void)riven_hints;
-    (void)userdata;
+    const char *name = "hadal_wayland";
 
     /* we allow only one Wayland backend instance to exist at a time */
     if (lake_unlikely(g_wayland != NULL))
@@ -1614,21 +1610,21 @@ FN_RIVEN_ENCORE(hadal, wayland)
 
     void *module_client = bedrock_module_open("libwayland-client.so.0");
     if (!module_client)
-        bedrock_log_debug("%s libwayland-client.so.0 is missing.", msg);
+        bedrock_log_debug("'%s' libwayland-client.so.0 is missing.", name);
 
     void *module_cursor = bedrock_module_open("libwayland-cursor.so.0");
     if (!module_cursor)
-        bedrock_log_debug("%s libwayland-cursor.so.0 is missing.", msg);
+        bedrock_log_debug("'%s' libwayland-cursor.so.0 is missing.", name);
 
     void *module_xkbcommon = bedrock_module_open("libxkbcommon.so.0");
     if (!module_xkbcommon)
-        bedrock_log_debug("%s libxkbcommon.so.0 is missing.", msg);
+        bedrock_log_debug("'%s' libxkbcommon.so.0 is missing.", name);
 
 #ifdef HADAL_WAYLAND_LIBDECOR
     /* optional */
     void *module_libdecor = bedrock_module_open("libdecor-0.so.0");
     if (!module_libdecor)
-        bedrock_log_debug("%s optional libdecor.so.0 is missing, this feature will be disabled.", msg);
+        bedrock_log_debug("'%s' optional libdecor.so.0 is missing, this feature will be disabled.", name);
 #endif /* HADAL_WAYLAND_LIBDECOR */
 
     if (!module_client || !module_cursor || !module_xkbcommon) {
@@ -1639,70 +1635,69 @@ disconnect:
         bedrock_module_close(module_xkbcommon);
         bedrock_module_close(module_cursor);
         bedrock_module_close(module_client);
-        wayland_encore_zero_ref(g_wayland);
+        hadal_encore_zero_ref(g_wayland);
         return NULL;
     }
 
     PFN_wl_display_connect display_connect = (PFN_wl_display_connect)
         bedrock_get_proc_address(module_client, "wl_display_connect");
     if (!display_connect) {
-        bedrock_log_debug("%s can't load 'wl_display_connect'.", msg);
+        bedrock_log_debug("'%s' can't load 'wl_display_connect'.", name);
         goto disconnect;
     }
 
     struct wl_display *display = display_connect(NULL);
     if (!display)  {
-        bedrock_log_debug("%s can't connect to a Wayland display, make sure you're running a Wayland compositor.", msg);
+        bedrock_log_debug("'%s' can't connect to a Wayland display, make sure you're running a Wayland compositor.", name);
         goto disconnect;
     }
 
-    struct hadal_encore *wayland = (struct hadal_encore *)
-        riven_thalloc(riven, tag, lake_sizeof(struct hadal_encore), lake_alignof(struct hadal_encore));
-    bedrock_zerop(wayland);
+    struct hadal_encore *hadal = (struct hadal_encore *)
+        riven_thalloc(context->self, tag, lake_sizeof(struct hadal_encore), lake_alignof(struct hadal_encore));
+    bedrock_zerop(hadal);
 
-    wayland->display = display;
-    wayland->wl.display_connect = display_connect;
-    wayland->module_client = module_client;
-    wayland->module_cursor = module_cursor;
-    wayland->module_xkbcommon = module_xkbcommon;
+    hadal->display = display;
+    hadal->wl.display_connect = display_connect;
+    hadal->module_client = module_client;
+    hadal->module_cursor = module_cursor;
+    hadal->module_xkbcommon = module_xkbcommon;
 #ifdef HADAL_WAYLAND_LIBDECOR
-    wayland->module_libdecor = module_libdecor;
+    hadal->module_libdecor = module_libdecor;
 #endif /* HADAL_WAYLAND_LIBDECOR */
 
     /* write the header */
-    wayland->interface.header.riven = riven;
-    wayland->interface.header.tag = tag;
-    wayland->interface.header.name = "hadal";
-    wayland->interface.header.backend = "wayland";
-    wayland->interface.header.zero_ref_callback = (PFN_riven_work)wayland_encore_zero_ref;
-    g_wayland = wayland;
+    hadal->interface.riven.context = *context;
+    hadal->interface.riven.tag = tag;
+    hadal->interface.riven.name = name;
+    hadal->interface.riven.zero_ref_callback = (PFN_riven_work)hadal_encore_zero_ref;
+    g_wayland = hadal;
 
-    if (!load_symbols(wayland, msg))
+    if (!load_symbols(hadal, name))
         goto disconnect;
 
-    wayland->key_repeat_timerfd = -1;
-    wayland->cursor_timerfd = -1;
+    hadal->key_repeat_timerfd = -1;
+    hadal->cursor_timerfd = -1;
 
-    wayland->registry = wl_display_get_registry(wayland->display);
-    wl_registry_add_listener(wayland->registry, &registry_listener, wayland);
-    create_key_tables(wayland);
+    hadal->registry = wl_display_get_registry(hadal->display);
+    wl_registry_add_listener(hadal->registry, &registry_listener, hadal);
+    create_key_tables(hadal);
 
-    wayland->xkb_context = xkb_context_new(0);
-    if (!wayland->xkb_context) {
-        bedrock_log_debug("%s failed to initialize XKB context.", msg);
+    hadal->xkb_context = xkb_context_new(0);
+    if (!hadal->xkb_context) {
+        bedrock_log_debug("'%s' failed to initialize XKB context.", name);
         goto disconnect;
     }
 
     /* sync to get all registry objects */
-    wl_display_roundtrip(wayland->display);
+    wl_display_roundtrip(hadal->display);
 
     /* sync to get initial output events */
-    wl_display_roundtrip(wayland->display);
+    wl_display_roundtrip(hadal->display);
 
 #ifdef HADAL_WAYLAND_LIBDECOR
     if (module_libdecor) {
         //wayland->shell.libdecor = libdecor_new(display, &libdecor_interface);
-        if (wayland->shell.libdecor) {
+        if (hadal->shell.libdecor) {
             /* perform an initial dispatch and flush to get the init started */
             //libdecor_dispatch(wayland->shell.libdecor, 0);
 
@@ -1712,15 +1707,15 @@ disconnect:
 #endif /* HADAL_WAYLAND_LIBDECOR */
 
     /* write the interface */
-    wayland->interface.window_create = _hadal_wayland_window_create;
-    wayland->interface.window_destroy = _hadal_wayland_window_destroy;
-    wayland->interface.window_visibility = _hadal_wayland_window_visibility;
+    hadal->interface.window_create = _hadal_wayland_window_create;
+    hadal->interface.window_destroy = _hadal_wayland_window_destroy;
+    hadal->interface.window_visibility = _hadal_wayland_window_visibility;
 #ifdef XAKU_VULKAN
-    wayland->interface.vulkan_write_instance = _hadal_wayland_vulkan_write_instance;
-    wayland->interface.vulkan_presentation_support = _hadal_wayland_vulkan_presentation_support;
-    wayland->interface.vulkan_surface_create = _hadal_wayland_vulkan_surface_create;
+    hadal->interface.vulkan_write_instance = _hadal_wayland_vulkan_write_instance;
+    hadal->interface.vulkan_presentation_support = _hadal_wayland_vulkan_presentation_support;
+    hadal->interface.vulkan_surface_create = _hadal_wayland_vulkan_surface_create;
 #endif /* XAKU_VULKAN */
-    return wayland;
+    return hadal;
 }
 
 #include "wayland-protocol-code.h"

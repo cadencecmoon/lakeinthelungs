@@ -1,6 +1,6 @@
 #pragma once
 
-#include <amwe/hadal/encore.h>
+#include <amwe/display/hadal_encore.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -47,9 +47,9 @@ enum hadal_window_flags {
     hadal_window_flag_should_close      = (1u << 18),
 };
 
-typedef lake_nodiscard enum hadal_result (LAKECALL *PFN_hadal_window_create)(struct hadal_encore *encore, struct hadal_window **out_window);
+typedef lake_nodiscard enum hadal_result (LAKECALL *PFN_hadal_window_create)(struct hadal_encore *hadal, struct hadal_window **out_window);
 #define FN_HADAL_WINDOW_CREATE(ENCORE) \
-    lake_nodiscard enum hadal_result LAKECALL _hadal_##ENCORE##_window_create(struct hadal_encore *ENCORE, struct hadal_window **out_window)
+    lake_nodiscard enum hadal_result LAKECALL _hadal_##ENCORE##_window_create(struct hadal_encore *hadal, struct hadal_window **out_window)
 
 typedef void (LAKECALL *PFN_hadal_window_destroy)(struct hadal_window *window);
 #define FN_HADAL_WINDOW_DESTROY(ENCORE) \
@@ -61,7 +61,7 @@ typedef u32 (LAKECALL *PFN_hadal_window_visibility)(struct hadal_window *window,
 
 #define HADAL_INTERFACE_WINDOW_HEADER \
     /**< The encore that was used to create this native window. */ \
-    struct hadal_encore *encore;
+    struct hadal_encore *hadal;
 
 /** A view into a window. */
 union hadal_window_view {

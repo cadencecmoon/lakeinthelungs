@@ -16,10 +16,6 @@ struct hadal_window;
 struct hadal_monitor;
 struct hadal_encore;
 
-struct hadal_encore_assembly {
-    u32 todo;
-};
-
 #if defined(LAKE_PLATFORM_WINDOWS)
 LAKEAPI FN_RIVEN_ENCORE(hadal, win32);
 #elif defined(LAKE_PLATFORM_APPLE_MACOS)
@@ -50,14 +46,7 @@ hadal_native_encores(bool null_fallback, u32 *out_encore_count);
 
 enum hadal_result {
     hadal_result_success = 0,
-};
-
-/** A view into the backend. */
-union hadal_encore_view {
-    struct riven_interface_header          *header;
-    struct hadal_interface                 *interface;
-    struct hadal_encore                    *encore;
-    void                                   *data;
+    hadal_result_max_enum = 0x7FFFFFFF,
 };
 
 /* Connection to graphics APIs: */
@@ -72,21 +61,21 @@ struct VkPhysicalDevice_T;
 struct VkAllocationCallbacks;
 typedef void (*(*PFN_vkGetInstanceProcAddr)(struct VkInstance_T *, const char *))(void);
 
-#define ARGS_HADAL_VULKAN_WRITE_INSTANCE(ENCORE) \
-    struct hadal_encore                *ENCORE, \
+#define ARGS_HADAL_VULKAN_WRITE_INSTANCE \
+    struct hadal_encore                *hadal, \
     struct VkInstance_T                *instance, \
     PFN_vkGetInstanceProcAddr           vkGetInstanceProcAddr
-typedef bool (LAKECALL *PFN_hadal_vulkan_write_instance)(ARGS_HADAL_VULKAN_WRITE_INSTANCE(encore));
+typedef bool (LAKECALL *PFN_hadal_vulkan_write_instance)(ARGS_HADAL_VULKAN_WRITE_INSTANCE);
 #define FN_HADAL_VULKAN_WRITE_INSTANCE(ENCORE) \
-    bool LAKECALL _hadal_##ENCORE##_vulkan_write_instance(ARGS_HADAL_VULKAN_WRITE_INSTANCE(ENCORE))
+    bool LAKECALL _hadal_##ENCORE##_vulkan_write_instance(ARGS_HADAL_VULKAN_WRITE_INSTANCE)
 
-#define ARGS_HADAL_VULKAN_PRESENTATION_SUPPORT(ENCORE) \
-    const struct hadal_encore          *ENCORE, \
+#define ARGS_HADAL_VULKAN_PRESENTATION_SUPPORT \
+    const struct hadal_encore          *hadal, \
     struct VkPhysicalDevice_T          *physical_device, \
     u32                                 queue_family_index
-typedef bool (LAKECALL *PFN_hadal_vulkan_presentation_support)(ARGS_HADAL_VULKAN_PRESENTATION_SUPPORT(encore));
+typedef bool (LAKECALL *PFN_hadal_vulkan_presentation_support)(ARGS_HADAL_VULKAN_PRESENTATION_SUPPORT);
 #define FN_HADAL_VULKAN_PRESENTATION_SUPPORT(ENCORE) \
-    bool LAKECALL _hadal_##ENCORE##_vulkan_presentation_support(ARGS_HADAL_VULKAN_PRESENTATION_SUPPORT(ENCORE))
+    bool LAKECALL _hadal_##ENCORE##_vulkan_presentation_support(ARGS_HADAL_VULKAN_PRESENTATION_SUPPORT)
 
 #define ARGS_HADAL_VULKAN_SURFACE_CREATE \
     const struct hadal_window          *window, \

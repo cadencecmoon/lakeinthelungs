@@ -10,22 +10,30 @@ extern "C" {
 #define XAKU_MAX_PUSH_CONSTANT_BYTE_SIZE (XAKU_MAX_PUSH_CONSTANT_WORD_SIZE * 4)
 #define XAKU_PIPELINE_LAYOUT_COUNT       (XAKU_MAX_PUSH_CONSTANT_WORD_SIZE + 1)
 
-/* opaque handles, implemented by the backend */
+/** A rendering device is the context of execution, used to create resources and run commands on the GPU. */
 struct xaku_device;
+/** Represents a block of device memory (most often VRAM). It can be passed into creation of 
+ *  different GPU resources to reuse allocated memory. */
 struct xaku_memory;
+/** Query pools are used to gather GPU execution statistics, like timestamps, occlusion queries,
+ *  or pipelines stats - counting how many vertices, primitves, or fragments were processed, etc. 
+ *  They are important for profiling, visibility queries and conditional rendering. */
 struct xaku_query_pool;
+/** The swapchain is a way to present rendered images into a window surface. This surface is owned by 
+ *  the display backend, thus Hadal is interfaced to create a surface we can draw into. */
 struct xaku_swapchain;
+/** Defines the configuration of a pipeline for compute work. */
 struct xaku_compute_pipeline;
+/** Defines the configuration of a pipeline for rasterization. */
 struct xaku_raster_pipeline;
+/** Defines the configuration of a pipeline for accelerated ray tracing. */
 struct xaku_ray_tracing_pipeline;
+/** The context in which GPU commands are recorded for submission, externally synchronized. */
 struct xaku_command_recorder;
+/** A list of recorded GPU commands that can be submited for work. */
 struct xaku_executable_command_list;
+/* The interface implementation - backends like Vulkan, D3D12, Metal, etc. */
 struct xaku_encore;
-
-/** Userdata argument for any Xaku encore. */
-struct xaku_encore_assembly {
-    u32 enable_debug_utils;
-};
 
 #ifdef XAKU_D3D12
 LAKEAPI FN_RIVEN_ENCORE(xaku, d3d12);
@@ -47,35 +55,14 @@ LAKEAPI FN_RIVEN_ENCORE(xaku, null);
 LAKEAPI lake_nonnull(2) const PFN_riven_encore *LAKECALL 
 xaku_native_encores(bool null_fallback, u32 *out_encore_count);
 
-/** Used to assemble an object that uses an internal reference counter: devices, swapchains, pipelines, etc. */
-#define ARGS_XAKU_ASSEMBLY(SRC, T) \
-    struct xaku_##SRC                *SRC, \
-    const struct xaku_##T##_assembly *assembly, \
-    struct xaku_##T                 **out_##T
-#define PFN_XAKU_ASSEMBLY(SRC, T) \
-    typedef lake_nodiscard enum xaku_result (LAKECALL *PFN_xaku_##T##_assembly)(ARGS_XAKU_ASSEMBLY(SRC, T))
-#define FN_XAKU_ASSEMBLY(ENCORE, SRC, T) \
-    lake_nodiscard enum xaku_result LAKECALL _xaku_##ENCORE##_##T##_assembly(ARGS_XAKU_ASSEMBLY(SRC, T))
-
-/** Used as a callback for zero reference count, or to explicitly destroy an object.
- *  Can be run as a job with Riven, cast into PFN_riven_work. */
-#define PFN_XAKU_DISASSEMBLY(T) \
-    typedef void (LAKECALL *PFN_xaku_##T##_disassembly)(struct xaku_##T *T)
-#define FN_XAKU_DISASSEMBLY(ENCORE, T) \
-    void LAKECALL _xaku_##ENCORE##_##T##_disassembly(struct xaku_##T *T)
-
 /** Must be implemented as the first member of a 'xaku_device' implementation. */
 #define XAKU_INTERFACE_DEVICE_HEADER \
-    /** The encore used to create this device. Does not modify the refcnt, as it's owned by Riven. */ \
-    struct xaku_encore                     *encore; \
+    /** The encore used to create this device. */ \
+    struct xaku_encore                     *xaku; \
     /** The device may be destroyed when the reference count reaches zero. */ \
     atomic_u64                              refcnt; \
     /** A pointer to Riven for convenience. */ \
-    struct riven                           *riven; \
-    /** The lifetime of this device, used for non scratch allocations. */ \
-    riven_tag_t                             riven_tag; \
-    /** Index of the device, used within a mGPU context. */ \
-    u32                                     index; \
+    const struct riven_context             *riven; \
     /** Acquired from an internal physical device, tied to the encore and not a device. */ \
     const struct xaku_device_properties    *properties; \
     /** The assembly details used to create this device. */ \
@@ -219,15 +206,9 @@ enum xaku_result {
     xaku_result_error_compute_family_cmd_on_transfer_queue_recorder     = (1 << 30) + 72,
     xaku_result_error_main_family_cmd_on_transfer_queue_recorder        = (1 << 30) + 73,
     xaku_result_error_main_family_cmd_on_compute_queue_recorder         = (1 << 30) + 74,
+    xaku_result_error_device_capacity_reached                           = (1 << 30) + 75,
+    xaku_result_allocation_callback                                     = (1 << 30) + 76,
     xaku_result_max_enum                                                = 0x7FFFFFFF,
-};
-
-/** A view into the backend. */
-union xaku_encore_view {
-    struct riven_interface_header          *header;
-    struct xaku_interface                  *interface;
-    struct xaku_encore                     *encore;
-    void                                   *data;
 };
 
 #ifdef __cplusplus

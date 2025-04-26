@@ -32,6 +32,12 @@ if enable_devtools
     defs += '-DLAKE_IMGUI=1'
 endif
 
+# connect with the slang compiler
+dep_slang = dependency('slang', fallback : ['slang', 'dep_slang'])
+if dep_slang.found()
+    defs += '-DLAKE_SLANG=1'
+endif
+
 # check if Vulkan SDK is available, we'll link to Vulkan at runtime
 dep_vulkan = dependency('vulkan', required : get_option('vulkan'))
 dep_vma = dependency('VulkanMemoryAllocator', 
@@ -40,11 +46,9 @@ dep_vma = dependency('VulkanMemoryAllocator',
 vulkan_found = dep_vulkan.found() and dep_vma.found()
 if vulkan_found
     sources += files(
+        'vk_backend.c',
         'vk_command_recorder.c',
         'vk_device.c',
-        'vk_drivers.c',
-        'vk_gpu_allocator.c',
-        'vk_gpu_resources.c',
         'vk_mem_alloc.cpp',
         'vk_pipelines.c',
         'vk_swapchain.c',

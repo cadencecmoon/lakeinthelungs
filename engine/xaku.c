@@ -28,11 +28,11 @@ const PFN_riven_encore *xaku_native_encores(bool null_fallback, u32 *out_encore_
 
 extern FN_RIVEN_INTERFACE_VALIDATION(xaku)
 {
-    const char *fmt = "'%s: %s' is missing an interface procedure - 'PFN_xaku_%s'.";
+    const char *fmt = "'%s' is missing an interface procedure - 'PFN_xaku_%s'.";
     bool valid = true;
 
 #define VALIDATE(FN) \
-    if (interface->FN == NULL) { bedrock_log_debug(fmt, interface->header.name, interface->header.backend, #FN); valid = false; }
+    if (interface->FN == NULL) { bedrock_log_debug(fmt, interface->riven.name, #FN); valid = false; }
 
     VALIDATE(list_devices_properties)
     VALIDATE(device_assembly)
@@ -125,40 +125,4 @@ extern FN_RIVEN_INTERFACE_VALIDATION(xaku)
 #undef VALIDATE
 
     return valid;
-}
-
-#ifdef XAKU_D3D12
-FN_RIVEN_ENCORE_STUB(xaku, d3d12)
-#endif /* XAKU_D3D12 */
-#ifdef XAKU_METAL
-FN_RIVEN_ENCORE_STUB(xaku, metal)
-#endif /* XAKU_METAL */
-#ifdef XAKU_WEBGPU
-FN_RIVEN_ENCORE_STUB(xaku, webgpu)
-#endif /* XAKU_WEBGPU */
-
-enum xaku_result xaku_renderer_init(
-    const struct xaku_renderer_assembly *assembly,
-    struct xaku_renderer                *out_renderer)
-{
-    out_renderer->xaku = assembly->xaku;
-    out_renderer->strategy = assembly->strategy;
-
-    riven_inc_refcnt(&out_renderer->xaku.header->refcnt);
-    return xaku_result_success;
-}
-
-u32 xaku_renderer_fini(struct xaku_renderer *renderer, struct riven_work *out_zero_refcnt)
-{
-    if (!renderer->xaku.data)
-        return 0;
-
-    u32 prev = riven_dec_refcnt(&renderer->xaku.header->refcnt);
-    if (prev == 1) {
-        out_zero_refcnt->procedure = renderer->xaku.header->zero_ref_callback;
-        out_zero_refcnt->userdata = renderer->xaku.data;
-        out_zero_refcnt->name = "xaku_fini:zero_refcnt";
-        bedrock_log_verbose("xaku zero ref trace");
-    }
-    return prev;
 }

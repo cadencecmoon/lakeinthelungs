@@ -1,14 +1,31 @@
 #pragma once
 
-#include <amwe/xaku/encore.h>
-#include <amwe/xaku/gpu_resources.h>
-#include <amwe/xaku/pipelines.h>
-#include <amwe/xaku/commands.h>
+#include <amwe/graphics/xaku_encore.h>
+#include <amwe/graphics/xaku_gpu_resources.h>
+#include <amwe/graphics/xaku_pipelines.h>
+#include <amwe/graphics/xaku_command_recorder.h>
 #include <amwe/hadal.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
+
+/** Used to assemble an object that uses an internal reference counter: devices, swapchains, pipelines, etc. */
+#define ARGS_XAKU_RESOURCE_ASSEMBLY(T) \
+    struct xaku_device         *device, \
+    struct xaku_##T##_assembly *assembly, \
+    struct xaku_##T           **out_##T
+#define PFN_XAKU_RESOURCE_ASSEMBLY(T) \
+    typedef lake_nodiscard enum xaku_result (LAKECALL *PFN_xaku_##T##_assembly)(ARGS_XAKU_RESOURCE_ASSEMBLY(T));
+#define FN_XAKU_RESOURCE_ASSEMBLY(ENCORE, T) \
+    lake_nodiscard enum xaku_result LAKECALL _xaku_##ENCORE##_##T##_assembly(ARGS_XAKU_RESOURCE_ASSEMBLY(T))
+
+/** Used as a callback for zero reference count, or to explicitly destroy an object.
+ *  Can be run as a job with Riven, cast into PFN_riven_work. */
+#define PFN_XAKU_DISASSEMBLY(T) \
+    typedef void (LAKECALL *PFN_xaku_##T##_disassembly)(struct xaku_##T *T)
+#define FN_XAKU_DISASSEMBLY(ENCORE, T) \
+    void LAKECALL _xaku_##ENCORE##_##T##_disassembly(struct xaku_##T *T)
 
 #define XAKU_MAX_COMPUTE_QUEUE_COUNT            8
 #define XAKU_MAX_TRANSFER_QUEUE_COUNT           2
@@ -301,19 +318,19 @@ struct xaku_device_properties {
     u32                                                     implicit_features;          /**< enum xaku_implicit_feature_bits  */
     u32                                                     explicit_features;          /**< enum xaku_explicit_feature_bits */
     u64                                                     missing_required_feature;   /**< enum xaku_missing_required_feature_bits */
+    u64                                                     total_score;
 }; 
 
 struct xaku_device_assembly {
     /** Index into a list of devices returned from PFN_xaku_encore_list_devices_properties. */
     u32                     physical_device_index;
-    /** Index into an external list of devices where this handle will be used within a mGPU context. */
-    u32                     assign_index;
     /** Explicit features must be manually enabled. */
     u32                     explicit_features;
     u32                     max_allowed_textures;
     u32                     max_allowed_buffers;
     u32                     max_allowed_samplers;
     u32                     max_allowed_acceleration_structures;
+    struct lake_allocation  allocation;
     lake_small_string       name;
 };
 #define XAKU_DEFAULT_DEVICE_ASSEMBLY { \
@@ -405,13 +422,19 @@ struct xaku_swapchain_assembly {
     .name = LAKE_ZERO_INIT, \
 }
 
-typedef void (LAKECALL *PFN_xaku_list_devices_properties)(struct xaku_encore *encore, u32 *property_count, const struct xaku_device_properties **properties);
+typedef void (LAKECALL *PFN_xaku_list_devices_properties)(struct xaku_encore *xaku, u32 *property_count, const struct xaku_device_properties **properties);
 #define FN_XAKU_LIST_DEVICES_PROPERTIES(ENCORE) \
-    void LAKECALL _xaku_##ENCORE##_list_devices_properties(struct xaku_encore *encore, u32 *property_count, const struct xaku_device_properties **properties)
+    void LAKECALL _xaku_##ENCORE##_list_devices_properties(struct xaku_encore *xaku, u32 *property_count, const struct xaku_device_properties **properties)
 
-PFN_XAKU_ASSEMBLY(encore, device);
+#define ARGS_XAKU_DEVICE_ASSEMBLY \
+    struct xaku_encore          *xaku, \
+    struct xaku_device_assembly *assembly, \
+    struct xaku_device         **out_device
+typedef lake_nodiscard enum xaku_result (LAKECALL *PFN_xaku_device_assembly)(ARGS_XAKU_DEVICE_ASSEMBLY);
+#define FN_XAKU_DEVICE_ASSEMBLY(ENCORE) \
+    lake_nodiscard enum xaku_result LAKECALL _xaku_##ENCORE##_device_assembly(ARGS_XAKU_DEVICE_ASSEMBLY)
+
 PFN_XAKU_DISASSEMBLY(device);
-#define FN_XAKU_DEVICE_ASSEMBLY(ENCORE)     FN_XAKU_ASSEMBLY(ENCORE, encore, device)
 #define FN_XAKU_DEVICE_DISASSEMBLY(ENCORE)  FN_XAKU_DISASSEMBLY(ENCORE, device)
 
 /** Retrieve the number of queues available for a given queue type. On optional queues
@@ -436,9 +459,9 @@ typedef lake_nodiscard enum xaku_result (LAKECALL *PFN_xaku_device_submit)(struc
     lake_nodiscard enum xaku_result LAKECALL _xaku_##ENCORE##_device_submit(struct xaku_device *device, struct xaku_executable_command_list *cmd_list)
 
 /** Present swapchain images, used by a primary device that supports presentation to the window surface. */
-typedef lake_nodiscard enum xaku_result (LAKECALL *PFN_xaku_device_present)(struct xaku_device *device, const struct xaku_swapchain **swapchains, u32 swapchain_count);
+typedef lake_nodiscard enum xaku_result (LAKECALL *PFN_xaku_device_present)(struct xaku_device *device, struct xaku_swapchain **swapchains, u32 swapchain_count);
 #define FN_XAKU_DEVICE_PRESENT(ENCORE) \
-    lake_nodiscard enum xaku_result LAKECALL _xaku_##ENCORE##_device_present(struct xaku_device *device, const struct xaku_swapchain **swapchains, u32 swapchain_count)
+    lake_nodiscard enum xaku_result LAKECALL _xaku_##ENCORE##_device_present(struct xaku_device *device, struct xaku_swapchain **swapchains, u32 swapchain_count)
 
 /** Execute the deferred disassembly work as jobs, from disassembly zero reference callbacks of zombie GPU resources.
  *  Whether a resource becomes a zombie or not is decided in the backend, at a disassembly call. */
@@ -446,56 +469,56 @@ typedef lake_nodiscard enum xaku_result (LAKECALL *PFN_xaku_deferred_resource_di
 #define FN_XAKU_DEFERRED_RESOURCE_DISASSEMBLY(ENCORE) \
     lake_nodiscard enum xaku_result LAKECALL _xaku_##ENCORE##_deferred_resource_disassembly(struct xaku_device *device)
 
-PFN_XAKU_ASSEMBLY(device, memory);
+PFN_XAKU_RESOURCE_ASSEMBLY(memory)
 PFN_XAKU_DISASSEMBLY(memory);
-#define FN_XAKU_MEMORY_ASSEMBLY(ENCORE)                     FN_XAKU_ASSEMBLY(ENCORE, device, memory)
+#define FN_XAKU_MEMORY_ASSEMBLY(ENCORE)                     FN_XAKU_RESOURCE_ASSEMBLY(ENCORE, memory)
 #define FN_XAKU_MEMORY_DISASSEMBLY(ENCORE)                  FN_XAKU_DISASSEMBLY(ENCORE, memory)
 
 /** Get GPU memory requirements for a buffer. */
-typedef void (LAKECALL *PFN_xaku_memory_buffer_requirements)(struct xaku_device *device, const struct xaku_buffer_assembly *assembly, struct xaku_memory_requirements *out_requirements);
+typedef void (LAKECALL *PFN_xaku_memory_buffer_requirements)(struct xaku_device *device, struct xaku_buffer_assembly *assembly, struct xaku_memory_requirements *out_requirements);
 #define FN_XAKU_MEMORY_BUFFER_REQUIREMENTS(ENCORE) \
-    void LAKECALL _xaku_##ENCORE##_memory_buffer_requirements(struct xaku_device *device, const struct xaku_buffer_assembly *assembly, struct xaku_memory_requirements *out_requirements)
+    void LAKECALL _xaku_##ENCORE##_memory_buffer_requirements(struct xaku_device *device, struct xaku_buffer_assembly *assembly, struct xaku_memory_requirements *out_requirements)
 
 /** Get GPU memory requirements for a texture. */
-typedef void (LAKECALL *PFN_xaku_memory_texture_requirements)(struct xaku_device *device, const struct xaku_texture_assembly *assembly, struct xaku_memory_requirements *out_requirements);
+typedef void (LAKECALL *PFN_xaku_memory_texture_requirements)(struct xaku_device *device, struct xaku_texture_assembly *assembly, struct xaku_memory_requirements *out_requirements);
 #define FN_XAKU_MEMORY_TEXTURE_REQUIREMENTS(ENCORE) \
-    void LAKECALL _xaku_##ENCORE##_memory_texture_requirements(struct xaku_device *device, const struct xaku_texture_assembly *assembly, struct xaku_memory_requirements *out_requirements)
+    void LAKECALL _xaku_##ENCORE##_memory_texture_requirements(struct xaku_device *device, struct xaku_texture_assembly *assembly, struct xaku_memory_requirements *out_requirements)
 
-PFN_XAKU_ASSEMBLY(device, query_pool);
+PFN_XAKU_RESOURCE_ASSEMBLY(query_pool);
 PFN_XAKU_DISASSEMBLY(query_pool);
-#define FN_XAKU_QUERY_POOL_ASSEMBLY(ENCORE)                 FN_XAKU_ASSEMBLY(ENCORE, device, query_pool)
+#define FN_XAKU_QUERY_POOL_ASSEMBLY(ENCORE)                 FN_XAKU_RESOURCE_ASSEMBLY(ENCORE, query_pool)
 #define FN_XAKU_QUERY_POOL_DISASSEMBLY(ENCORE)              FN_XAKU_DISASSEMBLY(ENCORE, query_pool)
 
-PFN_XAKU_ASSEMBLY(device, swapchain);
+PFN_XAKU_RESOURCE_ASSEMBLY(swapchain);
 PFN_XAKU_DISASSEMBLY(swapchain);
-#define FN_XAKU_SWAPCHAIN_ASSEMBLY(ENCORE)                  FN_XAKU_ASSEMBLY(ENCORE, device, swapchain)
+#define FN_XAKU_SWAPCHAIN_ASSEMBLY(ENCORE)                  FN_XAKU_RESOURCE_ASSEMBLY(ENCORE, swapchain)
 #define FN_XAKU_SWAPCHAIN_DISASSEMBLY(ENCORE)               FN_XAKU_DISASSEMBLY(ENCORE, swapchain)
 
-PFN_XAKU_ASSEMBLY(device, compute_pipeline);
+PFN_XAKU_RESOURCE_ASSEMBLY(compute_pipeline);
 PFN_XAKU_DISASSEMBLY(compute_pipeline);
-#define FN_XAKU_COMPUTE_PIPELINE_ASSEMBLY(ENCORE)           FN_XAKU_ASSEMBLY(ENCORE, device, compute_pipeline)
+#define FN_XAKU_COMPUTE_PIPELINE_ASSEMBLY(ENCORE)           FN_XAKU_RESOURCE_ASSEMBLY(ENCORE, compute_pipeline)
 #define FN_XAKU_COMPUTE_PIPELINE_DISASSEMBLY(ENCORE)        FN_XAKU_DISASSEMBLY(ENCORE, compute_pipeline)
 
-PFN_XAKU_ASSEMBLY(device, raster_pipeline);
+PFN_XAKU_RESOURCE_ASSEMBLY(raster_pipeline);
 PFN_XAKU_DISASSEMBLY(raster_pipeline);
-#define FN_XAKU_RASTER_PIPELINE_ASSEMBLY(ENCORE)            FN_XAKU_ASSEMBLY(ENCORE, device, raster_pipeline)
+#define FN_XAKU_RASTER_PIPELINE_ASSEMBLY(ENCORE)            FN_XAKU_RESOURCE_ASSEMBLY(ENCORE, raster_pipeline)
 #define FN_XAKU_RASTER_PIPELINE_DISASSEMBLY(ENCORE)         FN_XAKU_DISASSEMBLY(ENCORE, raster_pipeline)
 
-PFN_XAKU_ASSEMBLY(device, ray_tracing_pipeline);
+PFN_XAKU_RESOURCE_ASSEMBLY(ray_tracing_pipeline);
 PFN_XAKU_DISASSEMBLY(ray_tracing_pipeline);
-#define FN_XAKU_RAY_TRACING_PIPELINE_ASSEMBLY(ENCORE)       FN_XAKU_ASSEMBLY(ENCORE, device, ray_tracing_pipeline)
+#define FN_XAKU_RAY_TRACING_PIPELINE_ASSEMBLY(ENCORE)       FN_XAKU_RESOURCE_ASSEMBLY(ENCORE, ray_tracing_pipeline)
 #define FN_XAKU_RAY_TRACING_PIPELINE_DISASSEMBLY(ENCORE)    FN_XAKU_DISASSEMBLY(ENCORE, ray_tracing_pipeline)
 
-PFN_XAKU_ASSEMBLY(device, command_recorder);
+PFN_XAKU_RESOURCE_ASSEMBLY(command_recorder);
 PFN_XAKU_DISASSEMBLY(command_recorder);
-#define FN_XAKU_COMMAND_RECORDER_ASSEMBLY(ENCORE)           FN_XAKU_ASSEMBLY(ENCORE, device, command_recorder)
+#define FN_XAKU_COMMAND_RECORDER_ASSEMBLY(ENCORE)           FN_XAKU_RESOURCE_ASSEMBLY(ENCORE, command_recorder)
 #define FN_XAKU_COMMAND_RECORDER_DISASSEMBLY(ENCORE)        FN_XAKU_DISASSEMBLY(ENCORE, command_recorder)
 
 /** Create a GPU resource using a render handle. */
 #define PFN_XAKU_CREATE_RESOURCE(NAME, T, ID) \
-    typedef lake_nodiscard enum xaku_result (LAKECALL *PFN_xaku_create_##NAME)(struct xaku_device *device, const struct xaku_##T##_assembly *assembly, xaku_##ID##_id *out_##ID);
+    typedef lake_nodiscard enum xaku_result (LAKECALL *PFN_xaku_create_##NAME)(struct xaku_device *device, struct xaku_##T##_assembly *assembly, xaku_##ID##_id *out_##ID);
 #define FN_XAKU_CREATE_RESOURCE(ENCORE, NAME, T, ID) \
-    lake_nodiscard enum xaku_result LAKECALL _xaku_##ENCORE##_create_##NAME(struct xaku_device *device, const struct xaku_##T##_assembly *assembly, xaku_##ID##_id *out_##ID)
+    lake_nodiscard enum xaku_result LAKECALL _xaku_##ENCORE##_create_##NAME(struct xaku_device *device, struct xaku_##T##_assembly *assembly, xaku_##ID##_id *out_##ID)
 
 PFN_XAKU_CREATE_RESOURCE(buffer, buffer, buffer)
 PFN_XAKU_CREATE_RESOURCE(buffer_from_memory, buffer_memory, buffer)
@@ -537,13 +560,13 @@ PFN_XAKU_GET_RESOURCE_ASSEMBLY(blas)
 #define FN_XAKU_GET_TLAS_ASSEMBLY(ENCORE)           FN_XAKU_GET_RESOURCE_ASSEMBLY(ENCORE, tlas)
 #define FN_XAKU_GET_BLAS_ASSEMBLY(ENCORE)           FN_XAKU_GET_RESOURCE_ASSEMBLY(ENCORE, blas)
 
-typedef lake_nodiscard enum xaku_result (LAKECALL *PFN_xaku_get_tlas_build_sizes)(struct xaku_device *device, const struct xaku_tlas_assembly *assembly, struct xaku_acceleration_structure_build_sizes *out_sizes);
+typedef lake_nodiscard enum xaku_result (LAKECALL *PFN_xaku_get_tlas_build_sizes)(struct xaku_device *device, struct xaku_tlas_assembly *assembly, struct xaku_acceleration_structure_build_sizes *out_sizes);
 #define FN_XAKU_GET_TLAS_BUILD_SIZES(ENCORE) \
-    lake_nodiscard enum xaku_result LAKECALL _xaku_##ENCORE##_get_tlas_build_sizes(struct xaku_device *device, const struct xaku_tlas_assembly *assembly, struct xaku_acceleration_structure_build_sizes *out_sizes)
+    lake_nodiscard enum xaku_result LAKECALL _xaku_##ENCORE##_get_tlas_build_sizes(struct xaku_device *device, struct xaku_tlas_assembly *assembly, struct xaku_acceleration_structure_build_sizes *out_sizes)
 
-typedef lake_nodiscard enum xaku_result (LAKECALL *PFN_xaku_get_blas_build_sizes)(struct xaku_device *device, const struct xaku_blas_assembly *assembly, struct xaku_acceleration_structure_build_sizes *out_sizes);
+typedef lake_nodiscard enum xaku_result (LAKECALL *PFN_xaku_get_blas_build_sizes)(struct xaku_device *device, struct xaku_blas_assembly *assembly, struct xaku_acceleration_structure_build_sizes *out_sizes);
 #define FN_XAKU_GET_BLAS_BUILD_SIZES(ENCORE) \
-    lake_nodiscard enum xaku_result LAKECALL _xaku_##ENCORE##_get_blas_build_sizes(struct xaku_device *device, const struct xaku_blas_assembly *assembly, struct xaku_acceleration_structure_build_sizes *out_sizes)
+    lake_nodiscard enum xaku_result LAKECALL _xaku_##ENCORE##_get_blas_build_sizes(struct xaku_device *device, struct xaku_blas_assembly *assembly, struct xaku_acceleration_structure_build_sizes *out_sizes)
 
 /** Destroy a GPU resource using a render handle. */
 #define PFN_XAKU_DESTROY_RESOURCE(T) \

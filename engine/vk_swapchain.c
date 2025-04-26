@@ -1,7 +1,17 @@
 #include "vk_xaku.h"
 #ifdef XAKU_VULKAN
 
-FN_XAKU_SWAPCHAIN_ASSEMBLY(vulkan);
-FN_XAKU_SWAPCHAIN_DISASSEMBLY(vulkan);
+FN_XAKU_SWAPCHAIN_ASSEMBLY(vulkan)
+{
+    (void)device;
+    (void)assembly;
+    (void)out_swapchain;
+    return xaku_result_max_enum;
+}
+
+FN_XAKU_SWAPCHAIN_DISASSEMBLY(vulkan)
+{
+    (void)swapchain;
+}
 
 #endif /* XAKU_VULKAN */

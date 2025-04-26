@@ -1627,6 +1627,12 @@ struct lake_rect2d {
     struct lake_extent2d extent;
 };
 
+struct lake_allocation {
+    void *data;
+    usize size;
+    usize alignment;
+};
+
 #define LAKE_MS_PER_SECOND       1000
 #define LAKE_US_PER_SECOND       1000000
 #define LAKE_NS_PER_SECOND       1000000000LL

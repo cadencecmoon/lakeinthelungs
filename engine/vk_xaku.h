@@ -41,8 +41,8 @@ FN_XAKU_CREATE_TEXTURE_FROM_MEMORY(vulkan);
 FN_XAKU_CREATE_TEXTURE_VIEW(vulkan);
 FN_XAKU_CREATE_SAMPLER(vulkan);
 FN_XAKU_CREATE_TLAS(vulkan);
-FN_XAKU_CREATE_BLAS(vulkan);
 FN_XAKU_CREATE_TLAS_FROM_BUFFER(vulkan);
+FN_XAKU_CREATE_BLAS(vulkan);
 FN_XAKU_CREATE_BLAS_FROM_BUFFER(vulkan);
 
 FN_XAKU_GET_BUFFER_ASSEMBLY(vulkan);
@@ -148,45 +148,6 @@ FN_XAKU_COMPILE_COMMAND_LIST(vulkan);
 
 #include <vk_mem_alloc.h>
 
-enum physical_device_extension_bits {
-    physical_device_extension_khr_swapchain = 0llu,                 /**< VK_KHR_swapchain */
-    physical_device_extension_ext_device_fault,                     /**< VK_EXT_device_fault */
-    physical_device_extension_ext_memory_budget,                    /**< VK_EXT_memory_budget */
-    physical_device_extension_ext_memory_priority,                  /**< VK_EXT_memory_priority */
-    physical_device_extension_ext_mesh_shader,                      /**< VK_EXT_mesh_shader */
-    physical_device_extension_khr_fragment_shading_rate,            /**< VK_KHR_fragment_shading_rate */
-    physical_device_extension_khr_deferred_host_operations,         /**< VK_KHR_deferred_host_operations */
-    physical_device_extension_khr_acceleration_structure,           /**< VK_KHR_acceleration_structure */
-    physical_device_extension_khr_pipeline_library,                 /**< VK_KHR_pipeline_library */
-    physical_device_extension_khr_ray_query,                        /**< VK_KHR_ray_query */
-    physical_device_extension_khr_ray_tracing_pipeline,             /**< VK_KHR_ray_tracing_pipeline */
-    physical_device_extension_khr_ray_tracing_maintenance1,         /**< VK_KHR_ray_tracing_maintenance1 */
-    physical_device_extension_khr_ray_tracing_position_fetch,       /**< VK_KHR_ray_tracing_position_fetch */
-    physical_device_extension_khr_video_queue,                      /**< VK_KHR_video_queue */
-    physical_device_extension_khr_video_decode_queue,               /**< VK_KHR_video_decode_queue */
-    physical_device_extension_khr_video_decode_av1,                 /**< VK_KHR_video_decode_av1 */
-    physical_device_extension_khr_video_decode_h264,                /**< VK_KHR_video_decode_h264 */
-    physical_device_extension_khr_video_maintenance1,               /**< VK_KHR_video_maintenance1 */
-    physical_device_extension_ext_extended_dynamic_state3,          /**< VK_EXT_extended_dynamic_state3 */
-    physical_device_extension_ext_robustness2,                      /**< VK_EXT_robustness2 */
-    physical_device_extension_ext_shader_image_atomic_int64,        /**< VK_EXT_shader_image_atomic_int64 */
-    physical_device_extension_ext_shader_atomic_float,              /**< VK_EXT_shader_atomic_float */
-    physical_device_extension_ext_conservative_rasterization,       /**< VK_EXT_conservative_rasterization */
-    /* NVIDIA hardware */
-    physical_device_extension_nv_ray_tracing_invocation_reorder,    /**< VK_NV_ray_tracing_invocation_reorder */
-    /* AMD hardware */
-    physical_device_extension_amd_device_coherent_memory,           /**< VK_AMD_device_coherent_memory */
-    /* core 1.4, for backwards compatibility */
-    physical_device_extension_khr_dynamic_rendering_local_read,     /**< VK_KHR_dynamic_rendering_local_read */
-    physical_device_extension_khr_maintenance5,                     /**< VK_KHR_maintenance5 */
-    /* core 1.3, for backwards compatibility */
-    physical_device_extension_khr_dynamic_rendering,                /**< VK_KHR_dynamic_rendering */
-    physical_device_extension_khr_synchronization2,                 /**< VK_KHR_synchronization2 */
-    physical_device_extension_khr_maintenance4,                     /**< VK_KHR_maintenance4 */
-    /** if this exceeds 64, we may need to split the values holding extension bits */
-    physical_device_extension_count,
-};
-
 struct vulkan_queue_family {
     u32 queue_count;
     u32 vk_index;
@@ -196,67 +157,82 @@ struct vulkan_queue_family {
 /** Holds information about physical devices available. We query this once,
  *  and reference them whenever we create a rendering device. */
 struct vulkan_physical_device {
-    struct xaku_device_properties                               xaku_properties;
-
+    struct xaku_device_properties                                   xaku_properties;
     /** A handle of the physical device this structure holds information for. */
-    VkPhysicalDevice                                            vk_physical_device;
-    u64                                                         extension_bits;
+    VkPhysicalDevice                                                vk_physical_device;
+    u64                                                             vk_extension_bits;
 
-    struct vulkan_queue_family                                  queue_families[xaku_queue_type_max_enum];
+    struct vulkan_queue_family                                      queue_families[xaku_queue_type_max_enum];
     /** Unique queue family indices present in this device. */
-    u32                                                         valid_queue_family_indices[xaku_queue_type_max_enum];
+    u32                                                             valid_queue_family_indices[xaku_queue_type_max_enum];
     /** How many unique queue families are present. */
-    u32                                                         valid_queue_family_count;
+    u32                                                             valid_queue_family_count;
 
     /** Information about hardware properties of the physical device. */
-    VkPhysicalDeviceProperties2                                 properties2;
-    VkPhysicalDeviceVulkan14Properties                          properties_14;
-    VkPhysicalDeviceVulkan13Properties                          properties_13;
-    VkPhysicalDeviceVulkan12Properties                          properties_12;
-    VkPhysicalDeviceVulkan11Properties                          properties_11;
-    VkPhysicalDeviceAccelerationStructurePropertiesKHR          acceleration_structure_properties;
-    VkPhysicalDeviceRayTracingPipelinePropertiesKHR             raytracing_pipeline_properties;
-    VkPhysicalDeviceDescriptorIndexingProperties                descriptor_indexing_properties;
-    VkPhysicalDeviceFragmentShadingRatePropertiesKHR            fragment_shading_rate_properties;
-    VkPhysicalDeviceMeshShaderPropertiesEXT                     mesh_shader_properties;
+    VkPhysicalDeviceProperties2                                     properties2;
+    VkPhysicalDeviceAccelerationStructurePropertiesKHR              acceleration_structure_properties;
+    VkPhysicalDeviceRayTracingPipelinePropertiesKHR                 ray_tracing_pipeline_properties;
+    VkPhysicalDeviceRayTracingInvocationReorderPropertiesNV         ray_tracing_invocation_reorder_properties;
+    VkPhysicalDeviceDescriptorIndexingProperties                    descriptor_indexing_properties;
+    VkPhysicalDeviceFragmentShadingRatePropertiesKHR                fragment_shading_rate_properties;
+    VkPhysicalDeviceMeshShaderPropertiesEXT                         mesh_shader_properties;
+    VkPhysicalDeviceRobustness2PropertiesEXT                        robustness2_properties;
+    VkPhysicalDeviceSubgroupSizeControlProperties                   subgroup_size_control_properties;
+    VkPhysicalDeviceTimelineSemaphoreProperties                     timeline_semaphore_properties;
 
     /* Information about device memory properties. */
-    VkPhysicalDeviceMemoryProperties2                           memory_properties2;
-    VkPhysicalDeviceMemoryBudgetPropertiesEXT                   memory_budget;
+    VkPhysicalDeviceMemoryProperties2                               memory_properties2;
+    VkPhysicalDeviceMemoryBudgetPropertiesEXT                       memory_budget;
 
     /** Information about features supported by the physical device. */
-    VkPhysicalDeviceFeatures2                                   features2;
-    VkPhysicalDeviceVulkan14Features                            features_14;
-    VkPhysicalDeviceVulkan13Features                            features_13;
-    VkPhysicalDeviceVulkan12Features                            features_12;
-    VkPhysicalDeviceVulkan11Features                            features_11;
-    VkPhysicalDeviceAccelerationStructureFeaturesKHR            acceleration_structure_features;
-    VkPhysicalDeviceRayTracingPipelineFeaturesKHR               raytracing_pipeline_features;
-    VkPhysicalDeviceRayQueryFeaturesKHR                         ray_query_features;
-    VkPhysicalDeviceDescriptorIndexingFeatures                  descriptor_indexing_features;
-    VkPhysicalDeviceDynamicRenderingFeatures                    dynamic_rendering_features;
-    VkPhysicalDeviceDynamicRenderingLocalReadFeatures           dynamic_rendering_local_read_features;
-    VkPhysicalDeviceSynchronization2Features                    synchronization2_features;
-    VkPhysicalDeviceFragmentShadingRateFeaturesKHR              fragment_shading_rate_features;
-    VkPhysicalDeviceMeshShaderFeaturesEXT                       mesh_shader_features;
+    VkPhysicalDeviceFeatures2                                       features2;
+    VkPhysicalDeviceAccelerationStructureFeaturesKHR                acceleration_structure_features;
+    VkPhysicalDeviceRayTracingPipelineFeaturesKHR                   ray_tracing_pipeline_features;
+    VkPhysicalDeviceRayTracingPositionFetchFeaturesKHR              ray_tracing_position_fetch_features;
+    VkPhysicalDeviceRayTracingInvocationReorderFeaturesNV           ray_tracing_invocation_reorder_features;
+    VkPhysicalDeviceRayQueryFeaturesKHR                             ray_query_features;
+    VkPhysicalDeviceDescriptorIndexingFeatures                      descriptor_indexing_features;
+    VkPhysicalDeviceFragmentShadingRateFeaturesKHR                  fragment_shading_rate_features;
+    VkPhysicalDeviceMeshShaderFeaturesEXT                           mesh_shader_features;
+    VkPhysicalDeviceShaderAtomicFloatFeaturesEXT                    shader_atomic_float_features;
+    VkPhysicalDeviceShaderAtomicInt64Features                       shader_atomic_int64_features;
+    VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT               shader_image_atomic_int64_features;
+    VkPhysicalDeviceShaderFloat16Int8Features                       shader_float16_int8_features;
+    VkPhysicalDeviceVulkanMemoryModelFeatures                       vulkan_memory_model_features;
+    VkPhysicalDeviceRobustness2FeaturesEXT                          robustness2_features;
+    VkPhysicalDevice16BitStorageFeatures                            bit16_storage_features;
+    VkPhysicalDevice8BitStorageFeatures                             bit8_storage_features;
+    VkPhysicalDeviceExtendedDynamicState3FeaturesEXT                extended_dynamic_state3_features;
+    VkPhysicalDeviceVariablePointerFeatures                         variable_pointer_features;
+    VkPhysicalDeviceHostQueryResetFeatures                          host_query_reset_features;
+    VkPhysicalDeviceBufferDeviceAddressFeatures                     buffer_device_address_features;
+    VkPhysicalDeviceScalarBlockLayoutFeatures                       scalar_block_layout_features;
+    VkPhysicalDeviceSubgroupSizeControlFeatures                     subgroup_size_control_features;
+    VkPhysicalDeviceTimelineSemaphoreFeatures                       timeline_semaphore_features;
+    VkPhysicalDeviceSynchronization2Features                        synchronization2_features;
+    VkPhysicalDeviceDynamicRenderingUnusedAttachmentsFeaturesEXT    dynamic_rendering_unused_attachments_features;
+    VkPhysicalDeviceDynamicRenderingLocalReadFeatures               dynamic_rendering_local_read_features;
+    VkPhysicalDeviceDynamicRenderingFeatures                        dynamic_rendering_features;
+    bool has_swapchain, has_conservative_rasterization;
 
     /** Information about capabilities of accelerated video coding. */
-    VkVideoDecodeH264ProfileInfoKHR                             decode_h264_profile;
-    VkVideoDecodeH264CapabilitiesKHR                            decode_h264_capabilities;
-    VkVideoDecodeAV1ProfileInfoKHR                              decode_av1_profile;
-    VkVideoDecodeAV1CapabilitiesKHR                             decode_av1_capabilities;
+    VkVideoDecodeH264ProfileInfoKHR                                 decode_h264_profile;
+    VkVideoDecodeH264CapabilitiesKHR                                decode_h264_capabilities;
+    VkVideoDecodeAV1ProfileInfoKHR                                  decode_av1_profile;
+    VkVideoDecodeAV1CapabilitiesKHR                                 decode_av1_capabilities;
 
     struct vulkan_video_capability {
-        VkVideoProfileInfoKHR                                   profile;
-        VkVideoDecodeCapabilitiesKHR                            decode_capabilities;
-        VkVideoCapabilitiesKHR                                  video_capabilities;
+        VkVideoProfileInfoKHR                                       profile;
+        VkVideoDecodeCapabilitiesKHR                                decode_capabilities;
+        VkVideoEncodeCapabilitiesKHR                                encode_capabilities;
+        VkVideoCapabilitiesKHR                                      video_capabilities;
     } video_h264_capability, video_av1_capability;
 };
 
 struct xaku_device_memory {
     XAKU_INTERFACE_DEVICE_RESOURCE_HEADER(memory)
     const char                         *name;
-    VmaAllocation                       allocation;
+    VmaAllocation                       vma_allocation;
 };
 
 struct xaku_query_pool {
@@ -725,6 +701,9 @@ struct xaku_device {
     /* device fault */
     PFN_vkGetDeviceFaultInfoEXT                                 vkGetDeviceFaultInfoEXT;
 
+    /* dynamic state 3 */
+    PFN_vkCmdSetRasterizationSamplesEXT                         vkCmdSetRasterizationSamplesEXT;
+
     /* mesh shader */
     PFN_vkCmdDrawMeshTasksEXT                                   vkCmdDrawMeshTasksEXT;
     PFN_vkCmdDrawMeshTasksIndirectEXT                           vkCmdDrawMeshTasksIndirectEXT;
@@ -765,22 +744,23 @@ struct xaku_device {
     PFN_vkGetRayTracingShaderGroupHandlesKHR                    vkGetRayTracingShaderGroupHandlesKHR;
     PFN_vkGetRayTracingShaderGroupStackSizeKHR                  vkGetRayTracingShaderGroupStackSizeKHR;
 
-    /* dynamic state */
-    PFN_vkCmdSetRasterizationSamplesEXT                         vkCmdSetRasterizationSamplesEXT;
-
     /* video coding */
     PFN_vkBindVideoSessionMemoryKHR                             vkBindVideoSessionMemoryKHR;
     PFN_vkCmdBeginVideoCodingKHR                                vkCmdBeginVideoCodingKHR;
     PFN_vkCmdControlVideoCodingKHR                              vkCmdControlVideoCodingKHR;
     PFN_vkCmdDecodeVideoKHR                                     vkCmdDecodeVideoKHR;
+    PFN_vkCmdEncodeVideoKHR                                     vkCmdEncodeVideoKHR;
     PFN_vkCmdEndVideoCodingKHR                                  vkCmdEndVideoCodingKHR;
     PFN_vkCreateVideoSessionKHR                                 vkCreateVideoSessionKHR;
     PFN_vkCreateVideoSessionParametersKHR                       vkCreateVideoSessionParametersKHR;
     PFN_vkDestroyVideoSessionKHR                                vkDestroyVideoSessionKHR;
     PFN_vkDestroyVideoSessionParametersKHR                      vkDestroyVideoSessionParametersKHR;
+    PFN_vkGetEncodedVideoSessionParametersKHR                   vkGetEncodedVideoSessionParametersKHR;
     PFN_vkGetVideoSessionMemoryRequirementsKHR                  vkGetVideoSessionMemoryRequirementsKHR;
     PFN_vkUpdateVideoSessionParametersKHR                       vkUpdateVideoSessionParametersKHR;
 };
+
+extern enum xaku_result LAKECALL vulkan_device_assembly_helper(struct xaku_device *device);
 
 struct xaku_encore {
     struct xaku_interface                                       interface;
@@ -796,6 +776,7 @@ struct xaku_encore {
     u32                                                         physical_device_count;
 
     /** The loaded driver library. */
+    u32                                                         api_version;
     void                                                       *module_vulkan;
 
     /* access points */
@@ -853,17 +834,22 @@ struct xaku_encore {
     /* video coding */
     PFN_vkGetPhysicalDeviceVideoCapabilitiesKHR                 vkGetPhysicalDeviceVideoCapabilitiesKHR;
     PFN_vkGetPhysicalDeviceVideoFormatPropertiesKHR             vkGetPhysicalDeviceVideoFormatPropertiesKHR;
+    PFN_vkGetPhysicalDeviceVideoEncodeQualityLevelPropertiesKHR vkGetPhysicalDeviceVideoEncodeQualityLevelPropertiesKHR;
 };
 
-extern void LAKECALL vulkan_device_zero_ref_callback(struct xaku_device *device);
-extern void LAKECALL vulkan_device_memory_zero_ref_callback(struct xaku_device_memory *memory);
-extern void LAKECALL vulkan_query_pool_zero_ref_callback(struct xaku_query_pool *query_pool);
-extern void LAKECALL vulkan_swapchain_zero_ref_callback(struct xaku_swapchain *swapchain);
-extern void LAKECALL vulkan_compute_pipeline_zero_ref_callback(struct xaku_compute_pipeline *pipeline);
-extern void LAKECALL vulkan_raster_pipeline_zero_ref_callback(struct xaku_raster_pipeline *pipeline);
-extern void LAKECALL vulkan_ray_tracing_pipeline_zero_ref_callback(struct xaku_ray_tracing_pipeline *pipeline);
-extern void LAKECALL vulkan_command_recorder_zero_ref_callback(struct xaku_command_recorder *cmd);
-extern void LAKECALL vulkan_executable_command_list_zero_ref_callback(struct xaku_executable_command_list *cmd_list);
+extern const char *LAKECALL vulkan_result_string(VkResult result);
+
+#if !defined(NDEBUG)
+    #define VERIFY_VK(x) { \
+        VkResult res__ = (x); \
+        if (res__ != VK_SUCCESS) { \
+            bedrock_log_error("Failed to assert VK_SUCCESS for: %s, Vulkan message: %s", #x, vulkan_result_string(res__)); \
+            bedrock_assert_debug(!"VkResult assertion"); \
+        } \
+    }
+#else
+    #define VERIFY_VK(x) (void)(x)
+#endif
 
 extern void LAKECALL 
 vulkan_write_descriptor_set_sampler(
