@@ -1,7 +1,7 @@
 #include <amwe/a_moonlit_walk.h>
 
 /* XXX delete later */
-#define DEBUG_CLOSE_COUNTER 128
+#define DEBUG_CLOSE_COUNTER 1024
 
 #define ENCORE_COUNT 4
 #define PIPELINE_WORK_COUNT 16
@@ -137,6 +137,10 @@ static lake_hot void LAKECALL prepare_pipeline_work(struct amwe_pipeline_work *w
     work->profiling.gpuexec_end_time = 0;
     work->stage_result = amwe_pipeline_stage_result_continue;
 }
+
+static void LAKECALL a_moonlit_walk_simulation(struct amwe_pipeline_work *work);
+static void LAKECALL a_moonlit_walk_rendering(struct amwe_pipeline_work *work);
+static void LAKECALL a_moonlit_walk_gpuexec(struct amwe_pipeline_work *work);
 
 s32 a_moonlit_walk(
     struct riven             *riven,
@@ -336,6 +340,42 @@ s32 a_moonlit_walk(
     if (stage_result == amwe_pipeline_stage_result_restart_application)
         exitcode = INT32_MAX;
     return exitcode;
+}
+
+void a_moonlit_walk_simulation(struct amwe_pipeline_work *work)
+{
+    bedrock_assert_debug(work);
+#ifdef RIVEN_ENABLE_PROFILER
+    work->profiling.simulation_begin_time = bedrock_rtc_counter();
+#endif /* RIVEN_ENABLE_PROFILER */
+
+#ifdef RIVEN_ENABLE_PROFILER
+    work->profiling.simulation_end_time = bedrock_rtc_counter();
+#endif /* RIVEN_ENABLE_PROFILER */
+}
+
+void a_moonlit_walk_rendering(struct amwe_pipeline_work *work)
+{
+    bedrock_assert_debug(work);
+#ifdef RIVEN_ENABLE_PROFILER
+    work->profiling.rendering_begin_time = bedrock_rtc_counter();
+#endif /* RIVEN_ENABLE_PROFILER */
+
+#ifdef RIVEN_ENABLE_PROFILER
+    work->profiling.rendering_end_time = bedrock_rtc_counter();
+#endif /* RIVEN_ENABLE_PROFILER */
+}
+
+void a_moonlit_walk_gpuexec(struct amwe_pipeline_work *work)
+{
+    bedrock_assert_debug(work);
+#ifdef RIVEN_ENABLE_PROFILER
+    work->profiling.gpuexec_begin_time = bedrock_rtc_counter();
+#endif /* RIVEN_ENABLE_PROFILER */
+
+#ifdef RIVEN_ENABLE_PROFILER
+    work->profiling.gpuexec_end_time = bedrock_rtc_counter();
+#endif /* RIVEN_ENABLE_PROFILER */
 }
 
 s32 a_moonlit_walk_entry_point__(

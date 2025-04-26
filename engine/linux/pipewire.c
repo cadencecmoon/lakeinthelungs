@@ -99,13 +99,13 @@ static FN_SOMA_DEVICE_QUERY(pipewire)
     (void)pipewire;
     (void)default_playback;
     (void)default_recording;
-    return soma_result_success;
+    return lake_result_success;
 }
 
 static FN_SOMA_DEVICE_OPEN(pipewire)
 {
     (void)pipewire;
-    return soma_result_success;
+    return lake_result_success;
 }
 
 static FN_SOMA_DEVICE_CLOSE(pipewire)

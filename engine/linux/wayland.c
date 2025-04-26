@@ -370,7 +370,6 @@ struct wayland_cursor_theme {
 struct hadal_window {
     HADAL_INTERFACE_WINDOW_HEADER
     atomic_u32                          flags;
-    const char                         *title;
     const char                         *tag;
     struct wl_surface                  *surface;
 
@@ -896,14 +895,15 @@ static void destroy_window_shell_objects(struct hadal_window *window)
     }
 }
 
-static FN_HADAL_WINDOW_CREATE(wayland)
+static FN_HADAL_WINDOW_ASSEMBLY(wayland)
 {
     (void)hadal;
+    (void)assembly;
     (void)out_window;
-    return hadal_result_success;
+    return lake_result_max_enum;
 }
 
-static FN_HADAL_WINDOW_DESTROY(wayland)
+static FN_HADAL_WINDOW_DISASSEMBLY(wayland)
 {
     destroy_window_shell_objects(window);
 
@@ -974,7 +974,13 @@ static FN_HADAL_VULKAN_SURFACE_CREATE(wayland)
         .display = hadal->display,
         .surface = window->surface,
     };
-    return (enum xaku_result)hadal->vulkan.vkCreateWaylandSurfaceKHR(hadal->vulkan.instance, &surface_info, callbacks, out_surface);
+    s32 result = hadal->vulkan.vkCreateWaylandSurfaceKHR(hadal->vulkan.instance, &surface_info, callbacks, out_surface);
+
+    if (result == -1)
+        return lake_result_error_out_of_host_memory;
+    else if (result == -2)
+        return lake_result_error_out_of_device_memory;
+    return lake_result_success;
 }
 #endif /* XAKU_VULKAN */
 
@@ -1707,8 +1713,8 @@ disconnect:
 #endif /* HADAL_WAYLAND_LIBDECOR */
 
     /* write the interface */
-    hadal->interface.window_create = _hadal_wayland_window_create;
-    hadal->interface.window_destroy = _hadal_wayland_window_destroy;
+    hadal->interface.window_assembly = _hadal_wayland_window_assembly;
+    hadal->interface.window_disassembly = _hadal_wayland_window_disassembly;
     hadal->interface.window_visibility = _hadal_wayland_window_visibility;
 #ifdef XAKU_VULKAN
     hadal->interface.vulkan_write_instance = _hadal_wayland_vulkan_write_instance;

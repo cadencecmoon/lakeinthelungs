@@ -148,6 +148,48 @@ FN_XAKU_COMPILE_COMMAND_LIST(vulkan);
 
 #include <vk_mem_alloc.h>
 
+enum vulkan_missing_required_feature {
+    vulkan_missing_required_feature_none = 0u,
+    vulkan_missing_required_feature_image_cube_array,
+    vulkan_missing_required_feature_independent_blend,
+    vulkan_missing_required_feature_tesselation_shader,
+    vulkan_missing_required_feature_multi_draw_indirect,
+    vulkan_missing_required_feature_depth_clamp,
+    vulkan_missing_required_feature_fill_mode_non_solid,
+    vulkan_missing_required_feature_wide_lines,
+    vulkan_missing_required_feature_sampler_anisotrophy,
+    vulkan_missing_required_feature_fragment_stores_and_atomics,
+    vulkan_missing_required_feature_shader_storage_image_multisample,
+    vulkan_missing_required_feature_shader_storage_image_read_without_format,
+    vulkan_missing_required_feature_shader_storage_image_write_without_format,
+    vulkan_missing_required_feature_shader_int64,
+    vulkan_missing_required_feature_variable_pointers_storage_buffer,
+    vulkan_missing_required_feature_variable_pointers,
+    vulkan_missing_required_feature_buffer_device_address,
+    vulkan_missing_required_feature_buffer_device_address_capture_replay,
+    vulkan_missing_required_feature_buffer_device_address_multi_device,
+    vulkan_missing_required_feature_shader_sampled_image_array_non_uniform_indexing,
+    vulkan_missing_required_feature_shader_storage_buffer_array_non_uniform_indexing,
+    vulkan_missing_required_feature_shader_storage_image_array_non_uniform_indexing,
+    vulkan_missing_required_feature_descriptor_binding_sampled_image_update_after_bind,
+    vulkan_missing_required_feature_descriptor_binding_storage_image_update_after_bind,
+    vulkan_missing_required_feature_descriptor_binding_storage_buffer_update_after_bind,
+    vulkan_missing_required_feature_descriptor_binding_update_unused_while_pending,
+    vulkan_missing_required_feature_runtime_descriptor_array,
+    vulkan_missing_required_feature_host_query_reset,
+    vulkan_missing_required_feature_khr_dynamic_rendering_local_read,
+    vulkan_missing_required_feature_khr_dynamic_rendering,
+    vulkan_missing_required_feature_khr_synchronization2,
+    vulkan_missing_required_feature_timeline_semaphore,
+    vulkan_missing_required_feature_subgroup_size_control,
+    vulkan_missing_required_feature_compute_full_subgroups,
+    vulkan_missing_required_feature_scalar_block_layout,
+    vulkan_missing_required_feature_acceleration_structure_capture_replay,
+    vulkan_missing_required_feature_robust_buffer_access2,
+    vulkan_missing_required_feature_robust_image_access2,
+    vulkan_missing_required_feature_vulkan_memory_model,
+};
+
 struct vulkan_queue_family {
     u32 queue_count;
     u32 vk_index;
@@ -229,14 +271,12 @@ struct vulkan_physical_device {
     } video_h264_capability, video_av1_capability;
 };
 
-struct xaku_device_memory {
-    XAKU_INTERFACE_DEVICE_RESOURCE_HEADER(memory)
+struct xaku_device_memory { XAKU_INTERFACE_MEMORY_HEADER
     const char                         *name;
     VmaAllocation                       vma_allocation;
 };
 
-struct xaku_query_pool {
-    XAKU_INTERFACE_DEVICE_RESOURCE_HEADER(query_pool)
+struct xaku_query_pool { XAKU_INTERFACE_QUERY_POOL_HEADER
     const char                         *name;
     VkQueryPool                         vk_query_pool;
 };
@@ -270,8 +310,7 @@ struct xaku_query_pool {
  *  in a submission that uses or after one that uses the swapchain image.
  *
  *  DISCLAIMER: The swapchain only works from the main queue. */
-struct xaku_swapchain {
-    XAKU_INTERFACE_DEVICE_RESOURCE_HEADER(swapchain)
+struct xaku_swapchain { XAKU_INTERFACE_SWAPCHAIN_HEADER
     const char                                 *name;
     VkSwapchainKHR                              vk_swapchain;
     /** A Vulkan surface created from a native window. */
@@ -299,20 +338,17 @@ struct xaku_swapchain {
     u32                                         current_image_index;
 };
 
-struct xaku_compute_pipeline {
-    XAKU_INTERFACE_DEVICE_RESOURCE_HEADER(compute_pipeline)
+struct xaku_compute_pipeline { XAKU_INTERFACE_COMPUTE_PIPELINE_HEADER
     VkPipeline                                  vk_pipeline;
     VkPipelineLayout                            vk_pipeline_layout;
 };
 
-struct xaku_raster_pipeline {
-    XAKU_INTERFACE_DEVICE_RESOURCE_HEADER(raster_pipeline)
+struct xaku_raster_pipeline { XAKU_INTERFACE_RASTER_PIPELINE_HEADER
     VkPipeline                                  vk_pipeline;
     VkPipelineLayout                            vk_pipeline_layout;
 };
 
-struct xaku_ray_tracing_pipeline {
-    XAKU_INTERFACE_DEVICE_RESOURCE_HEADER(ray_tracing_pipeline)
+struct xaku_ray_tracing_pipeline { XAKU_INTERFACE_RAY_TRACING_PIPELINE_HEADER
     VkPipeline                                  vk_pipeline;
     VkPipelineLayout                            vk_pipeline_layout;
     lake_dynamic_array(struct xaku_ray_tracing_shader_group_params) shader_groups;
@@ -342,8 +378,7 @@ struct vulkan_executable_command_list_data {
 #define COMMAND_LIST_BARRIER_MAX_BATCH_SIZE 16
 #define COMMAND_LIST_COLOR_ATTACHMENT_MAX 16
 
-struct xaku_command_recorder {
-    XAKU_INTERFACE_DEVICE_RESOURCE_HEADER(command_recorder)
+struct xaku_command_recorder { XAKU_INTERFACE_COMMAND_RECORDER_HEADER
     bool                                        in_renderpass;
     VkCommandPool                               vk_cmd_pool;
     lake_dynamic_array(VkCommandBuffer)         allocated_command_buffers;
@@ -369,8 +404,7 @@ struct xaku_executable_command_list {
 };
 
 /**< xaku_render_handle -> buffer */
-struct vulkan_buffer_slot {
-    XAKU_INTERFACE_GPU_RESOURCE_HEADER(buffer)
+struct vulkan_buffer_slot { XAKU_INTERFACE_BUFFER_HEADER
     VkBuffer                            vk_buffer;
     struct xaku_allocation              allocation;
     VkDeviceAddress                     device_address;
@@ -378,14 +412,12 @@ struct vulkan_buffer_slot {
 };
 
 /**< xaku_render_handle -> texture_view */
-struct vulkan_texture_view_slot {
-    XAKU_INTERFACE_GPU_RESOURCE_HEADER(texture_view)
+struct vulkan_texture_view_slot { XAKU_INTERFACE_TEXTURE_VIEW_HEADER
     VkImageView                         vk_image_view;
 };
 
 /**< xaku_render_handle -> texture */
-struct vulkan_texture_slot {
-    XAKU_INTERFACE_GPU_RESOURCE_HEADER(texture)
+struct vulkan_texture_slot { XAKU_INTERFACE_TEXTURE_HEADER
     VkImage                             vk_image;
     struct vulkan_texture_view_slot     view_slot;
     struct xaku_allocation              allocation;
@@ -395,14 +427,12 @@ struct vulkan_texture_slot {
 #define VULKAN_IMAGE_NOT_OWNED_BY_SWAPCHAIN -1
 
 /**< xaku_render_handle -> sampler */
-struct vulkan_sampler_slot {
-    XAKU_INTERFACE_GPU_RESOURCE_HEADER(sampler)
+struct vulkan_sampler_slot { XAKU_INTERFACE_SAMPLER_HEADER
     VkSampler                           vk_sampler;
 };
 
 /**< xaku_render_handle -> tlas */
-struct vulkan_tlas_slot {
-    XAKU_INTERFACE_GPU_RESOURCE_HEADER(tlas)
+struct vulkan_tlas_slot { XAKU_INTERFACE_TLAS_HEADER
     VkAccelerationStructureKHR          vk_acceleration_structure;
     VkBuffer                            vk_buffer;
     xaku_buffer_id                      buffer_handle;
@@ -412,8 +442,7 @@ struct vulkan_tlas_slot {
 };
 
 /**< xaku_render_handle -> blas */
-struct vulkan_blas_slot {
-    XAKU_INTERFACE_GPU_RESOURCE_HEADER(blas)
+struct vulkan_blas_slot { XAKU_INTERFACE_BLAS_HEADER
     VkAccelerationStructureKHR          vk_acceleration_structure;
     VkBuffer                            vk_buffer;
     xaku_buffer_id                      buffer_handle;
@@ -422,19 +451,15 @@ struct vulkan_blas_slot {
     bool                                owns_buffer;
 };
 
-XAKU_TEMPLATE_GPU_RESOURCE_POOL(vulkan, buffer_slot)
-XAKU_TEMPLATE_GPU_RESOURCE_POOL(vulkan, texture_slot)
-XAKU_TEMPLATE_GPU_RESOURCE_POOL(vulkan, sampler_slot)
-XAKU_TEMPLATE_GPU_RESOURCE_POOL(vulkan, tlas_slot)
-XAKU_TEMPLATE_GPU_RESOURCE_POOL(vulkan, blas_slot)
-
 struct vulkan_shader_resource_table {
     atomic_spinlock                 lifetime_lock;
+    /* TODO
     struct vulkan_buffer_slot_pool  buffer_slots;
     struct vulkan_texture_slot_pool texture_slots;
     struct vulkan_sampler_slot_pool sampler_slots;
     struct vulkan_tlas_slot_pool    tlas_slots;
     struct vulkan_blas_slot_pool    blas_slots;
+    */
 
     VkDescriptorSetLayout           descriptor_set_layout;
     VkDescriptorSet                 descriptor_set;
@@ -496,6 +521,7 @@ struct xaku_device {
      *  in flight (on all queues), we can safely clean the resource up. */
     atomic_u64                                                  global_submit_timeline;
     atomic_spinlock                                             zombies_lock;
+    /* TODO double ended queue of lake_pair ?? */
     lake_pair(u64, struct vulkan_command_recorder_zombie)       command_recorder_zombies;
     lake_pair(u64, xaku_buffer_id)                              buffer_zombies;
     lake_pair(u64, xaku_texture_id)                             texture_zombies;
@@ -760,7 +786,7 @@ struct xaku_device {
     PFN_vkUpdateVideoSessionParametersKHR                       vkUpdateVideoSessionParametersKHR;
 };
 
-extern enum xaku_result LAKECALL vulkan_device_assembly_helper(struct xaku_device *device);
+extern enum lake_result LAKECALL vulkan_device_assembly_helper(struct xaku_device *device);
 
 struct xaku_encore {
     struct xaku_interface                                       interface;

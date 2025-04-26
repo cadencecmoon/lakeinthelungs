@@ -1117,9 +1117,12 @@ static bool load_device_procedures(struct xaku_device *device, u64 extension_bit
     return true;
 }
 
-extern enum xaku_result vulkan_device_assembly_helper(struct xaku_device *device) 
+extern enum lake_result vulkan_device_assembly_helper(struct xaku_device *device) 
 {
-    return xaku_result_success;
+    (void)device;
+    if (load_device_procedures(device, 0))
+        return lake_result_error_incompatible_driver;
+    return lake_result_success;
 }
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL
@@ -1265,7 +1268,7 @@ static void LAKECALL physical_device_query(struct physical_device_query_work *wo
     }
 
     /* resolve extensions */
-    for (u32 i = 0; i < extension_count; i++)
+    for (u32 i = 0; i < device_extension_count; i++)
         if (query_extension(extension_properties, extension_count, g_device_extension_names[i]))
             write->vk_extension_bits |= (1ull << i);
 
@@ -1469,7 +1472,7 @@ static void LAKECALL physical_device_query(struct physical_device_query_work *wo
     /* calculate the score */
     /* TODO */
 
-    bedrock_log_info("'%s' physical device '%s' accepted at index %u with a total score %lu.", work->encore_name, device_name, work->index, write->xaku_properties.total_score);
+    bedrock_log_info("Physical device '%s' accepted at index %u with a total score of %lu points.", device_name, work->index, write->xaku_properties.total_score);
     work->missing_features = 0llu;
 }
 

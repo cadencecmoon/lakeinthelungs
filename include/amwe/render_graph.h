@@ -1,6 +1,6 @@
 #pragma once
 
-#include <amwe/graphics/xaku_device.h>
+#include <amwe/xaku.h>
 
 #ifdef __cplusplus
 extern "C" {

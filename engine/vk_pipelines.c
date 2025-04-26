@@ -6,7 +6,7 @@ FN_XAKU_COMPUTE_PIPELINE_ASSEMBLY(vulkan)
     (void)device;
     (void)assembly;
     (void)out_compute_pipeline;
-    return xaku_result_max_enum;
+    return lake_result_max_enum;
 }
 
 FN_XAKU_COMPUTE_PIPELINE_DISASSEMBLY(vulkan)
@@ -19,7 +19,7 @@ FN_XAKU_RASTER_PIPELINE_ASSEMBLY(vulkan)
     (void)device;
     (void)assembly;
     (void)out_raster_pipeline;
-    return xaku_result_max_enum;
+    return lake_result_max_enum;
 }
 
 FN_XAKU_RASTER_PIPELINE_DISASSEMBLY(vulkan)
@@ -32,7 +32,7 @@ FN_XAKU_RAY_TRACING_PIPELINE_ASSEMBLY(vulkan)
     (void)device;
     (void)assembly;
     (void)out_ray_tracing_pipeline;
-    return xaku_result_max_enum;
+    return lake_result_max_enum;
 }
 
 FN_XAKU_RAY_TRACING_PIPELINE_DISASSEMBLY(vulkan)

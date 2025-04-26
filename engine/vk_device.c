@@ -9,13 +9,13 @@ FN_XAKU_DEVICE_ASSEMBLY(vulkan)
         device_bytes;
     usize alignment = lake_alignof(struct xaku_device);
 
-    if (!assembly->allocation.data || assembly->allocation.size < total_bytes) {
-        assembly->allocation.size = total_bytes;
-        assembly->allocation.alignment = alignment;
-        return xaku_result_allocation_callback;
+    if (!assembly->host_allocation.data || assembly->host_allocation.size < total_bytes) {
+        assembly->host_allocation.size = total_bytes;
+        assembly->host_allocation.alignment = alignment;
+        return lake_result_allocation_callback;
     }
-    struct xaku_device *device = (struct xaku_device *)assembly->allocation.data;
-    bedrock_memset(assembly->allocation.data, 0, total_bytes);
+    struct xaku_device *device = (struct xaku_device *)assembly->host_allocation.data;
+    bedrock_memset(assembly->host_allocation.data, 0, total_bytes);
 
     u32 pd_index = assembly->physical_device_index;
     if (pd_index >= xaku->physical_device_count)
@@ -37,9 +37,9 @@ FN_XAKU_DEVICE_ASSEMBLY(vulkan)
 
     /* TODO assemble data structures of the device */
 
-    riven_inc_refcnt(&device->refcnt);
+    (void)riven_inc_refcnt(&device->refcnt);
     *out_device = device;
-    return xaku_result_success;
+    return lake_result_success;
 }
 
 FN_XAKU_DEVICE_DISASSEMBLY(vulkan)
@@ -58,27 +58,27 @@ FN_XAKU_DEVICE_QUEUE_COUNT(vulkan)
     (void)device;
     (void)queue_type;
     (void)out_count;
-    return xaku_result_success;
+    return lake_result_success;
 }
 
 FN_XAKU_DEVICE_QUEUE_WAIT_IDLE(vulkan)
 {
     (void)device;
     (void)queue;
-    return xaku_result_success;
+    return lake_result_success;
 }
 
 FN_XAKU_DEVICE_WAIT_IDLE(vulkan)
 {
     (void)device;
-    return xaku_result_success;
+    return lake_result_success;
 }
 
 FN_XAKU_DEVICE_SUBMIT(vulkan)
 {
     (void)device;
     (void)cmd_list;
-    return xaku_result_success;
+    return lake_result_success;
 }
 
 FN_XAKU_DEVICE_PRESENT(vulkan)
@@ -86,7 +86,7 @@ FN_XAKU_DEVICE_PRESENT(vulkan)
     (void)device;
     (void)swapchains;
     (void)swapchain_count;
-    return xaku_result_success;
+    return lake_result_success;
 }
 
 FN_XAKU_MEMORY_BUFFER_REQUIREMENTS(vulkan)
@@ -108,7 +108,7 @@ FN_XAKU_MEMORY_ASSEMBLY(vulkan)
     (void)device;
     (void)assembly;
     (void)out_memory;
-    return xaku_result_max_enum;
+    return lake_result_max_enum;
 }
 
 FN_XAKU_MEMORY_DISASSEMBLY(vulkan)
@@ -119,7 +119,7 @@ FN_XAKU_MEMORY_DISASSEMBLY(vulkan)
 FN_XAKU_DEFERRED_RESOURCE_DISASSEMBLY(vulkan)
 {
     (void)device;
-    return xaku_result_max_enum;
+    return lake_result_max_enum;
 }
 
 FN_XAKU_CREATE_BUFFER(vulkan)
@@ -127,7 +127,7 @@ FN_XAKU_CREATE_BUFFER(vulkan)
     (void)device;
     (void)assembly;
     (void)out_buffer;
-    return xaku_result_max_enum;
+    return lake_result_max_enum;
 }
 
 FN_XAKU_CREATE_BUFFER_FROM_MEMORY(vulkan)
@@ -135,7 +135,7 @@ FN_XAKU_CREATE_BUFFER_FROM_MEMORY(vulkan)
     (void)device;
     (void)assembly;
     (void)out_buffer;
-    return xaku_result_max_enum;
+    return lake_result_max_enum;
 }
 
 FN_XAKU_CREATE_TEXTURE(vulkan)
@@ -143,7 +143,7 @@ FN_XAKU_CREATE_TEXTURE(vulkan)
     (void)device;
     (void)assembly;
     (void)out_texture;
-    return xaku_result_max_enum;
+    return lake_result_max_enum;
 }
 
 FN_XAKU_CREATE_TEXTURE_FROM_MEMORY(vulkan)
@@ -151,7 +151,7 @@ FN_XAKU_CREATE_TEXTURE_FROM_MEMORY(vulkan)
     (void)device;
     (void)assembly;
     (void)out_texture;
-    return xaku_result_max_enum;
+    return lake_result_max_enum;
 }
 
 FN_XAKU_CREATE_TEXTURE_VIEW(vulkan)
@@ -159,7 +159,7 @@ FN_XAKU_CREATE_TEXTURE_VIEW(vulkan)
     (void)device;
     (void)assembly;
     (void)out_texture_view;
-    return xaku_result_max_enum;
+    return lake_result_max_enum;
 }
 
 FN_XAKU_CREATE_SAMPLER(vulkan)
@@ -167,7 +167,7 @@ FN_XAKU_CREATE_SAMPLER(vulkan)
     (void)device;
     (void)assembly;
     (void)out_sampler;
-    return xaku_result_max_enum;
+    return lake_result_max_enum;
 }
 
 FN_XAKU_CREATE_TLAS(vulkan)
@@ -175,7 +175,7 @@ FN_XAKU_CREATE_TLAS(vulkan)
     (void)device;
     (void)assembly;
     (void)out_tlas;
-    return xaku_result_max_enum;
+    return lake_result_max_enum;
 }
 
 FN_XAKU_CREATE_TLAS_FROM_BUFFER(vulkan)
@@ -183,7 +183,7 @@ FN_XAKU_CREATE_TLAS_FROM_BUFFER(vulkan)
     (void)device;
     (void)assembly;
     (void)out_tlas;
-    return xaku_result_max_enum;
+    return lake_result_max_enum;
 }
 
 FN_XAKU_CREATE_BLAS(vulkan)
@@ -191,7 +191,7 @@ FN_XAKU_CREATE_BLAS(vulkan)
     (void)device;
     (void)assembly;
     (void)out_blas;
-    return xaku_result_max_enum;
+    return lake_result_max_enum;
 }
 
 FN_XAKU_CREATE_BLAS_FROM_BUFFER(vulkan)
@@ -199,7 +199,7 @@ FN_XAKU_CREATE_BLAS_FROM_BUFFER(vulkan)
     (void)device;
     (void)assembly;
     (void)out_blas;
-    return xaku_result_max_enum;
+    return lake_result_max_enum;
 }
 
 FN_XAKU_GET_BUFFER_ASSEMBLY(vulkan)
@@ -207,7 +207,7 @@ FN_XAKU_GET_BUFFER_ASSEMBLY(vulkan)
     (void)device;
     (void)buffer;
     (void)out_assembly;
-    return xaku_result_max_enum;
+    return lake_result_max_enum;
 }
 
 FN_XAKU_GET_TEXTURE_ASSEMBLY(vulkan)
@@ -215,7 +215,7 @@ FN_XAKU_GET_TEXTURE_ASSEMBLY(vulkan)
     (void)device;
     (void)texture;
     (void)out_assembly;
-    return xaku_result_max_enum;
+    return lake_result_max_enum;
 }
 
 FN_XAKU_GET_TEXTURE_VIEW_ASSEMBLY(vulkan)
@@ -223,7 +223,7 @@ FN_XAKU_GET_TEXTURE_VIEW_ASSEMBLY(vulkan)
     (void)device;
     (void)texture_view;
     (void)out_assembly;
-    return xaku_result_max_enum;
+    return lake_result_max_enum;
 }
 
 FN_XAKU_GET_SAMPLER_ASSEMBLY(vulkan)
@@ -231,7 +231,7 @@ FN_XAKU_GET_SAMPLER_ASSEMBLY(vulkan)
     (void)device;
     (void)sampler;
     (void)out_assembly;
-    return xaku_result_max_enum;
+    return lake_result_max_enum;
 }
 
 FN_XAKU_GET_TLAS_BUILD_SIZES(vulkan)
@@ -239,7 +239,7 @@ FN_XAKU_GET_TLAS_BUILD_SIZES(vulkan)
     (void)device;
     (void)assembly;
     (void)out_sizes;
-    return xaku_result_max_enum;
+    return lake_result_max_enum;
 }
 
 FN_XAKU_GET_TLAS_ASSEMBLY(vulkan)
@@ -247,7 +247,7 @@ FN_XAKU_GET_TLAS_ASSEMBLY(vulkan)
     (void)device;
     (void)tlas;
     (void)out_assembly;
-    return xaku_result_max_enum;
+    return lake_result_max_enum;
 }
 
 FN_XAKU_GET_BLAS_BUILD_SIZES(vulkan)
@@ -255,7 +255,7 @@ FN_XAKU_GET_BLAS_BUILD_SIZES(vulkan)
     (void)device;
     (void)assembly;
     (void)out_sizes;
-    return xaku_result_max_enum;
+    return lake_result_max_enum;
 }
 
 FN_XAKU_GET_BLAS_ASSEMBLY(vulkan)
@@ -263,49 +263,49 @@ FN_XAKU_GET_BLAS_ASSEMBLY(vulkan)
     (void)device;
     (void)blas;
     (void)out_assembly;
-    return xaku_result_max_enum;
+    return lake_result_max_enum;
 }
 
 FN_XAKU_DESTROY_BUFFER(vulkan)
 {
     (void)device;
     (void)buffer;
-    return xaku_result_max_enum;
+    return lake_result_max_enum;
 }
 
 FN_XAKU_DESTROY_TEXTURE(vulkan)
 {
     (void)device;
     (void)texture;
-    return xaku_result_max_enum;
+    return lake_result_max_enum;
 }
 
 FN_XAKU_DESTROY_TEXTURE_VIEW(vulkan)
 {
     (void)device;
     (void)texture_view;
-    return xaku_result_max_enum;
+    return lake_result_max_enum;
 }
 
 FN_XAKU_DESTROY_SAMPLER(vulkan)
 {
     (void)device;
     (void)sampler;
-    return xaku_result_max_enum;
+    return lake_result_max_enum;
 }
 
 FN_XAKU_DESTROY_TLAS(vulkan)
 {
     (void)device;
     (void)tlas;
-    return xaku_result_max_enum;
+    return lake_result_max_enum;
 }
 
 FN_XAKU_DESTROY_BLAS(vulkan)
 {
     (void)device;
     (void)blas;
-    return xaku_result_max_enum;
+    return lake_result_max_enum;
 }
 
 #endif /* XAKU_VULKAN */

@@ -1,10 +1,10 @@
 #pragma once
 
-#include <amwe/display/hadal_encore.h>
-#include <amwe/display/hadal_monitor.h>
-#include <amwe/display/hadal_window.h>
-#include <amwe/display/keycodes.h>
-#include <amwe/display/scancodes.h>
+#include <amwe/riven.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
 
 #ifndef HADAL_INTERFACE_MAX_MONITOR_COUNT
 #define HADAL_INTERFACE_MAX_MONITOR_COUNT 8
@@ -12,10 +12,631 @@
 #ifndef HADAL_INTERFACE_MAX_WINDOW_COUNT
 #define HADAL_INTERFACE_MAX_WINDOW_COUNT 8
 #endif
+/* don't change that */
+#define HADAL_WINDOW_TITLE_CAPACITY 127u
 
-#ifdef __cplusplus
-extern "C" {
-#endif /* __cplusplus */
+/* opaque handles, implemented by the backend */
+struct hadal_monitor;
+struct hadal_window;
+struct hadal_keyboard;
+struct hadal_mouse;
+struct hadal_joystick;
+struct hadal_touch;
+struct hadal_pen;
+struct hadal_encore;
+
+/** Flags that describe a window state. */
+enum hadal_window_flag_bits {
+    hadal_window_flag_is_valid          = (1u << 0),
+    /** Window is visible and the user can interact with it. */
+    hadal_window_flag_visible           = (1u << 1),
+    /** Window is in exclusive fullscreen mode. When true, some other flags may be ignored. */
+    hadal_window_flag_fullscreen        = (1u << 2),
+    /** Window is filling the screen space, ignored in fullscreen. */
+    hadal_window_flag_maximized         = (1u << 3),
+    /** Window is minimized to the task bar. */
+    hadal_window_flag_minimized         = (1u << 4),
+    /** Window can be resized by the user by dragging it. */
+    hadal_window_flag_resizable         = (1u << 5),
+    /** Window decorations are enabled, otherwise it is borderless. */
+    hadal_window_flag_decorated         = (1u << 6),
+    /** Window has input focus. */
+    hadal_window_flag_input_focus       = (1u << 7),
+    /** Window has a mouse cursor hovered over it. */
+    hadal_window_flag_cursor_hovered    = (1u << 8),
+    /** Capturing a mouse enables to track input outside of the window. */
+    hadal_window_flag_mouse_captured    = (1u << 9),
+    /** Window is modal. */
+    hadal_window_flag_modal             = (1u << 10),
+    /** Window is occluded by another window. */
+    hadal_window_flag_occluded          = (1u << 11),
+    /** Window should always be above other windows. */
+    hadal_window_flag_always_on_top     = (1u << 12),
+    /** Window will always minimize when leaving fullscreen. */
+    hadal_window_flag_auto_minimize     = (1u << 13),
+    /** Window is shell activated, available only on some platforms. */
+    hadal_window_flag_shell_activated   = (1u << 14),
+    /** Window has a transparent buffer. */
+    hadal_window_flag_transparent       = (1u << 15),
+    /** Window usable for Vulkan surface. */
+    hadal_window_flag_vulkan            = (1u << 16),
+    /** Window usable for Metal view. */
+    hadal_window_flag_metal             = (1u << 17),
+    /** Set on exit events from sources outside of the application.  */
+    hadal_window_flag_should_close      = (1u << 18),
+};
+typedef u32 hadal_window_flags;
+
+/** Assembly details for a native window. */
+struct hadal_window_assembly {
+    u32                 width, height;
+    u32                 min_width, min_height; /* applies if non zero */
+    u32                 max_width, max_height; /* applies if non zero */
+    hadal_window_flags  flags;
+    lake_fixed_list(char, HADAL_WINDOW_TITLE_CAPACITY) title;
+};
+
+/** Represents an unique key. */
+enum hadal_keycode {
+    hadal_keycode_space         = 32,
+    hadal_keycode_apostrophe    = 39,  /* ' */
+    hadal_keycode_comma         = 44,  /* , */
+    hadal_keycode_minus         = 45,  /* - */
+    hadal_keycode_period        = 46,  /* . */
+    hadal_keycode_slash         = 47,  /* / */
+    hadal_keycode_0             = 48,
+    hadal_keycode_1             = 49,
+    hadal_keycode_2             = 50,
+    hadal_keycode_3             = 51,
+    hadal_keycode_4             = 52,
+    hadal_keycode_5             = 53,
+    hadal_keycode_6             = 54,
+    hadal_keycode_7             = 55,
+    hadal_keycode_8             = 56,
+    hadal_keycode_9             = 57,
+    hadal_keycode_semicolon     = 59,  /* ; */
+    hadal_keycode_equal         = 61,  /* = */
+    hadal_keycode_a             = 65,
+    hadal_keycode_b             = 66,
+    hadal_keycode_c             = 67,
+    hadal_keycode_d             = 68,
+    hadal_keycode_e             = 69,
+    hadal_keycode_f             = 70,
+    hadal_keycode_g             = 71,
+    hadal_keycode_h             = 72,
+    hadal_keycode_i             = 73,
+    hadal_keycode_j             = 74,
+    hadal_keycode_k             = 75,
+    hadal_keycode_l             = 76,
+    hadal_keycode_m             = 77,
+    hadal_keycode_n             = 78,
+    hadal_keycode_o             = 79,
+    hadal_keycode_p             = 80,
+    hadal_keycode_q             = 81,
+    hadal_keycode_r             = 82,
+    hadal_keycode_s             = 83,
+    hadal_keycode_t             = 84,
+    hadal_keycode_u             = 85,
+    hadal_keycode_v             = 86,
+    hadal_keycode_w             = 87,
+    hadal_keycode_x             = 88,
+    hadal_keycode_y             = 89,
+    hadal_keycode_z             = 90,
+    hadal_keycode_left_bracket  = 91,  /* [ */
+    hadal_keycode_backslash     = 92,  /* \ */
+    hadal_keycode_right_bracket = 93,  /* ] */
+    hadal_keycode_grave_accent  = 96,  /* ` */
+    hadal_keycode_world_1       = 161, /* non-US #1 */
+    hadal_keycode_world_2       = 162, /* non-US #2 */
+    hadal_keycode_escape        = 256,
+    hadal_keycode_enter         = 257,
+    hadal_keycode_tab           = 258,
+    hadal_keycode_backspace     = 259,
+    hadal_keycode_insert        = 260,
+    hadal_keycode_delete        = 261,
+    hadal_keycode_right         = 262,
+    hadal_keycode_left          = 263,
+    hadal_keycode_down          = 264,
+    hadal_keycode_up            = 265,
+    hadal_keycode_page_up       = 266,
+    hadal_keycode_page_down     = 267,
+    hadal_keycode_home          = 268,
+    hadal_keycode_end           = 269,
+    hadal_keycode_caps_lock     = 280,
+    hadal_keycode_scroll_lock   = 281,
+    hadal_keycode_num_lock      = 282,
+    hadal_keycode_print_screen  = 283,
+    hadal_keycode_pause         = 284,
+    hadal_keycode_f1            = 290,
+    hadal_keycode_f2            = 291,
+    hadal_keycode_f3            = 292,
+    hadal_keycode_f4            = 293,
+    hadal_keycode_f5            = 294,
+    hadal_keycode_f6            = 295,
+    hadal_keycode_f7            = 296,
+    hadal_keycode_f8            = 297,
+    hadal_keycode_f9            = 298,
+    hadal_keycode_f10           = 299,
+    hadal_keycode_f11           = 300,
+    hadal_keycode_f12           = 301,
+    hadal_keycode_f13           = 302,
+    hadal_keycode_f14           = 303,
+    hadal_keycode_f15           = 304,
+    hadal_keycode_f16           = 305,
+    hadal_keycode_f17           = 306,
+    hadal_keycode_f18           = 307,
+    hadal_keycode_f19           = 308,
+    hadal_keycode_f20           = 309,
+    hadal_keycode_f21           = 310,
+    hadal_keycode_f22           = 311,
+    hadal_keycode_f23           = 312,
+    hadal_keycode_f24           = 313,
+    hadal_keycode_f25           = 314,
+    hadal_keycode_kp_0          = 320,
+    hadal_keycode_kp_1          = 321,
+    hadal_keycode_kp_2          = 322,
+    hadal_keycode_kp_3          = 323,
+    hadal_keycode_kp_4          = 324,
+    hadal_keycode_kp_5          = 325,
+    hadal_keycode_kp_6          = 326,
+    hadal_keycode_kp_7          = 327,
+    hadal_keycode_kp_8          = 328,
+    hadal_keycode_kp_9          = 329,
+    hadal_keycode_kp_decimal    = 330,
+    hadal_keycode_kp_divide     = 331,
+    hadal_keycode_kp_multiply   = 332,
+    hadal_keycode_kp_subtract   = 333,
+    hadal_keycode_kp_add        = 334,
+    hadal_keycode_kp_enter      = 335,
+    hadal_keycode_kp_equal      = 336,
+    hadal_keycode_left_shift    = 340,
+    hadal_keycode_left_control  = 341,
+    hadal_keycode_left_alt      = 342,
+    hadal_keycode_left_super    = 343,
+    hadal_keycode_right_shift   = 344,
+    hadal_keycode_right_control = 345,
+    hadal_keycode_right_alt     = 346,
+    hadal_keycode_right_super   = 347,
+    hadal_keycode_menu          = 348,
+    hadal_keycode_invalid       = 0,
+};
+#define hadal_keycode_last hadal_keycode_menu
+
+/** A scancode is the physical representation of a key on the keyboard,
+ *  independent of language and keyboard mapping.
+ *
+ *  The values in this enumeration are based on the USB usage page standard:
+ *  https://usb.org/sites/default/files/hut1_5.pdf */
+enum hadal_scancode {
+    hadal_scancode_unknown = 0,
+
+    /* These values are from usage page 0x07 (USB keyboard page) */
+    hadal_scancode_a = 4,
+    hadal_scancode_b = 5,
+    hadal_scancode_c = 6,
+    hadal_scancode_d = 7,
+    hadal_scancode_e = 8,
+    hadal_scancode_f = 9,
+    hadal_scancode_g = 10,
+    hadal_scancode_h = 11,
+    hadal_scancode_i = 12,
+    hadal_scancode_j = 13,
+    hadal_scancode_k = 14,
+    hadal_scancode_l = 15,
+    hadal_scancode_m = 16,
+    hadal_scancode_n = 17,
+    hadal_scancode_o = 18,
+    hadal_scancode_p = 19,
+    hadal_scancode_q = 20,
+    hadal_scancode_r = 21,
+    hadal_scancode_s = 22,
+    hadal_scancode_t = 23,
+    hadal_scancode_u = 24,
+    hadal_scancode_v = 25,
+    hadal_scancode_w = 26,
+    hadal_scancode_x = 27,
+    hadal_scancode_y = 28,
+    hadal_scancode_z = 29,
+
+    hadal_scancode_1 = 30,
+    hadal_scancode_2 = 31,
+    hadal_scancode_3 = 32,
+    hadal_scancode_4 = 33,
+    hadal_scancode_5 = 34,
+    hadal_scancode_6 = 35,
+    hadal_scancode_7 = 36,
+    hadal_scancode_8 = 37,
+    hadal_scancode_9 = 38,
+    hadal_scancode_0 = 39,
+ 
+    hadal_scancode_return = 40,
+    hadal_scancode_escape = 41,
+    hadal_scancode_backspace = 42,
+    hadal_scancode_tab = 43,
+    hadal_scancode_space = 44,
+ 
+    hadal_scancode_minus = 45,
+    hadal_scancode_equals = 46,
+    hadal_scancode_leftbracket = 47,
+    hadal_scancode_rightbracket = 48,
+    hadal_scancode_backslash = 49, /**< Located at the lower left of the return
+                                    *   key on ISO keyboards and at the right end
+                                    *   of the QWERTY row on ANSI keyboards.
+                                    *   Produces REVERSE SOLIDUS (backslash) and
+                                    *   VERTICAL LINE in a US layout, REVERSE
+                                    *   SOLIDUS and VERTICAL LINE in a UK Mac
+                                    *   layout, NUMBER SIGN and TILDE in a UK
+                                    *   Windows layout, DOLLAR SIGN and POUND SIGN
+                                    *   in a Swiss German layout, NUMBER SIGN and
+                                    *   APOSTROPHE in a German layout, GRAVE
+                                    *   ACCENT and POUND SIGN in a French Mac
+                                    *   layout, and ASTERISK and MICRO SIGN in a
+                                    *   French Windows layout. */
+    hadal_scancode_nonushash = 50, /**< ISO USB keyboards actually use this code
+                                    *   instead of 49 for the same key, but all
+                                    *   OSes I've seen treat the two codes
+                                    *   identically. So, as an implementor, unless
+                                    *   your keyboard generates both of those
+                                    *   codes and your OS treats them differently,
+                                    *   you should generate SDL_SCANCODE_BACKSLASH
+                                    *   instead of this code. As a user, you
+                                    *   should not rely on this code because SDL
+                                    *   will never generate it with most (all?)
+                                    *   keyboards. */
+    hadal_scancode_semicolon = 51,
+    hadal_scancode_apostrophe = 52,
+    hadal_scancode_grave = 53, /**< Located in the top left corner (on both ANSI
+                                *   and ISO keyboards). Produces GRAVE ACCENT and
+                                *   TILDE in a US Windows layout and in US and UK
+                                *   Mac layouts on ANSI keyboards, GRAVE ACCENT
+                                *   and NOT SIGN in a UK Windows layout, SECTION
+                                *   SIGN and PLUS-MINUS SIGN in US and UK Mac
+                                *   layouts on ISO keyboards, SECTION SIGN and
+                                *   DEGREE SIGN in a Swiss German layout (Mac:
+                                *   only on ISO keyboards), CIRCUMFLEX ACCENT and
+                                *   DEGREE SIGN in a German layout (Mac: only on
+                                *   ISO keyboards), SUPERSCRIPT TWO and TILDE in a
+                                *   French Windows layout, COMMERCIAL AT and
+                                *   NUMBER SIGN in a French Mac layout on ISO
+                                *   keyboards, and LESS-THAN SIGN and GREATER-THAN
+                                *   SIGN in a Swiss German, German, or French Mac
+                                *   layout on ANSI keyboards. */
+    hadal_scancode_comma = 54,
+    hadal_scancode_period = 55,
+    hadal_scancode_slash = 56,
+
+    hadal_scancode_capslock = 57,
+
+    hadal_scancode_f1 = 58,
+    hadal_scancode_f2 = 59,
+    hadal_scancode_f3 = 60,
+    hadal_scancode_f4 = 61,
+    hadal_scancode_f5 = 62,
+    hadal_scancode_f6 = 63,
+    hadal_scancode_f7 = 64,
+    hadal_scancode_f8 = 65,
+    hadal_scancode_f9 = 66,
+    hadal_scancode_f10 = 67,
+    hadal_scancode_f11 = 68,
+    hadal_scancode_f12 = 69,
+
+    hadal_scancode_printscreen = 70,
+    hadal_scancode_scrolllock = 71,
+    hadal_scancode_pause = 72,
+    hadal_scancode_insert = 73, /**< insert on PC, help on some Mac keyboards (but does send code 73, not 117) */
+    hadal_scancode_home = 74,
+    hadal_scancode_pageup = 75,
+    hadal_scancode_delete = 76,
+    hadal_scancode_end = 77,
+    hadal_scancode_pagedown = 78,
+    hadal_scancode_right = 79,
+    hadal_scancode_left = 80,
+    hadal_scancode_down = 81,
+    hadal_scancode_up = 82,
+
+    hadal_scancode_numlockclear = 83, /**< num lock on PC, clear on Mac keyboards */
+    hadal_scancode_kp_divide = 84,
+    hadal_scancode_kp_multiply = 85,
+    hadal_scancode_kp_minus = 86,
+    hadal_scancode_kp_plus = 87,
+    hadal_scancode_kp_enter = 88,
+    hadal_scancode_kp_1 = 89,
+    hadal_scancode_kp_2 = 90,
+    hadal_scancode_kp_3 = 91,
+    hadal_scancode_kp_4 = 92,
+    hadal_scancode_kp_5 = 93,
+    hadal_scancode_kp_6 = 94,
+    hadal_scancode_kp_7 = 95,
+    hadal_scancode_kp_8 = 96,
+    hadal_scancode_kp_9 = 97,
+    hadal_scancode_kp_0 = 98,
+    hadal_scancode_kp_period = 99,
+
+    hadal_scancode_nonusbackslash = 100, /**< This is the additional key that ISO
+                                          *   keyboards have over ANSI ones,
+                                          *   located between left shift and Y.
+                                          *   Produces GRAVE ACCENT and TILDE in a
+                                          *   US or UK Mac layout, REVERSE SOLIDUS
+                                          *   (backslash) and VERTICAL LINE in a
+                                          *   US or UK Windows layout, and
+                                          *   LESS-THAN SIGN and GREATER-THAN SIGN
+                                          *   in a Swiss German, German, or French
+                                          *   layout. */
+    hadal_scancode_application = 101, /**< windows contextual menu, compose */
+    hadal_scancode_power = 102, /**< The USB document says this is a status flag,
+                                 *   not a physical key - but some Mac keyboards
+                                 *   do have a power key. */
+    hadal_scancode_kp_equals = 103,
+    hadal_scancode_f13 = 104,
+    hadal_scancode_f14 = 105,
+    hadal_scancode_f15 = 106,
+    hadal_scancode_f16 = 107,
+    hadal_scancode_f17 = 108,
+    hadal_scancode_f18 = 109,
+    hadal_scancode_f19 = 110,
+    hadal_scancode_f20 = 111,
+    hadal_scancode_f21 = 112,
+    hadal_scancode_f22 = 113,
+    hadal_scancode_f23 = 114,
+    hadal_scancode_f24 = 115,
+    hadal_scancode_execute = 116,
+    hadal_scancode_help = 117,    /**< AL Integrated Help Center */
+    hadal_scancode_menu = 118,    /**< Menu (show menu) */
+    hadal_scancode_select = 119,
+    hadal_scancode_stop = 120,    /**< AC Stop */
+    hadal_scancode_again = 121,   /**< AC Redo/Repeat */
+    hadal_scancode_undo = 122,    /**< AC Undo */
+    hadal_scancode_cut = 123,     /**< AC Cut */
+    hadal_scancode_copy = 124,    /**< AC Copy */
+    hadal_scancode_paste = 125,   /**< AC Paste */
+    hadal_scancode_find = 126,    /**< AC Find */
+    hadal_scancode_mute = 127,
+    hadal_scancode_volumeup = 128,
+    hadal_scancode_volumedown = 129,
+/* not sure whether there's a reason to enable these */
+/*     scancode_lockingcapslock = 130,  */
+/*     scancode_lockingnumlock = 131, */
+/*     scancode_lockingscrolllock = 132, */
+    hadal_scancode_kp_comma = 133,
+    hadal_scancode_kp_equalsas400 = 134,
+
+    hadal_scancode_international1 = 135, /**< used on Asian keyboards, see footnotes in USB doc */
+    hadal_scancode_international2 = 136,
+    hadal_scancode_international3 = 137, /**< Yen */
+    hadal_scancode_international4 = 138,
+    hadal_scancode_international5 = 139,
+    hadal_scancode_international6 = 140,
+    hadal_scancode_international7 = 141,
+    hadal_scancode_international8 = 142,
+    hadal_scancode_international9 = 143,
+    hadal_scancode_lang1 = 144, /**< Hangul/English toggle */
+    hadal_scancode_lang2 = 145, /**< Hanja conversion */
+    hadal_scancode_lang3 = 146, /**< Katakana */
+    hadal_scancode_lang4 = 147, /**< Hiragana */
+    hadal_scancode_lang5 = 148, /**< Zenkaku/Hankaku */
+    hadal_scancode_lang6 = 149, /**< reserved */
+    hadal_scancode_lang7 = 150, /**< reserved */
+    hadal_scancode_lang8 = 151, /**< reserved */
+    hadal_scancode_lang9 = 152, /**< reserved */
+
+    hadal_scancode_alterase = 153,    /**< Erase-Eaze */
+    hadal_scancode_sysreq = 154,
+    hadal_scancode_cancel = 155,      /**< AC Cancel */
+    hadal_scancode_clear = 156,
+    hadal_scancode_prior = 157,
+    hadal_scancode_return2 = 158,
+    hadal_scancode_separator = 159,
+    hadal_scancode_out = 160,
+    hadal_scancode_oper = 161,
+    hadal_scancode_clearagain = 162,
+    hadal_scancode_crsel = 163,
+    hadal_scancode_exsel = 164,
+
+    hadal_scancode_kp_00 = 176,
+    hadal_scancode_kp_000 = 177,
+    hadal_scancode_thousandsseparator = 178,
+    hadal_scancode_decimalseparator = 179,
+    hadal_scancode_currencyunit = 180,
+    hadal_scancode_currencysubunit = 181,
+    hadal_scancode_kp_leftparen = 182,
+    hadal_scancode_kp_rightparen = 183,
+    hadal_scancode_kp_leftbrace = 184,
+    hadal_scancode_kp_rightbrace = 185,
+    hadal_scancode_kp_tab = 186,
+    hadal_scancode_kp_backspace = 187,
+    hadal_scancode_kp_a = 188,
+    hadal_scancode_kp_b = 189,
+    hadal_scancode_kp_c = 190,
+    hadal_scancode_kp_d = 191,
+    hadal_scancode_kp_e = 192,
+    hadal_scancode_kp_f = 193,
+    hadal_scancode_kp_xor = 194,
+    hadal_scancode_kp_power = 195,
+    hadal_scancode_kp_percent = 196,
+    hadal_scancode_kp_less = 197,
+    hadal_scancode_kp_greater = 198,
+    hadal_scancode_kp_ampersand = 199,
+    hadal_scancode_kp_dblampersand = 200,
+    hadal_scancode_kp_verticalbar = 201,
+    hadal_scancode_kp_dblverticalbar = 202,
+    hadal_scancode_kp_colon = 203,
+    hadal_scancode_kp_hash = 204,
+    hadal_scancode_kp_space = 205,
+    hadal_scancode_kp_at = 206,
+    hadal_scancode_kp_exclam = 207,
+    hadal_scancode_kp_memstore = 208,
+    hadal_scancode_kp_memrecall = 209,
+    hadal_scancode_kp_memclear = 210,
+    hadal_scancode_kp_memadd = 211,
+    hadal_scancode_kp_memsubtract = 212,
+    hadal_scancode_kp_memmultiply = 213,
+    hadal_scancode_kp_memdivide = 214,
+    hadal_scancode_kp_plusminus = 215,
+    hadal_scancode_kp_clear = 216,
+    hadal_scancode_kp_clearentry = 217,
+    hadal_scancode_kp_binary = 218,
+    hadal_scancode_kp_octal = 219,
+    hadal_scancode_kp_decimal = 220,
+    hadal_scancode_kp_hexadecimal = 221,
+ 
+    hadal_scancode_lctrl = 224,
+    hadal_scancode_lshift = 225,
+    hadal_scancode_lalt = 226, /**< alt, option */
+    hadal_scancode_lgui = 227, /**< windows, command (apple), meta */
+    hadal_scancode_rctrl = 228,
+    hadal_scancode_rshift = 229,
+    hadal_scancode_ralt = 230, /**< alt gr, option */
+    hadal_scancode_rgui = 231, /**< windows, command (apple), meta */
+
+    hadal_scancode_mode = 257, /**< I'm not sure if this is really not covered
+                          *   by any of the above, but since there's a
+                          *   special SDL_KMOD_MODE for it I'm adding it here */
+
+    /** These values are mapped from usage page 0x0C (USB consumer page).
+     *
+     *  There are way more keys in the spec than we can represent in the
+     *  current scancode range, so pick the ones that commonly come up in
+     *  real world usage. */
+
+    hadal_scancode_sleep = 258,               /**< Sleep */
+    hadal_scancode_wake = 259,                /**< Wake */
+
+    hadal_scancode_channel_increment = 260,   /**< Channel Increment */
+    hadal_scancode_channel_decrement = 261,   /**< Channel Decrement */
+
+    hadal_scancode_media_play = 262,          /**< Play */
+    hadal_scancode_media_pause = 263,         /**< Pause */
+    hadal_scancode_media_record = 264,        /**< Record */
+    hadal_scancode_media_fast_forward = 265,  /**< Fast Forward */
+    hadal_scancode_media_rewind = 266,        /**< Rewind */
+    hadal_scancode_media_next_track = 267,    /**< Next Track */
+    hadal_scancode_media_previous_track = 268, /**< Previous Track */
+    hadal_scancode_media_stop = 269,          /**< Stop */
+    hadal_scancode_media_eject = 270,         /**< Eject */
+    hadal_scancode_media_play_pause = 271,    /**< Play / Pause */
+    hadal_scancode_media_select = 272,        /* Media Select */
+
+    hadal_scancode_ac_new = 273,              /**< AC New */
+    hadal_scancode_ac_open = 274,             /**< AC Open */
+    hadal_scancode_ac_close = 275,            /**< AC Close */
+    hadal_scancode_ac_exit = 276,             /**< AC Exit */
+    hadal_scancode_ac_save = 277,             /**< AC Save */
+    hadal_scancode_ac_print = 278,            /**< AC Print */
+    hadal_scancode_ac_properties = 279,       /**< AC Properties */
+
+    hadal_scancode_ac_search = 280,           /**< AC Search */
+    hadal_scancode_ac_home = 281,             /**< AC Home */
+    hadal_scancode_ac_back = 282,             /**< AC Back */
+    hadal_scancode_ac_forward = 283,          /**< AC Forward */
+    hadal_scancode_ac_stop = 284,             /**< AC Stop */
+    hadal_scancode_ac_refresh = 285,          /**< AC Refresh */
+    hadal_scancode_ac_bookmarks = 286,        /**< AC Bookmarks */
+
+    /* these are values that are often used on mobile phones */
+
+    hadal_scancode_softleft = 287, /**< usually situated below the display on phones and
+                                    *   used as a multi-function feature key for selecting
+                                    *   a software defined function shown on the bottom left
+                                    *   of the display. */
+    hadal_scancode_softright = 288, /**< usually situated below the display on phones and
+                                     *   used as a multi-function feature key for selecting
+                                     *    a software defined function shown on the bottom right
+                                     *    of the display. */
+    hadal_scancode_call = 289, /**< used for accepting phone calls. */
+    hadal_scancode_endcall = 290, /**< used for rejecting phone calls. */
+
+    /* add any other keys here. */
+    hadal_scancode_reserved = 400,    /**< 400-500 reserved for dynamic keycodes */
+
+    hadal_scancode_count = 512 /**< not a key, just marks the number of scancodes for array bounds */
+};
+
+/******************************
+ *                            * 
+ *     INTERNAL INTERFACE     * 
+ *                            * 
+ ******************************/
+
+/** Header of a 'struct hadal_monitor' implementation, owned by the backend. */
+#define HADAL_INTERFACE_MONITOR_HEADER \
+    /** The encore that owns this output monitor. */ \
+    struct hadal_encore                    *hadal;
+
+/** Header of a 'struct hadal_window' implementation. */
+#define HADAL_INTERFACE_WINDOW_HEADER \
+    /** The encore that was used to create this native window. */ \
+    struct hadal_encore                    *hadal; \
+    /** The window may be destroyed when the reference count reaches zero. */ \
+    atomic_u64                              refcnt; \
+    /** Assembly details used to create the window. */ \
+    struct hadal_window_assembly            assembly; \
+    /** A pointer into the title that is in assembly. */ \
+    const char                             *title;
+
+typedef lake_nodiscard enum lake_result (LAKECALL *PFN_hadal_window_assembly)(struct hadal_encore *hadal, struct hadal_window_assembly *assembly, struct hadal_window **out_window);
+#define FN_HADAL_WINDOW_ASSEMBLY(ENCORE) \
+    lake_nodiscard enum lake_result LAKECALL _hadal_##ENCORE##_window_assembly(struct hadal_encore *hadal, struct hadal_window_assembly *assembly, struct hadal_window **out_window)
+
+typedef void (LAKECALL *PFN_hadal_window_disassembly)(struct hadal_window *window);
+#define FN_HADAL_WINDOW_DISASSEMBLY(ENCORE) \
+    void LAKECALL _hadal_##ENCORE##_window_disassembly(struct hadal_window *window)
+
+typedef u32 (LAKECALL *PFN_hadal_window_visibility)(struct hadal_window *window, bool visible);
+#define FN_HADAL_WINDOW_VISIBILITY(ENCORE) \
+    u32 LAKECALL _hadal_##ENCORE##_window_visibility(struct hadal_window *window, bool visible)
+
+#ifdef XAKU_VULKAN
+/* to avoid including the Vulkan header */
+struct VkInstance_T;
+struct VkSurfaceKHR_T;
+struct VkPhysicalDevice_T;
+struct VkAllocationCallbacks;
+typedef void (*(*PFN_vkGetInstanceProcAddr)(struct VkInstance_T *, const char *))(void);
+
+#define ARGS_HADAL_VULKAN_WRITE_INSTANCE \
+    struct hadal_encore                *hadal, \
+    struct VkInstance_T                *instance, \
+    PFN_vkGetInstanceProcAddr           vkGetInstanceProcAddr
+typedef bool (LAKECALL *PFN_hadal_vulkan_write_instance)(ARGS_HADAL_VULKAN_WRITE_INSTANCE);
+#define FN_HADAL_VULKAN_WRITE_INSTANCE(ENCORE) \
+    bool LAKECALL _hadal_##ENCORE##_vulkan_write_instance(ARGS_HADAL_VULKAN_WRITE_INSTANCE)
+
+#define ARGS_HADAL_VULKAN_PRESENTATION_SUPPORT \
+    const struct hadal_encore          *hadal, \
+    struct VkPhysicalDevice_T          *physical_device, \
+    u32                                 queue_family_index
+typedef bool (LAKECALL *PFN_hadal_vulkan_presentation_support)(ARGS_HADAL_VULKAN_PRESENTATION_SUPPORT);
+#define FN_HADAL_VULKAN_PRESENTATION_SUPPORT(ENCORE) \
+    bool LAKECALL _hadal_##ENCORE##_vulkan_presentation_support(ARGS_HADAL_VULKAN_PRESENTATION_SUPPORT)
+
+#define ARGS_HADAL_VULKAN_SURFACE_CREATE \
+    const struct hadal_window          *window, \
+    const struct VkAllocationCallbacks *callbacks, \
+    struct VkSurfaceKHR_T             **out_surface
+typedef lake_nodiscard enum lake_result (LAKECALL *PFN_hadal_vulkan_surface_create)(ARGS_HADAL_VULKAN_SURFACE_CREATE);
+#define FN_HADAL_VULKAN_SURFACE_CREATE(ENCORE) \
+    lake_nodiscard enum lake_result LAKECALL _hadal_##ENCORE##_vulkan_surface_create(ARGS_HADAL_VULKAN_SURFACE_CREATE)
+#endif /* XAKU_VULKAN */
+
+/******************************
+ *                            * 
+ *      PUBLIC INTERFACE      * 
+ *                            * 
+ ******************************/
+
+/** A view into an output monitor. */
+union hadal_monitor_view {
+    struct {HADAL_INTERFACE_MONITOR_HEADER}    *header;
+    struct hadal_monitor                       *monitor; 
+    union hadal_encore_view                    *encore_view;
+};
+
+/** A view into a window. */
+union hadal_window_view {
+    struct {HADAL_INTERFACE_WINDOW_HEADER}     *header;
+    struct hadal_window                        *window; 
+    union hadal_encore_view                    *encore_view;
+};
 
 /** A public interface of the display engine, implemented by a backend 'hadal_encore'. */
 struct hadal_interface {
@@ -33,8 +654,8 @@ struct hadal_interface {
     s8                                          keys[hadal_keycode_last + 1];
 
     /* procedures, implemented by the backend */
-    PFN_hadal_window_create                     window_create;
-    PFN_hadal_window_destroy                    window_destroy;
+    PFN_hadal_window_assembly                   window_assembly;
+    PFN_hadal_window_disassembly                window_disassembly;
     PFN_hadal_window_visibility                 window_visibility;
 #ifdef XAKU_VULKAN
     PFN_hadal_vulkan_write_instance             vulkan_write_instance;
@@ -48,6 +669,34 @@ union hadal_display {
     struct hadal_encore        *encore;
     void                       *data;
 };
+
+#if defined(LAKE_PLATFORM_WINDOWS)
+LAKEAPI FN_RIVEN_ENCORE(hadal, win32);
+#elif defined(LAKE_PLATFORM_APPLE_MACOS)
+LAKEAPI FN_RIVEN_ENCORE(hadal, cocoa);
+#elif defined(LAKE_PLATFORM_APPLE_IOS)
+LAKEAPI FN_RIVEN_ENCORE(hadal, uikit);
+#elif defined(LAKE_PLATFORM_ANDROID)
+LAKEAPI FN_RIVEN_ENCORE(hadal, android);
+#elif defined(LAKE_PLATFORM_EMSCRIPTEN)
+LAKEAPI FN_RIVEN_ENCORE(hadal, html5);
+#endif /* LAKE_PLATFORM_WINDOWS */
+#ifdef HADAL_WAYLAND
+LAKEAPI FN_RIVEN_ENCORE(hadal, wayland);
+#endif /* HADAL_WAYLAND */
+#ifdef HADAL_XCB
+LAKEAPI FN_RIVEN_ENCORE(hadal, xcb);
+#endif /* HADAL_XCB */
+#ifdef HADAL_DRMKMS
+LAKEAPI FN_RIVEN_ENCORE(hadal, drmkms);
+#endif /* HADAL_DRMKMS */
+
+/* A headless display backend, used for testing. */
+LAKEAPI FN_RIVEN_ENCORE(hadal, null);
+
+/** Returns an array of native encores, with a predefined priority. */
+LAKEAPI lake_nonnull(2) const PFN_riven_encore *LAKECALL 
+hadal_native_encores(bool null_fallback, u32 *out_encore_count);
 
 #ifdef __cplusplus
 }

@@ -1,12 +1,13 @@
 sources += files(
-  'a_moonlit_walk.c',
-  'gpuexec.c',
-  'hadal.c',
-  'rendering.c',
-  'riven.c',
-  'simulation.c',
-  'soma.c',
-  'xaku.c',
+    'a_moonlit_walk.c',
+    'frame_time.c',
+    'hadal.c',
+    'hash_table.c',
+    'logger.c',
+    'mem_utility.c',
+    'riven.c',
+    'soma.c',
+    'xaku.c',
 )
 
 dep_threads = dependency('threads', required : true)
@@ -21,9 +22,7 @@ endif
 
 # enable imgui if requested developer tools
 if enable_devtools
-    sources += files(
-        'devtools_imgui.cpp',
-    )
+    sources += files('imgui_dev.cpp')
 
     imgui = subproject('imgui')
     dep_imgui = imgui.get_variable('dep_imgui')
@@ -58,10 +57,10 @@ if vulkan_found
     defs += [ '-DXAKU_VULKAN=1', '-DXAKU_VULKAN_VMA=1' ]
 endif
 
+subdir('asm')
 subdir('android')
 subdir('apple')
-subdir('bedrock')
 subdir('linux')
+subdir('math')
 subdir('unix')
 subdir('windows')
-

@@ -6,7 +6,7 @@ FN_XAKU_QUERY_POOL_ASSEMBLY(vulkan)
     (void)device;
     (void)assembly;
     (void)out_query_pool;
-    return xaku_result_max_enum;
+    return lake_result_max_enum;
 }
 
 FN_XAKU_QUERY_POOL_DISASSEMBLY(vulkan)

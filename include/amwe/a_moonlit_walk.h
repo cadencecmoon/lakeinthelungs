@@ -4,11 +4,11 @@
 #include <amwe/bedrock.h>
 #include <amwe/riven.h>
 
-#include <amwe/hash_table.h>
-
 #include <amwe/hadal.h>
-#include <amwe/xaku.h>
+#include <amwe/hash_table.h>
+#include <amwe/render_graph.h>
 #include <amwe/soma.h>
+#include <amwe/xaku.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -100,11 +100,6 @@ struct a_moonlit_walk_engine {
     union soma_audio                soma;
     union xaku_renderer             xaku;
 };
-
-/* can be cast into PFN_riven_work */
-LAKEAPI void LAKECALL a_moonlit_walk_simulation(struct amwe_pipeline_work *work);
-LAKEAPI void LAKECALL a_moonlit_walk_rendering(struct amwe_pipeline_work *work);
-LAKEAPI void LAKECALL a_moonlit_walk_gpuexec(struct amwe_pipeline_work *work);
 
 LAKEAPI s32 LAKECALL 
 a_moonlit_walk(
