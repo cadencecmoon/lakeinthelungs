@@ -21,6 +21,7 @@
  *  ----------------------------------------------------------------------------------
  */
 
+.file "jump_fcontext_amd64_sysv_elf.s"
 .text
 .globl jump_fcontext
 .type jump_fcontext,@function
@@ -87,6 +88,5 @@ jump_fcontext:
     /* indirect jump to context */
     jmp     *%r8
 .size jump_fcontext,.-jump_fcontext
-
 /* mark that we don't need executable stack */
 .section .note.GNU-stack,"",%progbits

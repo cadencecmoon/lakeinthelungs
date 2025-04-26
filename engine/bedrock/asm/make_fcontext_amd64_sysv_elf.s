@@ -21,6 +21,7 @@
  *  ----------------------------------------------------------------------------------
  */
 
+.file "make_fcontext_amd64_sysv_elf.s"
 .text
 .globl make_fcontext
 .type make_fcontext,@function
@@ -66,6 +67,5 @@ finish:
     syscall
     hlt
 .size make_fcontext,.-make_fcontext
-
 /* mark that we don't need executable stack */
 .section .note.GNU-stack,"",%progbits
