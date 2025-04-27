@@ -113,12 +113,6 @@ riven_malloc_aligned(
     usize           size,
     usize           alignment);
 
-lake_force_inline lake_nonnull(1) void *
-riven_malloc(struct riven *riven, usize size) 
-{
-    return riven_malloc_aligned(riven, size, 1);
-}
-
 /** Implement a dynamic realloc, memory returned must be later freed with 'riven_free'. */
 LAKEAPI lake_hot lake_nonnull(1) lake_malloc void *LAKECALL 
 riven_realloc_aligned(
@@ -126,11 +120,6 @@ riven_realloc_aligned(
     void           *memory,
     usize           size,
     usize           alignment);
-
-lake_force_inline lake_nonnull(1) void *
-riven_realloc(struct riven *riven, void *memory, usize size) {
-    return riven_realloc_aligned(riven, memory, size, 1);
-}
 
 /** Frees memory that was returned from 'riven_malloc_aligned'. Must not be called
  *  with a pointer returned by 'riven_talloc'. */
@@ -158,6 +147,31 @@ riven_rotate_deferred(struct riven *riven);
  *  resources, changes will be made only if the heap can be safely trimmed. */
 LAKEAPI lake_nonnull(1) usize LAKECALL 
 riven_advise_commitment(struct riven *riven, usize size, enum bedrock_madvise_mode mode);
+
+/** A callback for backends to perform an allocation. */
+struct riven_allocation {
+    usize                       size;
+    usize                       alignment;
+    lake_optional(riven_tag_t)  tag;
+    void                       *memory;
+};
+#define riven_write_tag(TAG) (lake_optional(riven_tag_t)){ .value = TAG, .has_value = true }
+
+lake_force_inline lake_nonnull(1) lake_nodiscard
+enum lake_result riven_allocation_callback(
+    struct riven            *riven,
+    struct riven_allocation *allocation)
+{
+    if (allocation->memory) return lake_result_success;
+
+    /* perform the allocation */
+    if (allocation->tag.has_value) {
+        allocation->memory = riven_thalloc(riven, allocation->tag.value, allocation->size, allocation->alignment);
+        return (allocation->memory != NULL) ? lake_result_success : lake_result_error_out_of_host_memory;
+    }
+    /* the host shall allocate memory himself */
+    return lake_result_allocation_callback;
+}
 
 /** Runs 'work_count' amount of jobs, passed in the flat array 'work'. This will return immediately, and the 
  *  provided jobs will be resolved in the background in parallel. If 'chain' is not NULL, it will be set to 
@@ -250,9 +264,9 @@ struct riven_interface {
 };
 
 #define riven_inc_refcnt(REFCNT) \
-    (u32)lake_atomic_add_explicit(REFCNT, 1u, lake_memory_model_relaxed)
+    lake_atomic_add_explicit(REFCNT, 1u, lake_memory_model_relaxed)
 #define riven_dec_refcnt(REFCNT) \
-    (u32)lake_atomic_sub_explicit(REFCNT, 1u, lake_memory_model_relaxed)
+    lake_atomic_sub_explicit(REFCNT, 1u, lake_memory_model_relaxed)
 
 typedef bool (LAKECALL *PFN_riven_interface_validation)(const void *interface);
 #define FN_RIVEN_INTERFACE_VALIDATION(INTERFACE) \

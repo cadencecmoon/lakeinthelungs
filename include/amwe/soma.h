@@ -50,7 +50,7 @@ typedef bool (LAKECALL *PFN_soma_device_wait)(struct soma_device *device);
 union soma_device_view {
     struct {SOMA_INTERFACE_DEVICE_HEADER}  *header;
     struct soma_device                     *device;
-    union soma_encore_view                 *encore_view;
+    union soma_audio                       *soma;
 };
 
 /** A public interface of the audio engine, implemented by a backend 'soma_encore'. */

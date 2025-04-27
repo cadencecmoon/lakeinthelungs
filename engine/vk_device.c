@@ -3,41 +3,48 @@
 #ifdef XAKU_VULKAN
 FN_XAKU_DEVICE_ASSEMBLY(vulkan)
 {
-    /* get memory requirements */
-    usize device_bytes = A16(lake_sizeof(struct xaku_device));
-    usize total_bytes = 
-        device_bytes;
-    usize alignment = lake_alignof(struct xaku_device);
-
-    if (!assembly->host_allocation.data || assembly->host_allocation.size < total_bytes) {
-        assembly->host_allocation.size = total_bytes;
-        assembly->host_allocation.alignment = alignment;
-        return lake_result_allocation_callback;
-    }
-    struct xaku_device *device = (struct xaku_device *)assembly->host_allocation.data;
-    bedrock_memset(assembly->host_allocation.data, 0, total_bytes);
-
+    /* discard the device early if requirements are not met */
     u32 pd_index = assembly->physical_device_index;
     if (pd_index >= xaku->physical_device_count)
-        pd_index = 0;
+        return lake_result_error_invalid_device_index;
+
     const struct vulkan_physical_device *physical_device = &xaku->physical_devices[pd_index];
+    const struct xaku_device_properties *properties = &physical_device->xaku_properties;
+
+    if (properties->missing_required_features != xaku_missing_required_feature_none)
+        return lake_result_error_device_not_supported;
+
+    if ((assembly->explicit_features & properties->explicit_features) != assembly->explicit_features)
+        return lake_result_error_feature_not_present;
+
+    /* get memory requirements */
+    allocation->size = A8(lake_sizeof(struct xaku_device));
+    allocation->alignment = lake_alignof(struct xaku_device);
+
+    enum lake_result result = riven_allocation_callback(xaku->interface.riven.context.self, allocation);
+    if (result != lake_result_success) return result;
+
+    struct xaku_device *device = (struct xaku_device *)allocation->memory;
+    bedrock_memset(allocation->memory, 0, allocation->size);
 
     device->xaku = xaku;
     device->riven = &xaku->interface.riven.context;
-    device->properties = &physical_device->xaku_properties;
-    device->assembly = *assembly;
-    device->assembly.physical_device_index = pd_index;
+    device->properties = properties;
     device->physical_details = physical_device;
-    device->physical = physical_device->vk_physical_device;
     device->host_allocator = &xaku->allocator;
+    bedrock_memcpy(&device->assembly, assembly, lake_sizeof(struct xaku_device_assembly));
+    device->assembly.physical_device_index = pd_index;
 
-    /* TODO process required, explicit and implicit features */
-
-    /* TODO call the helper to create the device itself */
+    /* create the Vulkan device */
+    result = vulkan_device_assembly_helper(device, assembly);
+    if (result != lake_result_success) {
+        _xaku_vulkan_device_disassembly(device);
+        return result;
+    }
 
     /* TODO assemble data structures of the device */
 
-    (void)riven_inc_refcnt(&device->refcnt);
+    riven_inc_refcnt(&device->refcnt);
     *out_device = device;
     return lake_result_success;
 }
@@ -48,30 +55,30 @@ FN_XAKU_DEVICE_DISASSEMBLY(vulkan)
 
     /* TODO */
 
-    if (device->logical)
-        device->vkDestroyDevice(device->logical, device->host_allocator);
+    if (device->vk_device)
+        device->vkDestroyDevice(device->vk_device, device->host_allocator);
     bedrock_zerop(device);
 }
 
 FN_XAKU_DEVICE_QUEUE_COUNT(vulkan)
 {
-    (void)device;
-    (void)queue_type;
-    (void)out_count;
+    bedrock_assert_debug(out_count);
+    if (queue_type >= xaku_queue_type_max_enum)
+        return lake_result_error_invalid_queue;
+    *out_count = device->physical_details->queue_families[queue_type].queue_count;
     return lake_result_success;
 }
 
 FN_XAKU_DEVICE_QUEUE_WAIT_IDLE(vulkan)
 {
-    (void)device;
-    (void)queue;
-    return lake_result_success;
+    if (!vulkan_device_valid_queue(device, queue))
+        return lake_result_error_invalid_queue;
+    return vulkan_lake_result(device->vkQueueWaitIdle(vulkan_device_get_queue(device, queue)->vk_queue));
 }
 
 FN_XAKU_DEVICE_WAIT_IDLE(vulkan)
 {
-    (void)device;
-    return lake_result_success;
+    return vulkan_lake_result(device->vkDeviceWaitIdle(device->vk_device));
 }
 
 FN_XAKU_DEVICE_SUBMIT(vulkan)
@@ -107,6 +114,7 @@ FN_XAKU_MEMORY_ASSEMBLY(vulkan)
 {
     (void)device;
     (void)assembly;
+    (void)allocation;
     (void)out_memory;
     return lake_result_max_enum;
 }
@@ -306,6 +314,19 @@ FN_XAKU_DESTROY_BLAS(vulkan)
     (void)device;
     (void)blas;
     return lake_result_max_enum;
+}
+
+struct vulkan_queue *vulkan_device_get_queue(struct xaku_device *device, struct xaku_queue queue)
+{
+    u32 offsets[6] = { 
+        XAKU_QUEUE_MAIN_INDEX,
+        XAKU_QUEUE_COMPUTE_BEGIN_INDEX,
+        XAKU_QUEUE_TRANSFER_BEGIN_INDEX,
+        XAKU_QUEUE_SPARSE_BINDING_INDEX,
+        XAKU_QUEUE_VIDEO_DECODE_INDEX,
+        XAKU_QUEUE_VIDEO_ENCODE_INDEX,
+    };
+    return &device->queues[offsets[queue.type] + queue.index];
 }
 
 #endif /* XAKU_VULKAN */

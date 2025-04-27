@@ -5,6 +5,7 @@ FN_XAKU_COMMAND_RECORDER_ASSEMBLY(vulkan)
 {
     (void)device;
     (void)assembly;
+    (void)allocation;
     (void)out_command_recorder;
     return lake_result_max_enum;
 }
@@ -140,6 +141,13 @@ FN_XAKU_CMD_SET_RAY_TRACING_PIPELINE(vulkan)
     return lake_result_max_enum;
 }
 
+FN_XAKU_CMD_SET_WORK_GRAPH_PIPELINE(vulkan)
+{
+    (void)cmd;
+    (void)pipeline;
+    return lake_result_max_enum;
+}
+
 FN_XAKU_CMD_SET_VIEWPORT(vulkan)
 {
     (void)cmd;
@@ -191,6 +199,27 @@ FN_XAKU_CMD_DISPATCH_INDIRECT(vulkan)
     return lake_result_max_enum;
 }
 
+FN_XAKU_CMD_DISPATCH_GRAPH(vulkan)
+{
+    (void)cmd;
+    (void)params;
+    return lake_result_max_enum;
+}
+
+FN_XAKU_CMD_DISPATCH_GRAPH_INDIRECT(vulkan)
+{
+    (void)cmd;
+    (void)params;
+    return lake_result_max_enum;
+}
+
+FN_XAKU_CMD_DISPATCH_GRAPH_INDIRECT_COUNT(vulkan)
+{
+    (void)cmd;
+    (void)params;
+    return lake_result_max_enum;
+}
+
 FN_XAKU_CMD_DRAW(vulkan)
 {
     (void)cmd;
@@ -217,7 +246,7 @@ FN_XAKU_CMD_DRAW_INDIRECT_COUNT(vulkan)
     return lake_result_max_enum;
 }
 
-FN_XAKU_CMD_MESH_TASKS(vulkan)
+FN_XAKU_CMD_DRAW_MESH_TASKS(vulkan)
 {
     (void)cmd;
     (void)x;
@@ -225,14 +254,14 @@ FN_XAKU_CMD_MESH_TASKS(vulkan)
     (void)z;
 }
 
-FN_XAKU_CMD_MESH_TASKS_INDIRECT(vulkan)
+FN_XAKU_CMD_DRAW_MESH_TASKS_INDIRECT(vulkan)
 {
     (void)cmd;
     (void)params;
     return lake_result_max_enum;
 }
 
-FN_XAKU_CMD_MESH_TASKS_INDIRECT_COUNT(vulkan)
+FN_XAKU_CMD_DRAW_MESH_TASKS_INDIRECT_COUNT(vulkan)
 {
     (void)cmd;
     (void)params;

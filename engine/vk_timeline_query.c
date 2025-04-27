@@ -5,6 +5,7 @@ FN_XAKU_QUERY_POOL_ASSEMBLY(vulkan)
 {
     (void)device;
     (void)assembly;
+    (void)allocation;
     (void)out_query_pool;
     return lake_result_max_enum;
 }

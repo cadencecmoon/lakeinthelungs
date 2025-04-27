@@ -56,6 +56,8 @@ extern FN_RIVEN_INTERFACE_VALIDATION(xaku)
     VALIDATE(raster_pipeline_disassembly)
     VALIDATE(ray_tracing_pipeline_assembly)
     VALIDATE(ray_tracing_pipeline_disassembly)
+    VALIDATE(work_graph_pipeline_assembly)
+    VALIDATE(work_graph_pipeline_disassembly)
     VALIDATE(command_recorder_assembly)
     VALIDATE(command_recorder_disassembly)
     VALIDATE(deferred_resource_disassembly)
@@ -100,6 +102,7 @@ extern FN_RIVEN_INTERFACE_VALIDATION(xaku)
     VALIDATE(cmd_set_compute_pipeline)
     VALIDATE(cmd_set_raster_pipeline)
     VALIDATE(cmd_set_ray_tracing_pipeline)
+    VALIDATE(cmd_set_work_graph_pipeline)
     VALIDATE(cmd_set_viewport)
     VALIDATE(cmd_set_scissor)
     VALIDATE(cmd_set_depth_bias)
@@ -108,13 +111,16 @@ extern FN_RIVEN_INTERFACE_VALIDATION(xaku)
     VALIDATE(cmd_end_rendering)
     VALIDATE(cmd_dispatch)
     VALIDATE(cmd_dispatch_indirect)
+    VALIDATE(cmd_dispatch_graph)
+    VALIDATE(cmd_dispatch_graph_indirect)
+    VALIDATE(cmd_dispatch_graph_indirect_count)
     VALIDATE(cmd_draw)
     VALIDATE(cmd_draw_indexed)
     VALIDATE(cmd_draw_indirect)
     VALIDATE(cmd_draw_indirect_count)
-    VALIDATE(cmd_mesh_tasks)
-    VALIDATE(cmd_mesh_tasks_indirect)
-    VALIDATE(cmd_mesh_tasks_indirect_count)
+    VALIDATE(cmd_draw_mesh_tasks)
+    VALIDATE(cmd_draw_mesh_tasks_indirect)
+    VALIDATE(cmd_draw_mesh_tasks_indirect_count)
     VALIDATE(cmd_trace_rays)
     VALIDATE(cmd_trace_rays_indirect)
     VALIDATE(cmd_write_timestamps)
@@ -125,6 +131,48 @@ extern FN_RIVEN_INTERFACE_VALIDATION(xaku)
 #undef VALIDATE
 
     return valid;
+}
+
+const char *xaku_device_type_string(enum xaku_device_type type)
+{
+    switch (type) {
+    case xaku_device_type_discrete_gpu: return "discrete";
+    case xaku_device_type_integrated_gpu: return "integrated";
+    case xaku_device_type_virtual_gpu: return "virtual";
+    case xaku_device_type_cpu: return "cpu";
+    case xaku_device_type_other: return "other";
+    default: return "unknown";
+    }
+}
+
+u64 xaku_device_calculate_score(const struct xaku_device_properties *properties)
+{
+    u64 score = 5ull;
+    if (properties->device_type == xaku_device_type_discrete_gpu)
+        score = 10000ull;
+    else if (properties->device_type == xaku_device_type_integrated_gpu)
+        score = 5000ull;
+    else if (properties->device_type == xaku_device_type_cpu)
+        score = 500ull;
+
+    /* don't continue if there are some feature-related problems */
+    if (properties->missing_required_features != xaku_missing_required_feature_none)
+        return score;
+
+    /* calculate a more detailed score TODO */
+    if (properties->ray_tracing_pipeline_properties.has_value) {
+
+    }
+    if (properties->acceleration_structure_properties.has_value) {
+
+    }
+    if (properties->mesh_shader_properties.has_value) {
+
+    }
+    if (properties->work_graph_properties.has_value) {
+
+    }
+    return score;
 }
 
 #ifdef XAKU_D3D12

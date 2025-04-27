@@ -49,26 +49,32 @@ enum device_extension_bits {
     device_extension_khr_video_decode_queue                    = (1ull << 14), /**< VK_KHR_video_decode_queue */
     device_extension_khr_video_decode_av1                      = (1ull << 15), /**< VK_KHR_video_decode_av1 */
     device_extension_khr_video_decode_h264                     = (1ull << 16), /**< VK_KHR_video_decode_h264 */
-    device_extension_khr_video_maintenance1                    = (1ull << 17), /**< VK_KHR_video_maintenance1 */
-    device_extension_ext_extended_dynamic_state3               = (1ull << 18), /**< VK_EXT_extended_dynamic_state3 */
-    device_extension_ext_robustness2                           = (1ull << 19), /**< VK_EXT_robustness2 */
-    device_extension_ext_shader_image_atomic_int64             = (1ull << 20), /**< VK_EXT_shader_image_atomic_int64 */
-    device_extension_ext_shader_atomic_float                   = (1ull << 21), /**< VK_EXT_shader_atomic_float */
-    device_extension_ext_conservative_rasterization            = (1ull << 22), /**< VK_EXT_conservative_rasterization */
-    device_extension_ext_dynamic_rendering_unused_attachments  = (1ull << 23), /**< VK_EXT_dynamic_rendering_unused_attachments */
+    device_extension_khr_video_encode_queue                    = (1ull << 17), /**< VK_KHR_video_encode_queue */
+    device_extension_khr_video_encode_av1                      = (1ull << 18), /**< VK_KHR_video_encode_av1 */
+    device_extension_khr_video_encode_h264                     = (1ull << 19), /**< VK_KHR_video_encode_h264 */
+    device_extension_khr_video_maintenance1                    = (1ull << 20), /**< VK_KHR_video_maintenance1 */
+    device_extension_ext_extended_dynamic_state3               = (1ull << 21), /**< VK_EXT_extended_dynamic_state3 */
+    device_extension_ext_robustness2                           = (1ull << 22), /**< VK_EXT_robustness2 */
+    device_extension_ext_shader_image_atomic_int64             = (1ull << 23), /**< VK_EXT_shader_image_atomic_int64 */
+    device_extension_ext_shader_atomic_float                   = (1ull << 24), /**< VK_EXT_shader_atomic_float */
+    device_extension_ext_conservative_rasterization            = (1ull << 25), /**< VK_EXT_conservative_rasterization */
+    device_extension_ext_dynamic_rendering_unused_attachments  = (1ull << 26), /**< VK_EXT_dynamic_rendering_unused_attachments */
     /* NVIDIA hardware */
-    device_extension_nv_ray_tracing_invocation_reorder         = (1ull << 24), /**< VK_NV_ray_tracing_invocation_reorder */
+    device_extension_nv_ray_tracing_invocation_reorder         = (1ull << 27), /**< VK_NV_ray_tracing_invocation_reorder */
     /* AMD hardware */
-    device_extension_amd_device_coherent_memory                = (1ull << 25), /**< VK_AMD_device_coherent_memory */
+    device_extension_amd_device_coherent_memory                = (1ull << 28), /**< VK_AMD_device_coherent_memory */
+    device_extension_amdx_shader_enqueue                       = (1ull << 29), /**< VK_AMDX_shader_enqueue, work graph */
+    device_extension_count = 30,
     /* core 1.4, for backwards compatibility */
-    device_extension_khr_dynamic_rendering_local_read          = (1ull << 26), /**< VK_KHR_dynamic_rendering_local_read */
-    device_extension_khr_maintenance5                          = (1ull << 27), /**< VK_KHR_maintenance5 */
+    device_extension_khr_dynamic_rendering_local_read          = (1ull << 30), /**< VK_KHR_dynamic_rendering_local_read */
+    device_extension_khr_maintenance6                          = (1ull << 31), /**< VK_KHR_maintenance6 */
+    device_extension_khr_maintenance5                          = (1ull << 32), /**< VK_KHR_maintenance5 */
+    device_extension_count_1_4_fallback = 33,
     /* core 1.3, for backwards compatibility */
-    device_extension_khr_dynamic_rendering                     = (1ull << 28), /**< VK_KHR_dynamic_rendering */
-    device_extension_khr_synchronization2                      = (1ull << 29), /**< VK_KHR_synchronization2 */
-    device_extension_khr_maintenance4                          = (1ull << 30), /**< VK_KHR_maintenance4 */
-    /** if this exceeds 64, we may need to split the values holding extension bits */
-    device_extension_count = 31,
+    device_extension_khr_dynamic_rendering                     = (1ull << 33), /**< VK_KHR_dynamic_rendering */
+    device_extension_khr_synchronization2                      = (1ull << 34), /**< VK_KHR_synchronization2 */
+    device_extension_khr_maintenance4                          = (1ull << 35), /**< VK_KHR_maintenance4 */
+    device_extension_count_1_3_fallback = 36,
 };
 
 static const char *g_device_extension_names[] = {
@@ -89,6 +95,9 @@ static const char *g_device_extension_names[] = {
     VK_KHR_VIDEO_DECODE_QUEUE_EXTENSION_NAME,
     VK_KHR_VIDEO_DECODE_AV1_EXTENSION_NAME,
     VK_KHR_VIDEO_DECODE_H264_EXTENSION_NAME,
+    VK_KHR_VIDEO_ENCODE_QUEUE_EXTENSION_NAME,
+    VK_KHR_VIDEO_ENCODE_AV1_EXTENSION_NAME,
+    VK_KHR_VIDEO_ENCODE_H264_EXTENSION_NAME,
     VK_KHR_VIDEO_MAINTENANCE_1_EXTENSION_NAME,
     VK_EXT_EXTENDED_DYNAMIC_STATE_3_EXTENSION_NAME,
     VK_EXT_ROBUSTNESS_2_EXTENSION_NAME,
@@ -98,13 +107,15 @@ static const char *g_device_extension_names[] = {
     VK_EXT_DYNAMIC_RENDERING_UNUSED_ATTACHMENTS_EXTENSION_NAME,
     VK_NV_RAY_TRACING_INVOCATION_REORDER_EXTENSION_NAME,
     VK_AMD_DEVICE_COHERENT_MEMORY_EXTENSION_NAME,
+    VK_AMDX_SHADER_ENQUEUE_EXTENSION_NAME,
     VK_KHR_DYNAMIC_RENDERING_LOCAL_READ_EXTENSION_NAME,
+    VK_KHR_MAINTENANCE_6_EXTENSION_NAME,
     VK_KHR_MAINTENANCE_5_EXTENSION_NAME,
     VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
     VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
     VK_KHR_MAINTENANCE_4_EXTENSION_NAME,
 };
-bedrock_static_assert(lake_arraysize(g_device_extension_names) == device_extension_count, "The number of device extensions and their names count must match");
+bedrock_static_assert(lake_arraysize(g_device_extension_names) == device_extension_count_1_3_fallback, "The number of device extensions and their names count must match");
 
 const char *vulkan_result_string(VkResult result)
 {
@@ -188,6 +199,105 @@ const char *vulkan_result_string(VkResult result)
     }
 }
 
+enum lake_result vulkan_lake_result(VkResult result)
+{
+    switch (result) {
+		case VK_ERROR_OUT_OF_HOST_MEMORY: return lake_result_error_out_of_host_memory;
+		case VK_ERROR_OUT_OF_DEVICE_MEMORY: return lake_result_error_out_of_device_memory;
+		case VK_ERROR_INITIALIZATION_FAILED: return lake_result_error_initialization_failed;
+		case VK_ERROR_DEVICE_LOST: return lake_result_error_device_lost;
+		case VK_ERROR_MEMORY_MAP_FAILED: return lake_result_error_memory_map_failed;
+		case VK_ERROR_LAYER_NOT_PRESENT: return lake_result_error_layer_not_present;
+		case VK_ERROR_EXTENSION_NOT_PRESENT: return lake_result_error_extension_not_present;
+		case VK_ERROR_FEATURE_NOT_PRESENT: return lake_result_error_feature_not_present;
+		case VK_ERROR_INCOMPATIBLE_DRIVER: return lake_result_error_incompatible_driver;
+		case VK_ERROR_TOO_MANY_OBJECTS: return lake_result_error_too_many_objects;
+		case VK_ERROR_FORMAT_NOT_SUPPORTED: return lake_result_error_format_not_supported;
+		case VK_ERROR_FRAGMENTED_POOL: return lake_result_error_fragmented_pool;
+		case VK_ERROR_OUT_OF_POOL_MEMORY: return lake_result_error_out_of_pool_memory;
+		case VK_ERROR_INVALID_EXTERNAL_HANDLE: return lake_result_error_invalid_external_handle;
+		case VK_ERROR_FRAGMENTATION: return lake_result_error_fragmentation;
+		case VK_ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS: return lake_result_error_invalid_opaque_capture_address;
+		case VK_PIPELINE_COMPILE_REQUIRED: return lake_result_compile_required;
+		case VK_ERROR_SURFACE_LOST_KHR: return lake_result_error_surface_lost;
+		case VK_ERROR_NATIVE_WINDOW_IN_USE_KHR: return lake_result_error_native_window_in_use;
+		case VK_SUBOPTIMAL_KHR: return lake_result_suboptimal;
+		case VK_ERROR_OUT_OF_DATE_KHR: return lake_result_error_out_of_date;
+		case VK_ERROR_INCOMPATIBLE_DISPLAY_KHR: return lake_result_error_incompatible_display;
+		case VK_ERROR_VALIDATION_FAILED_EXT: return lake_result_error_validation_failed;
+		case VK_ERROR_INVALID_SHADER_NV: return lake_result_error_invalid_shader;
+		case VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT: return lake_result_error_invalid_drm_format_modifier_plane_layout;
+		case VK_ERROR_NOT_PERMITTED_KHR: return lake_result_error_not_permitted;
+		case VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT: return lake_result_error_full_screen_exclusive_mode_lost;
+		case VK_THREAD_IDLE_KHR: return lake_result_thread_idle;
+		case VK_THREAD_DONE_KHR: return lake_result_thread_done;
+		case VK_OPERATION_DEFERRED_KHR: return lake_result_operation_deferred;
+		case VK_OPERATION_NOT_DEFERRED_KHR: return lake_result_operation_not_deferred;
+		case VK_ERROR_COMPRESSION_EXHAUSTED_EXT: return lake_result_error_compression_exhausted;
+        case VK_INCOMPLETE: return lake_result_incomplete;
+        case VK_SUCCESS: return lake_result_success;
+        default: return lake_result_error_unknown;
+    }
+}
+
+static VKAPI_ATTR VkBool32 VKAPI_CALL
+debug_utils_callback(
+    VkDebugUtilsMessageSeverityFlagBitsEXT      severity,
+    VkDebugUtilsMessageTypeFlagsEXT             type,
+    const VkDebugUtilsMessengerCallbackDataEXT *callbackdata,
+    void                                       *userdata)
+{
+    (void)userdata; (void)type;
+
+    switch (severity) {
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
+            bedrock_log_debug("%s", callbackdata->pMessage);
+            break;
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
+            bedrock_log_verbose("%s", callbackdata->pMessage);
+            break;
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
+            bedrock_log_warn("%s", callbackdata->pMessage);
+            break;
+        default:
+            bedrock_log_error("%s", callbackdata->pMessage);
+            bedrock_assert_debug(!"Vulkan validation error !!");
+    }
+    return VK_FALSE;
+}
+
+static VKAPI_ATTR void *VKAPI_CALL 
+host_allocator_callback_malloc(
+    void                       *pUserData, 
+    usize                       size, 
+    usize                       alignment, 
+    VkSystemAllocationScope     allocationScope)
+{
+    (void)allocationScope;
+    const struct riven_context *riven = (struct riven_context *)pUserData;
+    return riven_malloc_aligned(riven->self, size, alignment);
+}
+
+static VKAPI_ATTR void *VKAPI_CALL 
+host_allocator_callback_realloc(
+    void                       *pUserData, 
+    void                       *pOriginal, 
+    usize                       size, 
+    usize                       alignment, 
+    VkSystemAllocationScope     allocationScope)
+{
+    (void)allocationScope;
+    const struct riven_context *riven = (struct riven_context *)pUserData;
+    return riven_realloc_aligned(riven->self, pOriginal, size, alignment);
+}
+
+static VKAPI_ATTR void VKAPI_CALL 
+host_allocator_callback_free(void *pUserData, void *pMemory)
+{
+    const struct riven_context *riven = (struct riven_context *)pUserData;
+    riven_free(riven->self, pMemory); 
+}
+
 static bool query_extension(VkExtensionProperties *properties, u32 count, const char *ext)
 {
     for (u32 i = 0; i < count; i++)
@@ -206,7 +316,7 @@ static PFN_vkVoidFunction instance_proc_address(const struct xaku_encore *xaku, 
 
 static PFN_vkVoidFunction device_proc_address(const struct xaku_device *device, const char *procname)
 {
-    PFN_vkVoidFunction address = device->xaku->vkGetDeviceProcAddr(device->logical, procname);
+    PFN_vkVoidFunction address = device->xaku->vkGetDeviceProcAddr(device->vk_device, procname);
     if (address == NULL)
         bedrock_log_warn("'xaku_vulkan' can't find Vulkan device procedure '%s'.", procname);
     return address;
@@ -867,11 +977,15 @@ static bool load_device_procedures(struct xaku_device *device, u64 extension_bit
         !device->vkGetDeviceImageMemoryRequirements ||
         !device->vkGetDeviceImageSparseMemoryRequirements)
         return false;
-    
+
     /* core 1.4 */
     if (device->physical_details->xaku_properties.api_version >= VK_API_VERSION_1_4) {
+        device->vkCmdBindDescriptorSets2 = (PFN_vkCmdBindDescriptorSets2)
+            device_proc_address(device, "vkCmdBindDescriptorSets2");
         device->vkCmdBindIndexBuffer2 = (PFN_vkCmdBindIndexBuffer2)
             device_proc_address(device, "vkCmdBindIndexBuffer2");
+        device->vkCmdPushConstants2 = (PFN_vkCmdPushConstants2)
+            device_proc_address(device, "vkCmdPushConstants2");
         device->vkCmdSetRenderingAttachmentLocations = (PFN_vkCmdSetRenderingAttachmentLocations)
             device_proc_address(device, "vkCmdSetRenderingAttachmentLocations");
         device->vkCmdSetRenderingInputAttachmentIndices = (PFN_vkCmdSetRenderingInputAttachmentIndices)
@@ -882,31 +996,58 @@ static bool load_device_procedures(struct xaku_device *device, u64 extension_bit
             device_proc_address(device, "vkGetImageSubresourceLayout2");
         device->vkGetRenderingAreaGranularity = (PFN_vkGetRenderingAreaGranularity)
             device_proc_address(device, "vkGetRenderingAreaGranularity");
+
+        if (!device->vkCmdBindDescriptorSets2 ||
+            !device->vkCmdBindIndexBuffer2 ||
+            !device->vkCmdPushConstants2 ||
+            !device->vkCmdSetRenderingAttachmentLocations ||
+            !device->vkCmdSetRenderingInputAttachmentIndices ||
+            !device->vkGetDeviceImageSubresourceLayout ||
+            !device->vkGetImageSubresourceLayout2 ||
+            !device->vkGetRenderingAreaGranularity)
+            return false;
     } else { /* backwards compatibility 1.4 */
         u64 required = device_extension_khr_dynamic_rendering_local_read | device_extension_khr_maintenance5;
         if ((extension_bits & (required)) != required)
             return false;
 
-        device->vkCmdBindIndexBuffer2 = (PFN_vkCmdBindIndexBuffer2KHR)
-            device_proc_address(device, "vkCmdBindIndexBuffer2KHR");
-        device->vkCmdSetRenderingAttachmentLocations = (PFN_vkCmdSetRenderingAttachmentLocationsKHR)
-            device_proc_address(device, "vkCmdSetRenderingAttachmentLocationsKHR");
-        device->vkCmdSetRenderingInputAttachmentIndices = (PFN_vkCmdSetRenderingInputAttachmentIndicesKHR)
-            device_proc_address(device, "vkCmdSetRenderingInputAttachmentIndicesKHR");
-        device->vkGetDeviceImageSubresourceLayout = (PFN_vkGetDeviceImageSubresourceLayoutKHR)
-            device_proc_address(device, "vkGetDeviceImageSubresourceLayoutKHR");
-        device->vkGetImageSubresourceLayout2 = (PFN_vkGetImageSubresourceLayout2KHR)
-            device_proc_address(device, "vkGetImageSubresourceLayout2KHR");
-        device->vkGetRenderingAreaGranularity = (PFN_vkGetRenderingAreaGranularityKHR)
-            device_proc_address(device, "vkGetRenderingAreaGranularityKHR");
+        if (extension_bits & device_extension_khr_dynamic_rendering_local_read) {
+            device->vkCmdSetRenderingAttachmentLocations = (PFN_vkCmdSetRenderingAttachmentLocationsKHR)
+                device_proc_address(device, "vkCmdSetRenderingAttachmentLocationsKHR");
+            device->vkCmdSetRenderingInputAttachmentIndices = (PFN_vkCmdSetRenderingInputAttachmentIndicesKHR)
+                device_proc_address(device, "vkCmdSetRenderingInputAttachmentIndicesKHR");
+
+            if (!device->vkCmdSetRenderingAttachmentLocations || !device->vkCmdSetRenderingInputAttachmentIndices)
+                return false;
+        }
+
+        if (extension_bits & device_extension_khr_maintenance6) {
+            device->vkCmdBindDescriptorSets2 = (PFN_vkCmdBindDescriptorSets2KHR)
+                device_proc_address(device, "vkCmdBindDescriptorSets2KHR");
+            device->vkCmdPushConstants2 = (PFN_vkCmdPushConstants2KHR)
+                device_proc_address(device, "vkCmdPushConstants2KHR");
+
+            if (!device->vkCmdBindDescriptorSets2 || !device->vkCmdPushConstants2)
+                return false;
+        }
+
+        if (extension_bits & device_extension_khr_maintenance5) {
+            device->vkCmdBindIndexBuffer2 = (PFN_vkCmdBindIndexBuffer2KHR)
+                device_proc_address(device, "vkCmdBindIndexBuffer2KHR");
+            device->vkGetDeviceImageSubresourceLayout = (PFN_vkGetDeviceImageSubresourceLayoutKHR)
+                device_proc_address(device, "vkGetDeviceImageSubresourceLayoutKHR");
+            device->vkGetImageSubresourceLayout2 = (PFN_vkGetImageSubresourceLayout2KHR)
+                device_proc_address(device, "vkGetImageSubresourceLayout2KHR");
+            device->vkGetRenderingAreaGranularity = (PFN_vkGetRenderingAreaGranularityKHR)
+                device_proc_address(device, "vkGetRenderingAreaGranularityKHR");
+
+            if (!device->vkCmdBindIndexBuffer2 ||
+                !device->vkGetDeviceImageSubresourceLayout ||
+                !device->vkGetImageSubresourceLayout2 ||
+                !device->vkGetRenderingAreaGranularity)
+                return false;
+        }
     }
-    if (!device->vkCmdBindIndexBuffer2 ||
-        !device->vkCmdSetRenderingAttachmentLocations ||
-        !device->vkCmdSetRenderingInputAttachmentIndices ||
-        !device->vkGetDeviceImageSubresourceLayout ||
-        !device->vkGetImageSubresourceLayout2 ||
-        !device->vkGetRenderingAreaGranularity)
-        return false;
 
     /* swapchain */
     if (extension_bits & device_extension_khr_swapchain) {
@@ -1114,78 +1255,829 @@ static bool load_device_procedures(struct xaku_device *device, u64 extension_bit
             !device->vkUpdateVideoSessionParametersKHR)
             return false;
     }
+
+    /* work graph */
+    if (extension_bits & device_extension_amdx_shader_enqueue) {
+        device->vkCmdDispatchGraphAMDX = (PFN_vkCmdDispatchGraphAMDX)
+            device_proc_address(device, "vkCmdDispatchGraphAMDX");
+        device->vkCmdDispatchGraphIndirectAMDX = (PFN_vkCmdDispatchGraphIndirectAMDX)
+            device_proc_address(device, "vkCmdDispatchGraphIndirectAMDX");
+        device->vkCmdDispatchGraphIndirectCountAMDX = (PFN_vkCmdDispatchGraphIndirectCountAMDX)
+            device_proc_address(device, "vkCmdDispatchGraphIndirectCountAMDX");
+        device->vkCmdInitializeGraphScratchMemoryAMDX = (PFN_vkCmdInitializeGraphScratchMemoryAMDX)
+            device_proc_address(device, "vkCmdInitializeGraphScratchMemoryAMDX");
+        device->vkCreateExecutionGraphPipelinesAMDX = (PFN_vkCreateExecutionGraphPipelinesAMDX)
+            device_proc_address(device, "vkCreateExecutionGraphPipelinesAMDX");
+        device->vkGetExecutionGraphPipelineNodeIndexAMDX = (PFN_vkGetExecutionGraphPipelineNodeIndexAMDX)
+            device_proc_address(device, "vkGetExecutionGraphPipelineNodeIndexAMDX");
+        device->vkGetExecutionGraphPipelineScratchSizeAMDX = (PFN_vkGetExecutionGraphPipelineScratchSizeAMDX)
+            device_proc_address(device, "vkGetExecutionGraphPipelineScratchSizeAMDX");
+        
+        if (!device->vkCmdDispatchGraphAMDX ||
+            !device->vkCmdDispatchGraphIndirectAMDX ||
+            !device->vkCmdDispatchGraphIndirectCountAMDX ||
+            !device->vkCmdInitializeGraphScratchMemoryAMDX ||
+            !device->vkCreateExecutionGraphPipelinesAMDX ||
+            !device->vkGetExecutionGraphPipelineNodeIndexAMDX ||
+            !device->vkGetExecutionGraphPipelineScratchSizeAMDX)
+            return false;
+    }
     return true;
 }
 
-extern enum lake_result vulkan_device_assembly_helper(struct xaku_device *device) 
+struct physical_device_feature {
+    const u32  *vk_feature_offsets; 
+    u32         offsets_count;
+    u32         feat;
+};
+static const u32 g_required_feature__descriptor_indexing_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, descriptor_indexing.shaderSampledImageArrayNonUniformIndexing),
+    lake_offsetof(struct vulkan_physical_device_features, descriptor_indexing.shaderStorageBufferArrayNonUniformIndexing),
+    lake_offsetof(struct vulkan_physical_device_features, descriptor_indexing.shaderStorageImageArrayNonUniformIndexing),
+    lake_offsetof(struct vulkan_physical_device_features, descriptor_indexing.descriptorBindingSampledImageUpdateAfterBind),
+    lake_offsetof(struct vulkan_physical_device_features, descriptor_indexing.descriptorBindingStorageImageUpdateAfterBind),
+    lake_offsetof(struct vulkan_physical_device_features, descriptor_indexing.descriptorBindingStorageBufferUpdateAfterBind),
+    lake_offsetof(struct vulkan_physical_device_features, descriptor_indexing.descriptorBindingUpdateUnusedWhilePending),
+    lake_offsetof(struct vulkan_physical_device_features, descriptor_indexing.descriptorBindingPartiallyBound),
+    lake_offsetof(struct vulkan_physical_device_features, descriptor_indexing.runtimeDescriptorArray),
+};
+static const u32 g_required_feature__buffer_device_address_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, buffer_device_address.bufferDeviceAddress),
+    lake_offsetof(struct vulkan_physical_device_features, buffer_device_address.bufferDeviceAddressCaptureReplay),
+    lake_offsetof(struct vulkan_physical_device_features, buffer_device_address.bufferDeviceAddressMultiDevice),
+};
+static const u32 g_required_feature__multi_draw_indirect_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, features2.features.multiDrawIndirect),
+};
+static const u32 g_required_feature__tessellation_shader_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, features2.features.tessellationShader),
+};
+static const u32 g_required_feature__depth_clamp_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, features2.features.depthClamp),
+};
+static const u32 g_required_feature__sampler_anisotrophy_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, features2.features.samplerAnisotropy),
+};
+static const u32 g_required_feature__framebuffer_local_dependencies_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, dynamic_rendering.dynamicRendering),
+    lake_offsetof(struct vulkan_physical_device_features, dynamic_rendering_local_read.dynamicRenderingLocalRead),
+};
+static const u32 g_required_feature__timeline_semaphore_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, synchronization2.synchronization2),
+    lake_offsetof(struct vulkan_physical_device_features, timeline_semaphore.timelineSemaphore),
+};
+static const u32 g_required_feature__fragment_stores_and_atomics_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, features2.features.fragmentStoresAndAtomics),
+};
+static const u32 g_required_feature__texture_cube_array_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, features2.features.imageCubeArray),
+};
+static const u32 g_required_feature__shader_storage_texture_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, features2.features.shaderStorageImageMultisample),
+    lake_offsetof(struct vulkan_physical_device_features, features2.features.shaderStorageImageReadWithoutFormat),
+    lake_offsetof(struct vulkan_physical_device_features, features2.features.shaderStorageImageWriteWithoutFormat),
+};
+static const u32 g_required_feature__shader_int64_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, features2.features.shaderInt64),
+};
+static const u32 g_required_feature__fill_mode_wireframe_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, features2.features.fillModeNonSolid),
+    lake_offsetof(struct vulkan_physical_device_features, features2.features.wideLines),
+};
+static const u32 g_required_feature__resolve_host_query_data_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, host_query_reset.hostQueryReset),
+};
+static const u32 g_required_feature__subgroup_size_control_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, subgroup_size_control.subgroupSizeControl),
+    lake_offsetof(struct vulkan_physical_device_features, subgroup_size_control.computeFullSubgroups),
+};
+static const u32 g_required_feature__scalar_block_layout_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, scalar_block_layout.scalarBlockLayout),
+};
+static const u32 g_required_feature__independent_blend_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, features2.features.independentBlend),
+};
+static const u32 g_required_feature__variable_pointers_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, variable_pointer.variablePointers),
+    lake_offsetof(struct vulkan_physical_device_features, variable_pointer.variablePointersStorageBuffer),
+};
+static const struct physical_device_feature g_required_features[] = {
+    (struct physical_device_feature){ g_required_feature__descriptor_indexing_features, lake_arraysize(g_required_feature__descriptor_indexing_features), xaku_missing_required_feature_descriptor_indexing},
+    (struct physical_device_feature){ g_required_feature__buffer_device_address_features, lake_arraysize(g_required_feature__buffer_device_address_features), xaku_missing_required_feature_buffer_device_address},
+    (struct physical_device_feature){ g_required_feature__multi_draw_indirect_features, lake_arraysize(g_required_feature__multi_draw_indirect_features), xaku_missing_required_feature_multi_draw_indirect},
+    (struct physical_device_feature){ g_required_feature__tessellation_shader_features, lake_arraysize(g_required_feature__tessellation_shader_features), xaku_missing_required_feature_tessellation_shader},
+    (struct physical_device_feature){ g_required_feature__depth_clamp_features, lake_arraysize(g_required_feature__depth_clamp_features), xaku_missing_required_feature_depth_clamp},
+    (struct physical_device_feature){ g_required_feature__sampler_anisotrophy_features, lake_arraysize(g_required_feature__sampler_anisotrophy_features), xaku_missing_required_feature_sampler_anisotropy},
+    (struct physical_device_feature){ g_required_feature__framebuffer_local_dependencies_features, lake_arraysize(g_required_feature__framebuffer_local_dependencies_features), xaku_missing_required_feature_framebuffer_local_dependencies},
+    (struct physical_device_feature){ g_required_feature__timeline_semaphore_features, lake_arraysize(g_required_feature__timeline_semaphore_features), xaku_missing_required_feature_timeline_semaphore},
+    (struct physical_device_feature){ g_required_feature__fragment_stores_and_atomics_features, lake_arraysize(g_required_feature__fragment_stores_and_atomics_features), xaku_missing_required_feature_fragment_stores_and_atomics},
+    (struct physical_device_feature){ g_required_feature__texture_cube_array_features, lake_arraysize(g_required_feature__texture_cube_array_features), xaku_missing_required_feature_texture_cube_array},
+    (struct physical_device_feature){ g_required_feature__shader_storage_texture_features, lake_arraysize(g_required_feature__shader_storage_texture_features), xaku_missing_required_feature_shader_storage_texture},
+    (struct physical_device_feature){ g_required_feature__shader_int64_features, lake_arraysize(g_required_feature__shader_int64_features), xaku_missing_required_feature_shader_int64},
+    (struct physical_device_feature){ g_required_feature__fill_mode_wireframe_features, lake_arraysize(g_required_feature__fill_mode_wireframe_features), xaku_missing_required_feature_fill_mode_wireframe},
+    (struct physical_device_feature){ g_required_feature__resolve_host_query_data_features, lake_arraysize(g_required_feature__resolve_host_query_data_features), xaku_missing_required_feature_resolve_host_query_data},
+    (struct physical_device_feature){ g_required_feature__subgroup_size_control_features, lake_arraysize(g_required_feature__subgroup_size_control_features), xaku_missing_required_feature_subgroup_size_control},
+    (struct physical_device_feature){ g_required_feature__scalar_block_layout_features, lake_arraysize(g_required_feature__scalar_block_layout_features), xaku_missing_required_feature_scalar_block_layout },
+    (struct physical_device_feature){ g_required_feature__independent_blend_features, lake_arraysize(g_required_feature__independent_blend_features), xaku_missing_required_feature_independent_blend },
+    (struct physical_device_feature){ g_required_feature__variable_pointers_features, lake_arraysize(g_required_feature__variable_pointers_features), xaku_missing_required_feature_variable_pointers },
+};
+static const u32 g_implicit_feature__mesh_shader_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, mesh_shader.meshShader),
+    lake_offsetof(struct vulkan_physical_device_features, mesh_shader.taskShader),
+};
+static const u32 g_implicit_feature__basic_ray_tracing_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, acceleration_structure.accelerationStructure),
+    lake_offsetof(struct vulkan_physical_device_features, acceleration_structure.descriptorBindingAccelerationStructureUpdateAfterBind),
+    lake_offsetof(struct vulkan_physical_device_features, ray_query.rayQuery),
+};
+static const u32 g_implicit_feature__ray_tracing_pipeline_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, acceleration_structure.accelerationStructure),
+    lake_offsetof(struct vulkan_physical_device_features, acceleration_structure.descriptorBindingAccelerationStructureUpdateAfterBind),
+    lake_offsetof(struct vulkan_physical_device_features, ray_query.rayQuery),
+    lake_offsetof(struct vulkan_physical_device_features, ray_tracing_pipeline.rayTracingPipeline),
+    lake_offsetof(struct vulkan_physical_device_features, ray_tracing_pipeline.rayTracingPipelineTraceRaysIndirect),
+    lake_offsetof(struct vulkan_physical_device_features, ray_tracing_pipeline.rayTraversalPrimitiveCulling),
+};
+static const u32 g_implicit_feature__ray_tracing_invocation_reorder_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, acceleration_structure.accelerationStructure),
+    lake_offsetof(struct vulkan_physical_device_features, acceleration_structure.descriptorBindingAccelerationStructureUpdateAfterBind),
+    lake_offsetof(struct vulkan_physical_device_features, ray_query.rayQuery),
+    lake_offsetof(struct vulkan_physical_device_features, ray_tracing_invocation_reorder.rayTracingInvocationReorder),
+};
+static const u32 g_implicit_feature__ray_tracing_position_fetch_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, acceleration_structure.accelerationStructure),
+    lake_offsetof(struct vulkan_physical_device_features, acceleration_structure.descriptorBindingAccelerationStructureUpdateAfterBind),
+    lake_offsetof(struct vulkan_physical_device_features, ray_query.rayQuery),
+    lake_offsetof(struct vulkan_physical_device_features, ray_tracing_position_fetch.rayTracingPositionFetch),
+};
+static const u32 g_implicit_feature__conservative_rasterization_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, has_conservative_rasterization),
+};
+static const u32 g_implicit_feature__work_graph_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, mesh_shader.meshShader),
+    lake_offsetof(struct vulkan_physical_device_features, mesh_shader.taskShader),
+    lake_offsetof(struct vulkan_physical_device_features, maintenance5.maintenance5),
+    lake_offsetof(struct vulkan_physical_device_features, shader_enqueue.shaderEnqueue),
+    lake_offsetof(struct vulkan_physical_device_features, shader_enqueue.shaderMeshEnqueue),
+};
+static const u32 g_implicit_feature__image_atomic64_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, shader_image_atomic_int64.shaderImageInt64Atomics),
+};
+static const u32 g_implicit_feature__shader_atomic_float_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, shader_atomic_float.shaderBufferFloat32Atomics),
+    lake_offsetof(struct vulkan_physical_device_features, shader_atomic_float.shaderBufferFloat32AtomicAdd),
+    lake_offsetof(struct vulkan_physical_device_features, shader_atomic_float.shaderSharedFloat32Atomics),
+    lake_offsetof(struct vulkan_physical_device_features, shader_atomic_float.shaderSharedFloat32AtomicAdd),
+    lake_offsetof(struct vulkan_physical_device_features, shader_atomic_float.shaderImageFloat32Atomics),
+    lake_offsetof(struct vulkan_physical_device_features, shader_atomic_float.shaderImageFloat32AtomicAdd),
+};
+static const u32 g_implicit_feature__shader_atomic_int64_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, shader_atomic_int64.shaderBufferInt64Atomics),
+    lake_offsetof(struct vulkan_physical_device_features, shader_atomic_int64.shaderSharedInt64Atomics),
+};
+static const u32 g_implicit_feature__shader_float16_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, shader_float16_int8.shaderFloat16),
+};
+static const u32 g_implicit_feature__shader_int16_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, features2.features.shaderInt16),
+    lake_offsetof(struct vulkan_physical_device_features, bit16_storage.storageBuffer16BitAccess),
+    lake_offsetof(struct vulkan_physical_device_features, bit16_storage.uniformAndStorageBuffer16BitAccess),
+    lake_offsetof(struct vulkan_physical_device_features, bit16_storage.storagePushConstant16),
+};
+static const u32 g_implicit_feature__shader_int8_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, shader_float16_int8.shaderInt8),
+    lake_offsetof(struct vulkan_physical_device_features, bit8_storage.storageBuffer8BitAccess),
+    lake_offsetof(struct vulkan_physical_device_features, bit8_storage.uniformAndStorageBuffer8BitAccess),
+    lake_offsetof(struct vulkan_physical_device_features, bit8_storage.storagePushConstant8),
+};
+static const u32 g_implicit_feature__dynamic_state_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, extended_dynamic_state3.extendedDynamicState3RasterizationSamples),
+};
+static const u32 g_implicit_feature__sparse_binding_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, features2.features.sparseBinding),
+    lake_offsetof(struct vulkan_physical_device_features, features2.features.sparseResidencyBuffer),
+    lake_offsetof(struct vulkan_physical_device_features, features2.features.sparseResidencyImage2D),
+    lake_offsetof(struct vulkan_physical_device_features, features2.features.sparseResidencyAliased),
+};
+static const u32 g_implicit_feature__swapchain_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, has_swapchain),
+};
+static const struct physical_device_feature g_implicit_features[] = {
+    (struct physical_device_feature){ g_implicit_feature__mesh_shader_features, lake_arraysize(g_implicit_feature__mesh_shader_features), xaku_implicit_feature_mesh_shader },
+    (struct physical_device_feature){ g_implicit_feature__basic_ray_tracing_features, lake_arraysize(g_implicit_feature__basic_ray_tracing_features), xaku_implicit_feature_basic_ray_tracing },
+    (struct physical_device_feature){ g_implicit_feature__ray_tracing_pipeline_features, lake_arraysize(g_implicit_feature__ray_tracing_pipeline_features), xaku_implicit_feature_ray_tracing_pipeline },
+    (struct physical_device_feature){ g_implicit_feature__ray_tracing_position_fetch_features, lake_arraysize(g_implicit_feature__ray_tracing_position_fetch_features), xaku_implicit_feature_ray_tracing_position_fetch },
+    (struct physical_device_feature){ g_implicit_feature__ray_tracing_invocation_reorder_features, lake_arraysize(g_implicit_feature__ray_tracing_invocation_reorder_features), xaku_implicit_feature_ray_tracing_invocation_reorder },
+    (struct physical_device_feature){ g_implicit_feature__conservative_rasterization_features, lake_arraysize(g_implicit_feature__conservative_rasterization_features), xaku_implicit_feature_conservative_rasterization},
+    (struct physical_device_feature){ g_implicit_feature__work_graph_features, lake_arraysize(g_implicit_feature__work_graph_features), xaku_implicit_feature_work_graph },
+    (struct physical_device_feature){ g_implicit_feature__image_atomic64_features, lake_arraysize(g_implicit_feature__image_atomic64_features), xaku_implicit_feature_image_atomic64},
+    (struct physical_device_feature){ g_implicit_feature__shader_atomic_float_features, lake_arraysize(g_implicit_feature__shader_atomic_float_features), xaku_implicit_feature_shader_atomic_float},
+    (struct physical_device_feature){ g_implicit_feature__shader_atomic_int64_features, lake_arraysize(g_implicit_feature__shader_atomic_int64_features), xaku_implicit_feature_shader_atomic_int64},
+    (struct physical_device_feature){ g_implicit_feature__shader_float16_features, lake_arraysize(g_implicit_feature__shader_float16_features), xaku_implicit_feature_shader_float16},
+    (struct physical_device_feature){ g_implicit_feature__shader_int16_features, lake_arraysize(g_implicit_feature__shader_int16_features), xaku_implicit_feature_shader_int16},
+    (struct physical_device_feature){ g_implicit_feature__shader_int8_features, lake_arraysize(g_implicit_feature__shader_int8_features), xaku_implicit_feature_shader_int8},
+    (struct physical_device_feature){ g_implicit_feature__dynamic_state_features, lake_arraysize(g_implicit_feature__dynamic_state_features), xaku_implicit_feature_dynamic_state},
+    (struct physical_device_feature){ g_implicit_feature__sparse_binding_features, lake_arraysize(g_implicit_feature__sparse_binding_features), xaku_implicit_feature_sparse_binding},
+    (struct physical_device_feature){ g_implicit_feature__swapchain_features, lake_arraysize(g_implicit_feature__swapchain_features), xaku_implicit_feature_swapchain},
+};
+static const u32 g_explicit_feature__buffer_device_address_capture_replay_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, buffer_device_address.bufferDeviceAddressCaptureReplay),
+};
+static const u32 g_explicit_feature__acceleration_structure_capture_replay_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, acceleration_structure.accelerationStructure),
+    lake_offsetof(struct vulkan_physical_device_features, acceleration_structure.accelerationStructureCaptureReplay),
+    lake_offsetof(struct vulkan_physical_device_features, acceleration_structure.descriptorBindingAccelerationStructureUpdateAfterBind),
+    lake_offsetof(struct vulkan_physical_device_features, ray_query.rayQuery),
+};
+static const u32 g_explicit_feature__vulkan_memory_model_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, vulkan_memory_model.vulkanMemoryModel),
+    lake_offsetof(struct vulkan_physical_device_features, vulkan_memory_model.vulkanMemoryModelDeviceScope),
+};
+static const u32 g_explicit_feature__robust_access_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, robustness2.robustBufferAccess2),
+    lake_offsetof(struct vulkan_physical_device_features, robustness2.robustImageAccess2),
+    lake_offsetof(struct vulkan_physical_device_features, features2.features.robustBufferAccess),
+};
+static const u32 g_explicit_feature__video_decode_queue_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, has_video_capabilities),
+    lake_offsetof(struct vulkan_physical_device_features, has_video_decode_queue),
+};
+static const u32 g_explicit_feature__video_encode_queue_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, has_video_capabilities),
+    lake_offsetof(struct vulkan_physical_device_features, has_video_encode_queue),
+};
+static const u32 g_explicit_feature__multi_viewport_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, features2.features.multiViewport),
+};
+static const u32 g_explicit_feature__multiview_vr_features[] = {
+    lake_offsetof(struct vulkan_physical_device_features, multiview.multiview),
+    lake_offsetof(struct vulkan_physical_device_features, multiview.multiviewTessellationShader),
+};
+static const struct physical_device_feature g_explicit_features[] = {
+    (struct physical_device_feature){ g_explicit_feature__buffer_device_address_capture_replay_features, lake_arraysize(g_explicit_feature__buffer_device_address_capture_replay_features), xaku_explicit_feature_buffer_device_address_capture_replay},
+    (struct physical_device_feature){ g_explicit_feature__acceleration_structure_capture_replay_features, lake_arraysize(g_explicit_feature__acceleration_structure_capture_replay_features), xaku_explicit_feature_acceleration_structure_capture_replay},
+    (struct physical_device_feature){ g_explicit_feature__vulkan_memory_model_features, lake_arraysize(g_explicit_feature__vulkan_memory_model_features), xaku_explicit_feature_vulkan_memory_model},
+    (struct physical_device_feature){ g_explicit_feature__robust_access_features, lake_arraysize(g_explicit_feature__robust_access_features), xaku_explicit_feature_robust_access},
+    (struct physical_device_feature){ g_explicit_feature__video_decode_queue_features, lake_arraysize(g_explicit_feature__video_decode_queue_features), xaku_explicit_feature_video_decode_queue},
+    (struct physical_device_feature){ g_explicit_feature__video_encode_queue_features, lake_arraysize(g_explicit_feature__video_encode_queue_features), xaku_explicit_feature_video_encode_queue},
+    (struct physical_device_feature){ g_explicit_feature__multi_viewport_features, lake_arraysize(g_explicit_feature__multi_viewport_features), xaku_explicit_feature_multi_viewport},
+    (struct physical_device_feature){ g_explicit_feature__multiview_vr_features, lake_arraysize(g_explicit_feature__multiview_vr_features), xaku_explicit_feature_multiview_vr},
+};
+/* TODO video features */
+
+enum lake_result vulkan_device_assembly_helper(struct xaku_device *device, const struct xaku_device_assembly *assembly)
 {
-    (void)device;
-    if (load_device_procedures(device, 0))
+    struct vulkan_physical_device_features features = {0};
+    const struct vulkan_physical_device *pd = device->physical_details;
+    const struct xaku_device_properties *properties = device->properties;
+
+    /* enable features TODO video */
+    bedrock_zero(features);
+    u8 *write_address = (u8 *)&features;
+
+    for (u32 i = 0; i < lake_arraysize(g_required_features); i++) 
+        for (u32 j = 0; j < g_required_features[i].offsets_count; j++)
+            write_address[g_required_features[i].vk_feature_offsets[j]] = VK_TRUE;
+
+    for (u32 i = 0; i < lake_arraysize(g_implicit_features); i++)
+        if (properties->implicit_features & (1u << i))
+            for (u32 j = 0; j < g_implicit_features[i].offsets_count; j++)
+                write_address[g_implicit_features[i].vk_feature_offsets[j]] = VK_TRUE;
+
+    for (u32 i = 0; i < lake_arraysize(g_explicit_features); i++)
+        if ((properties->explicit_features & (1u << i)) & assembly->explicit_features)
+            for (u32 j = 0; j < g_explicit_features[i].offsets_count; j++)
+                write_address[g_explicit_features[i].vk_feature_offsets[j]] = VK_TRUE;
+
+    /* enable extensions */
+    u32 extension_count = bits_popcnt_table_lookup((const u8 *)&pd->vk_extension_bits, lake_sizeof(pd->vk_extension_bits));
+    const char **extension_names = (const char **)
+        riven_thalloc(device->riven->self, riven_tag_deferred, lake_sizeof(const char *) * extension_count, lake_alignof(const char *));
+
+    u32 o = 0;
+    for (u32 i = 0; i < device_extension_count; i++)
+        if (pd->vk_extension_bits & (1llu << i)) extension_names[o++] = g_device_extension_names[i];
+
+    if (pd->xaku_properties.api_version < VK_API_VERSION_1_4)
+        for (u32 i = device_extension_count; i < device_extension_count_1_4_fallback; i++)
+            if (pd->vk_extension_bits & (1llu << i)) extension_names[o++] = g_device_extension_names[i];
+
+    if (pd->xaku_properties.api_version < VK_API_VERSION_1_3)
+        for (u32 i = device_extension_count_1_4_fallback; i < device_extension_count_1_3_fallback; i++)
+            if (pd->vk_extension_bits & (1llu << i)) extension_names[o++] = g_device_extension_names[i];
+    bedrock_assert_debug(o == extension_count);
+
+    /* create device */
+    /* TODO */
+
+    if (!load_device_procedures(device, 0))
         return lake_result_error_incompatible_driver;
+
     return lake_result_success;
 }
 
-static VKAPI_ATTR VkBool32 VKAPI_CALL
-debug_utils_callback(
-    VkDebugUtilsMessageSeverityFlagBitsEXT      severity,
-    VkDebugUtilsMessageTypeFlagsEXT             type,
-    const VkDebugUtilsMessengerCallbackDataEXT *callbackdata,
-    void                                       *userdata)
+static void physical_device_query_fill_properties(struct vulkan_physical_device_properties *properties, u64 extension_bits)
 {
-    (void)userdata; (void)type;
-
-    switch (severity) {
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
-            bedrock_log_debug("%s", callbackdata->pMessage);
-            break;
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
-            bedrock_log_verbose("%s", callbackdata->pMessage);
-            break;
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
-            bedrock_log_warn("%s", callbackdata->pMessage);
-            break;
-        default:
-            bedrock_log_error("%s", callbackdata->pMessage);
-            bedrock_assert_debug(!"Vulkan validation error !!");
+    void *chain = NULL;
+    if (extension_bits & device_extension_amdx_shader_enqueue) {
+        properties->shader_enqueue.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ENQUEUE_PROPERTIES_AMDX;
+        properties->shader_enqueue.pNext = chain;
+        chain = &properties->shader_enqueue;
     }
-    return VK_FALSE;
+    if (extension_bits & device_extension_khr_acceleration_structure) {
+        properties->acceleration_structure.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR;
+        properties->acceleration_structure.pNext = chain;
+        chain = &properties->acceleration_structure;
+    }
+    if (extension_bits & device_extension_khr_ray_tracing_pipeline) {
+        properties->ray_tracing_pipeline.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
+        properties->ray_tracing_pipeline.pNext = chain;
+        chain = &properties->ray_tracing_pipeline;
+    }
+    if (extension_bits & device_extension_nv_ray_tracing_invocation_reorder) {
+        properties->ray_tracing_invocation_reorder.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_INVOCATION_REORDER_PROPERTIES_NV;
+        properties->ray_tracing_invocation_reorder.pNext = chain;
+        chain = &properties->ray_tracing_invocation_reorder;
+    }
+    if (extension_bits & device_extension_khr_fragment_shading_rate) {
+        properties->fragment_shading_rate.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_PROPERTIES_KHR;
+        properties->fragment_shading_rate.pNext = chain;
+        chain = &properties->fragment_shading_rate;
+    }
+    if (extension_bits & device_extension_ext_mesh_shader) {
+        properties->mesh_shader.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_PROPERTIES_EXT;
+        properties->mesh_shader.pNext = chain;
+        chain = &properties->mesh_shader;
+    }
+    if (extension_bits & device_extension_ext_robustness2) {
+        properties->robustness2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_PROPERTIES_EXT;
+        properties->robustness2.pNext = chain;
+        chain = &properties->robustness2;
+    }
+    properties->descriptor_indexing.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_PROPERTIES;
+    properties->descriptor_indexing.pNext = chain;
+    chain = &properties->descriptor_indexing;
+
+    properties->subgroup_size_control.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_PROPERTIES;
+    properties->subgroup_size_control.pNext = chain;
+    chain = &properties->subgroup_size_control;
+
+    properties->timeline_semaphore.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_PROPERTIES;
+    properties->timeline_semaphore.pNext = chain;
+    chain = &properties->timeline_semaphore;
+
+    if (extension_bits & device_extension_khr_maintenance6) {
+        properties->maintenance6.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_6_PROPERTIES;
+        properties->maintenance6.pNext = chain;
+        chain = &properties->maintenance6;
+    }
+    if (extension_bits & device_extension_khr_maintenance5) {
+        properties->maintenance5.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_5_PROPERTIES;
+        properties->maintenance5.pNext = chain;
+        chain = &properties->maintenance5;
+    }
+    if (extension_bits & device_extension_khr_maintenance4) {
+        properties->maintenance4.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_4_PROPERTIES;
+        properties->maintenance4.pNext = chain;
+        chain = &properties->maintenance4;
+    }
+    properties->properties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+    properties->properties2.pNext = chain;
+
+    chain = NULL;
+    if (extension_bits & device_extension_ext_memory_budget) {
+        properties->memory_budget.pNext = chain;
+        properties->memory_budget.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_BUDGET_PROPERTIES_EXT;
+        chain = &properties->memory_budget;
+    }
+    properties->memory_properties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2;
+    properties->memory_properties2.pNext = chain;
 }
 
-static VKAPI_ATTR void *VKAPI_CALL 
-host_allocator_callback_malloc(
-    void                       *pUserData, 
-    usize                       size, 
-    usize                       alignment, 
-    VkSystemAllocationScope     allocationScope)
+static void physical_device_query_fill_features(struct vulkan_physical_device_features *features, u64 extension_bits)
 {
-    (void)allocationScope;
-    const struct riven_context *riven = (struct riven_context *)pUserData;
-    return riven_malloc_aligned(riven->self, size, alignment);
+    void *chain = NULL;
+    if (extension_bits & device_extension_amdx_shader_enqueue) {
+        features->shader_enqueue.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ENQUEUE_FEATURES_AMDX;
+        features->shader_enqueue.pNext = chain;
+        chain = &features->shader_enqueue;
+    }
+    if (extension_bits & device_extension_khr_acceleration_structure) {
+        features->acceleration_structure.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+        features->acceleration_structure.pNext = chain;
+        chain = &features->acceleration_structure;
+    }
+    if (extension_bits & device_extension_khr_ray_tracing_pipeline) {
+        features->ray_tracing_pipeline.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+        features->ray_tracing_pipeline.pNext = chain;
+        chain = &features->ray_tracing_pipeline;
+    }
+    if (extension_bits & device_extension_khr_ray_tracing_position_fetch) {
+        features->ray_tracing_position_fetch.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_POSITION_FETCH_FEATURES_KHR;
+        features->ray_tracing_position_fetch.pNext = chain;
+        chain = &features->ray_tracing_position_fetch;
+    }
+    if (extension_bits & device_extension_nv_ray_tracing_invocation_reorder) {
+        features->ray_tracing_invocation_reorder.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_INVOCATION_REORDER_FEATURES_NV;
+        features->ray_tracing_invocation_reorder.pNext = chain;
+        chain = &features->ray_tracing_invocation_reorder;
+    }
+    if (extension_bits & device_extension_khr_ray_query) {
+        features->ray_query.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
+        features->ray_query.pNext = chain;
+        chain = &features->ray_query;
+    }
+    if (extension_bits & device_extension_khr_fragment_shading_rate) {
+        features->fragment_shading_rate.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_FEATURES_KHR;
+        features->fragment_shading_rate.pNext = chain;
+        chain = &features->fragment_shading_rate;
+    }
+    if (extension_bits & device_extension_ext_mesh_shader) {
+        features->mesh_shader.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
+        features->mesh_shader.pNext = chain;
+        chain = &features->mesh_shader;
+    }
+    if (extension_bits & device_extension_ext_robustness2) {
+        features->robustness2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT;
+        features->robustness2.pNext = chain;
+        chain = &features->robustness2;
+    }
+    features->descriptor_indexing.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+    features->descriptor_indexing.pNext = chain;
+    chain = &features->descriptor_indexing;
+
+    if (extension_bits & device_extension_ext_shader_image_atomic_int64) {
+        features->shader_image_atomic_int64.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_IMAGE_ATOMIC_INT64_FEATURES_EXT;
+        features->shader_image_atomic_int64.pNext = chain;
+        chain = &features->shader_image_atomic_int64;
+    }
+    if (extension_bits & device_extension_ext_shader_atomic_float) {
+        features->shader_atomic_float.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_FEATURES_EXT;
+        features->shader_atomic_float.pNext = chain;
+        chain = &features->shader_atomic_float;
+    }
+    features->shader_atomic_int64.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES;
+    features->shader_atomic_int64.pNext = chain;
+    chain = &features->shader_atomic_int64;
+
+    features->shader_float16_int8.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES;
+    features->shader_float16_int8.pNext = chain;
+    chain = &features->shader_float16_int8;
+
+    features->vulkan_memory_model.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_MEMORY_MODEL_FEATURES;
+    features->vulkan_memory_model.pNext = chain;
+    chain = &features->vulkan_memory_model;
+
+    features->bit16_storage.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES_KHR;
+    features->bit16_storage.pNext = chain;
+    chain = &features->bit16_storage;
+
+    features->bit8_storage.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES_KHR;
+    features->bit8_storage.pNext = chain;
+    chain = &features->bit8_storage;
+
+    if (extension_bits & device_extension_ext_extended_dynamic_state3) {
+        features->extended_dynamic_state3.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_3_FEATURES_EXT;
+        features->extended_dynamic_state3.pNext = chain;
+        chain = &features->extended_dynamic_state3;
+    }
+    features->variable_pointer.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VARIABLE_POINTERS_FEATURES;
+    features->variable_pointer.pNext = chain;
+    chain = &features->variable_pointer;
+
+    features->host_query_reset.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES;
+    features->host_query_reset.pNext = chain;
+    chain = &features->host_query_reset;
+
+    features->buffer_device_address.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
+    features->buffer_device_address.pNext = chain;
+    chain = &features->buffer_device_address;
+
+    features->scalar_block_layout.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES;
+    features->scalar_block_layout.pNext = chain;
+    chain = &features->scalar_block_layout;
+
+    features->subgroup_size_control.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_FEATURES;
+    features->subgroup_size_control.pNext = chain;
+    chain = &features->subgroup_size_control;
+
+    features->multiview.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES;
+    features->multiview.pNext = chain;
+    chain = &features->multiview;
+
+    features->timeline_semaphore.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES;
+    features->timeline_semaphore.pNext = chain;
+    chain = &features->timeline_semaphore;
+
+    features->synchronization2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
+    features->synchronization2.pNext = chain;
+    chain = &features->synchronization2;
+
+    if (extension_bits & device_extension_ext_dynamic_rendering_unused_attachments) {
+        features->dynamic_rendering_unused_attachments.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_UNUSED_ATTACHMENTS_FEATURES_EXT;
+        features->dynamic_rendering_unused_attachments.pNext = chain;
+        chain = &features->dynamic_rendering_unused_attachments;
+    }
+    if (extension_bits & device_extension_khr_dynamic_rendering_local_read) {
+        features->dynamic_rendering_local_read.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_LOCAL_READ_FEATURES;
+        features->dynamic_rendering_local_read.pNext = chain;
+        chain = &features->dynamic_rendering_local_read;
+    }
+    features->dynamic_rendering.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR;
+    features->dynamic_rendering.pNext = chain;
+    chain = &features->dynamic_rendering;
+
+    if (extension_bits & device_extension_khr_maintenance6) {
+        features->maintenance6.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_6_PROPERTIES;
+        features->maintenance6.pNext = chain;
+        chain = &features->maintenance6;
+    }
+    if (extension_bits & device_extension_khr_maintenance5) {
+        features->maintenance5.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_5_PROPERTIES;
+        features->maintenance5.pNext = chain;
+        chain = &features->maintenance5;
+    }
+    if (extension_bits & device_extension_khr_maintenance4) {
+        features->maintenance4.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_4_PROPERTIES;
+        features->maintenance4.pNext = chain;
+        chain = &features->maintenance4;
+    }
+    features->features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    features->features2.pNext = chain;
+
+    features->has_swapchain = (extension_bits & device_extension_khr_swapchain) ? VK_TRUE : VK_FALSE;
+    features->has_conservative_rasterization = (extension_bits & device_extension_ext_conservative_rasterization) ? VK_TRUE : VK_FALSE;
+    features->has_video_capabilities = (extension_bits & device_extension_khr_video_queue) ? VK_TRUE : VK_FALSE;
+    features->has_video_decode_queue = (extension_bits & device_extension_khr_video_decode_queue) ? VK_TRUE : VK_FALSE;
+    features->has_video_encode_queue = (extension_bits & device_extension_khr_video_encode_queue) ? VK_TRUE : VK_FALSE;
 }
 
-static VKAPI_ATTR void *VKAPI_CALL 
-host_allocator_callback_realloc(
-    void                       *pUserData, 
-    void                       *pOriginal, 
-    usize                       size, 
-    usize                       alignment, 
-    VkSystemAllocationScope     allocationScope)
+lake_nonnull_all void LAKEAPI 
+physical_device_query_write_xaku_properties(struct xaku_device_properties *write, const struct vulkan_physical_device *physical_device)
 {
-    (void)allocationScope;
-    const struct riven_context *riven = (struct riven_context *)pUserData;
-    return riven_realloc_aligned(riven->self, pOriginal, size, alignment);
-}
+    const struct vulkan_physical_device_properties *properties = &physical_device->properties;
+    const struct vulkan_physical_device_features *features = &physical_device->features;
+    xaku_missing_required_features   missing = 0;
+    xaku_implicit_features          implicit = 0;
+    xaku_explicit_features          explicit = 0;
+    xaku_video_features                video = 0;
+    const u8 *address = (const u8 *)&features;
 
-static VKAPI_ATTR void VKAPI_CALL 
-host_allocator_callback_free(void *pUserData, void *pMemory)
-{
-    const struct riven_context *riven = (struct riven_context *)pUserData;
-    riven_free(riven->self, pMemory); 
+    for (u32 i = 0; i < lake_arraysize(g_required_features); i++) {
+        const struct physical_device_feature *feature = &g_required_features[i];
+        bool all_set = true;
+
+        for (u32 j = 0; j < feature->offsets_count; j++) {
+            const u8 value = *(address + feature->vk_feature_offsets[j]);
+            all_set = all_set && (value == VK_TRUE);
+        }
+        if (!all_set) missing |= (enum xaku_missing_required_feature_bits)feature->feat;
+    }
+    for (u32 i = 0; i < lake_arraysize(g_implicit_features); i++) {
+        const struct physical_device_feature *feature = &g_implicit_features[i];
+        bool all_set = true;
+
+        for (u32 j = 0; j < feature->offsets_count; j++) {
+            const u8 value = *(address + feature->vk_feature_offsets[j]);
+            all_set = all_set && (value == VK_TRUE);
+        } 
+        if (all_set) implicit |= (enum xaku_implicit_feature_bits)feature->feat;
+    }
+    for (u32 i = 0; i < lake_arraysize(g_explicit_features); i++) {
+        const struct physical_device_feature *feature = &g_explicit_features[i];
+        bool all_set = true;
+
+        for (u32 j = 0; j < feature->offsets_count; j++) {
+            const u8 value = *(address + feature->vk_feature_offsets[j]);
+            all_set = all_set && (value == VK_TRUE);
+        } 
+        if (all_set) explicit |= (enum xaku_explicit_feature_bits)feature->feat;
+    }
+    /* TODO video features */
+
+    write->missing_required_features = missing;
+    write->implicit_features = implicit;
+    write->explicit_features = explicit;
+    write->video_features = video;
+
+    write->api_version = properties->properties2.properties.apiVersion;
+    write->driver_version = properties->properties2.properties.driverVersion;
+    write->vendor_id = properties->properties2.properties.vendorID;
+    write->device_id = properties->properties2.properties.deviceID;
+    switch (properties->properties2.properties.deviceType) {
+        case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU: write->device_type = xaku_device_type_integrated_gpu; break;
+        case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU: write->device_type = xaku_device_type_discrete_gpu; break;
+        case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU: write->device_type = xaku_device_type_virtual_gpu; break;
+        case VK_PHYSICAL_DEVICE_TYPE_CPU: write->device_type = xaku_device_type_cpu; break;
+        default: write->device_type = xaku_device_type_other; break;
+    }
+    bedrock_memcpy(write->device_name, properties->properties2.properties.deviceName, 256u);
+    bedrock_memcpy(write->pipeline_cache_uuid, properties->properties2.properties.pipelineCacheUUID, 16u);
+    write->compute_queue_count = physical_device->queue_families[xaku_queue_type_compute].queue_count;
+    write->transfer_queue_count = physical_device->queue_families[xaku_queue_type_transfer].queue_count;
+
+    const VkPhysicalDeviceLimits *limits = &properties->properties2.properties.limits;
+    write->limits.max_texture_dimension1d = limits->maxImageDimension1D;
+    write->limits.max_texture_dimension2d = limits->maxImageDimension2D;
+    write->limits.max_texture_dimension3d = limits->maxImageDimension3D;
+    write->limits.max_texture_dimension_cube = limits->maxImageDimensionCube;
+    write->limits.max_texture_array_layers = limits->maxImageArrayLayers;
+    write->limits.max_uniform_buffer_range = limits->maxUniformBufferRange;
+    write->limits.max_storage_buffer_range = limits->maxStorageBufferRange;
+    write->limits.max_texel_buffer_elements = limits->maxTexelBufferElements;
+    write->limits.max_vertex_input_attributes = limits->maxVertexInputAttributes;
+    write->limits.max_vertex_input_bindings = limits->maxVertexInputBindings;
+    write->limits.max_vertex_input_attribute_offset = limits->maxVertexInputAttributeOffset;
+    write->limits.max_vertex_input_binding_stride = limits->maxVertexInputBindingStride;
+    write->limits.max_vertex_output_components = limits->maxVertexOutputComponents;
+    write->limits.max_fragment_input_components = limits->maxFragmentInputComponents;
+    write->limits.max_fragment_output_attachments = limits->maxFragmentOutputAttachments;
+    write->limits.max_fragment_dual_src_attachments = limits->maxFragmentDualSrcAttachments;
+    write->limits.max_fragment_combined_output_resources = limits->maxFragmentCombinedOutputResources;
+    write->limits.max_color_attachments = limits->maxColorAttachments;
+    write->limits.max_compute_shared_memory_size = limits->maxComputeSharedMemorySize;
+    write->limits.max_compute_work_group_count[0] = limits->maxComputeWorkGroupCount[0];
+    write->limits.max_compute_work_group_count[1] = limits->maxComputeWorkGroupCount[1];
+    write->limits.max_compute_work_group_count[2] = limits->maxComputeWorkGroupCount[2];
+    write->limits.max_compute_work_group_invocations = limits->maxComputeWorkGroupInvocations;
+    write->limits.max_compute_work_group_size[0] = limits->maxComputeWorkGroupSize[0];
+    write->limits.max_compute_work_group_size[1] = limits->maxComputeWorkGroupSize[1];
+    write->limits.max_compute_work_group_size[2] = limits->maxComputeWorkGroupSize[2];
+    write->limits.max_viewports = limits->maxViewports;
+    write->limits.max_viewport_dimensions[0] = limits->maxViewportDimensions[0];
+    write->limits.max_viewport_dimensions[1] = limits->maxViewportDimensions[1];
+    write->limits.viewport_bounds_range[0] = limits->viewportBoundsRange[0];
+    write->limits.viewport_bounds_range[1] = limits->viewportBoundsRange[1];
+    write->limits.viewport_sub_pixel_bits = limits->viewportSubPixelBits;
+    write->limits.point_size_range[0] = limits->pointSizeRange[0];
+    write->limits.point_size_range[1] = limits->pointSizeRange[1];
+    write->limits.timestamp_period = limits->timestampPeriod;
+    write->limits.timestamp_compute_and_graphics = limits->timestampComputeAndGraphics;
+    write->limits.max_framebuffer_width = limits->maxFramebufferWidth;
+    write->limits.max_framebuffer_height = limits->maxFramebufferHeight;
+    write->limits.max_framebuffer_layers = limits->maxFramebufferLayers;
+    write->limits.framebuffer_color_sample_counts = limits->framebufferColorSampleCounts;
+    write->limits.framebuffer_depth_sample_counts = limits->framebufferDepthSampleCounts;
+    write->limits.framebuffer_stencil_sample_counts = limits->framebufferStencilSampleCounts;
+    write->limits.framebuffer_no_attachments_sample_counts = limits->framebufferNoAttachmentsSampleCounts;
+    write->limits.sampled_texture_color_sample_counts = limits->sampledImageColorSampleCounts;
+    write->limits.sampled_texture_integer_sample_counts = limits->sampledImageIntegerSampleCounts;
+    write->limits.sampled_texture_depth_sample_counts = limits->sampledImageDepthSampleCounts;
+    write->limits.sampled_texture_stencil_sample_counts = limits->sampledImageStencilSampleCounts;
+    write->limits.storage_texture_sample_counts = limits->storageImageSampleCounts;
+    write->limits.min_memory_map_alignment = limits->minMemoryMapAlignment;
+    write->limits.max_memory_allocation_count = limits->maxMemoryAllocationCount;
+    write->limits.max_bound_descriptor_sets = limits->maxBoundDescriptorSets;
+    write->limits.max_push_constants_size = limits->maxPushConstantsSize;
+    write->limits.max_per_stage_descriptor_samplers = limits->maxPerStageDescriptorSamplers;
+    write->limits.max_per_stage_descriptor_uniform_buffers = limits->maxPerStageDescriptorUniformBuffers;
+    write->limits.max_per_stage_descriptor_storage_buffers = limits->maxPerStageDescriptorStorageBuffers;
+    write->limits.max_per_stage_descriptor_sampled_textures = limits->maxPerStageDescriptorSampledImages;
+    write->limits.max_per_stage_descriptor_storage_textures = limits->maxPerStageDescriptorStorageImages;
+    write->limits.max_per_stage_descriptor_input_attachments = limits->maxPerStageDescriptorInputAttachments;
+    write->limits.max_per_stage_resources = limits->maxPerStageResources;
+    write->limits.max_descriptor_set_samplers = limits->maxDescriptorSetSamplers;
+    write->limits.max_descriptor_set_uniform_buffers = limits->maxDescriptorSetUniformBuffers;
+    write->limits.max_descriptor_set_uniform_buffers_dynamic = limits->maxDescriptorSetUniformBuffersDynamic;
+    write->limits.max_descriptor_set_storage_buffers = limits->maxDescriptorSetStorageBuffers;
+    write->limits.max_descriptor_set_storage_buffers_dynamic = limits->maxDescriptorSetStorageBuffersDynamic;
+    write->limits.max_descriptor_set_sampled_textures = limits->maxDescriptorSetSampledImages;
+    write->limits.max_descriptor_set_storage_textures = limits->maxDescriptorSetStorageImages;
+    write->limits.max_descriptor_set_input_attachments = limits->maxDescriptorSetInputAttachments;
+    write->limits.max_draw_indexed_index_value = limits->maxDrawIndexedIndexValue;
+    write->limits.max_draw_indirect_count = limits->maxDrawIndirectCount;
+    write->limits.max_sampler_allocation_count = limits->maxSamplerAllocationCount;
+    write->limits.max_sampler_lod_bias = limits->maxSamplerLodBias;
+    write->limits.max_sampler_anisotropy = limits->maxSamplerAnisotropy;
+    write->limits.max_sample_mask_words = limits->maxSampleMaskWords;
+    write->limits.min_texel_offset = limits->minTexelOffset;
+    write->limits.max_texel_offset = limits->maxTexelOffset;
+    write->limits.min_texel_gather_offset = limits->minTexelGatherOffset;
+    write->limits.max_texel_gather_offset = limits->maxTexelGatherOffset;
+    write->limits.min_texel_buffer_offset_alignment = limits->minTexelBufferOffsetAlignment;
+    write->limits.sub_texel_precision_bits = limits->subTexelPrecisionBits;
+    write->limits.sub_pixel_precision_bits = limits->subPixelPrecisionBits;
+    write->limits.sub_pixel_interpolation_offset_bits = limits->subPixelInterpolationOffsetBits;
+    write->limits.mipmap_precision_bits = limits->mipmapPrecisionBits;
+    write->limits.max_tessellation_generation_level = limits->maxTessellationGenerationLevel;
+    write->limits.max_tessellation_patch_size = limits->maxTessellationPatchSize;
+    write->limits.max_tessellation_control_per_vertex_input_components = limits->maxTessellationControlPerVertexInputComponents;
+    write->limits.max_tessellation_control_per_vertex_output_components = limits->maxTessellationControlPerVertexOutputComponents;
+    write->limits.max_tessellation_control_per_patch_output_components = limits->maxTessellationControlPerPatchOutputComponents;
+    write->limits.max_tessellation_control_total_output_components = limits->maxTessellationControlTotalOutputComponents;
+    write->limits.max_tessellation_evaluation_input_components = limits->maxTessellationEvaluationInputComponents;
+    write->limits.max_tessellation_evaluation_output_components = limits->maxTessellationEvaluationOutputComponents;
+    write->limits.max_geometry_shader_invocations = limits->maxGeometryShaderInvocations;
+    write->limits.max_geometry_input_components = limits->maxGeometryInputComponents;
+    write->limits.max_geometry_output_components = limits->maxGeometryOutputComponents;
+    write->limits.max_geometry_output_vertices = limits->maxGeometryOutputVertices;
+    write->limits.max_geometry_total_output_components = limits->maxGeometryTotalOutputComponents;
+    write->limits.max_clip_distances = limits->maxClipDistances;
+    write->limits.max_cull_distances = limits->maxCullDistances;
+    write->limits.max_combined_clip_and_cull_distances = limits->maxCombinedClipAndCullDistances;
+    write->limits.min_uniform_buffer_offset_alignment = limits->minUniformBufferOffsetAlignment;
+    write->limits.min_storage_buffer_offset_alignment = limits->minStorageBufferOffsetAlignment;
+    write->limits.min_interpolation_offset = limits->minInterpolationOffset;
+    write->limits.max_interpolation_offset = limits->maxInterpolationOffset;
+    write->limits.sparse_address_space_size = limits->sparseAddressSpaceSize;
+    write->limits.discrete_queue_priorities = limits->discreteQueuePriorities;
+    write->limits.buffer_texture_granularity = limits->bufferImageGranularity;
+    write->limits.point_size_granularity = limits->pointSizeGranularity;
+    write->limits.line_width_granularity = limits->lineWidthGranularity;
+    write->limits.line_width_range[0] = limits->lineWidthRange[0];
+    write->limits.line_width_range[1] = limits->lineWidthRange[1];
+    write->limits.strict_lines = limits->strictLines;
+    write->limits.standard_sample_locations = limits->standardSampleLocations;
+    write->limits.optimal_buffer_copy_offset_alignment = limits->optimalBufferCopyOffsetAlignment;
+    write->limits.optimal_buffer_copy_row_pitch_alignment = limits->optimalBufferCopyRowPitchAlignment;
+    write->limits.non_coherent_atom_size = limits->nonCoherentAtomSize;
+
+    for (u32 i = 0; i < properties->memory_properties2.memoryProperties.memoryHeapCount; i++) {
+        const VkMemoryHeap *heap = &properties->memory_properties2.memoryProperties.memoryHeaps[i];
+
+        if (heap->flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) {
+            write->limits.total_device_local_memory_bytes += heap->size;
+        } else {
+            write->limits.total_host_visible_memory_bytes += heap->size;
+        }
+    }
+
+    write->ray_tracing_pipeline_properties.has_value = (implicit & xaku_implicit_feature_ray_tracing_pipeline) ? VK_TRUE : VK_FALSE;
+    if (write->ray_tracing_pipeline_properties.has_value) {
+        struct xaku_ray_tracing_pipeline_properties *o = &write->ray_tracing_pipeline_properties.value;
+
+        o->shader_group_handle_size = properties->ray_tracing_pipeline.shaderGroupHandleSize;
+        o->shader_group_handle_capture_replay_size = properties->ray_tracing_pipeline.shaderGroupHandleCaptureReplaySize;
+        o->shader_group_handle_alignment = properties->ray_tracing_pipeline.shaderGroupHandleAlignment;
+        o->shader_group_base_alignment = properties->ray_tracing_pipeline.shaderGroupBaseAlignment;
+        o->max_shader_group_stride = properties->ray_tracing_pipeline.maxShaderGroupStride;
+        o->max_ray_recursion_depth = properties->ray_tracing_pipeline.maxRayRecursionDepth;
+        o->max_ray_dispatch_invocation_count = properties->ray_tracing_pipeline.maxRayDispatchInvocationCount;
+        o->max_ray_hit_attribute_size = properties->ray_tracing_pipeline.maxRayHitAttributeSize;
+        o->invocation_reorder_mode = (enum xaku_ray_tracing_invocation_reorder_mode)properties->ray_tracing_invocation_reorder.rayTracingInvocationReorderReorderingHint;
+    }
+    write->acceleration_structure_properties.has_value = (implicit & xaku_implicit_feature_basic_ray_tracing) ? VK_TRUE : VK_FALSE;
+    if (write->acceleration_structure_properties.has_value) {
+        struct xaku_acceleration_structure_properties *o = &write->acceleration_structure_properties.value;
+
+        o->max_geometry_count = properties->acceleration_structure.maxGeometryCount;
+        o->max_instance_count = properties->acceleration_structure.maxInstanceCount;
+        o->max_primitive_count = properties->acceleration_structure.maxPrimitiveCount;
+        o->max_per_stage_descriptor_acceleration_structures = properties->acceleration_structure.maxPerStageDescriptorAccelerationStructures;
+        o->max_per_stage_descriptor_update_after_bind_acceleration_structures = properties->acceleration_structure.maxPerStageDescriptorUpdateAfterBindAccelerationStructures;
+        o->max_descriptor_set_acceleration_structures = properties->acceleration_structure.maxDescriptorSetAccelerationStructures;
+        o->max_descriptor_set_update_after_bind_acceleration_structures = properties->acceleration_structure.maxDescriptorSetUpdateAfterBindAccelerationStructures;
+        o->min_acceleration_structure_scratch_offset_alignment = properties->acceleration_structure.minAccelerationStructureScratchOffsetAlignment;
+    }
+    write->mesh_shader_properties.has_value = (implicit & xaku_implicit_feature_mesh_shader) ? VK_TRUE : VK_FALSE;
+    if (write->mesh_shader_properties.has_value) {
+        struct xaku_mesh_shader_properties *o = &write->mesh_shader_properties.value;
+
+        for (u32 i = 0; i < 3; i++) {
+            o->max_task_work_group_count[i] = properties->mesh_shader.maxTaskWorkGroupCount[i];
+            o->max_task_work_group_size[i] = properties->mesh_shader.maxTaskWorkGroupSize[i];
+            o->max_mesh_work_group_count[i] = properties->mesh_shader.maxMeshWorkGroupCount[i];
+            o->max_mesh_work_group_size[i] = properties->mesh_shader.maxMeshWorkGroupSize[i];
+        }
+        o->mesh_output_per_vertex_granularity = properties->mesh_shader.meshOutputPerVertexGranularity;
+        o->mesh_output_per_primitive_granularity = properties->mesh_shader.meshOutputPerPrimitiveGranularity;
+        o->max_task_work_group_total_count = properties->mesh_shader.maxTaskWorkGroupTotalCount;
+        o->max_task_work_group_invocations = properties->mesh_shader.maxTaskWorkGroupInvocations;
+        o->max_task_payload_size = properties->mesh_shader.maxTaskPayloadSize;
+        o->max_task_payload_and_shared_memory_size = properties->mesh_shader.maxTaskPayloadAndSharedMemorySize;
+        o->max_task_shared_memory_size = properties->mesh_shader.maxTaskSharedMemorySize;
+        o->max_mesh_work_group_total_count = properties->mesh_shader.maxMeshWorkGroupTotalCount;
+        o->max_mesh_work_group_invocations = properties->mesh_shader.maxMeshWorkGroupInvocations;
+        o->max_mesh_payload_and_shared_memory_size = properties->mesh_shader.maxMeshPayloadAndSharedMemorySize;
+        o->max_mesh_payload_and_output_memory_size = properties->mesh_shader.maxMeshPayloadAndOutputMemorySize;
+        o->max_mesh_shared_memory_size = properties->mesh_shader.maxMeshSharedMemorySize;
+        o->max_mesh_output_memory_size = properties->mesh_shader.maxMeshOutputMemorySize;
+        o->max_mesh_output_components = properties->mesh_shader.maxMeshOutputComponents;
+        o->max_mesh_output_vertices = properties->mesh_shader.maxMeshOutputVertices;
+        o->max_mesh_output_primitives = properties->mesh_shader.maxMeshOutputPrimitives;
+        o->max_mesh_output_layers = properties->mesh_shader.maxMeshOutputLayers;
+        o->max_mesh_multiview_view_count = properties->mesh_shader.maxMeshMultiviewViewCount;
+        o->max_preferred_task_work_group_invocations = properties->mesh_shader.maxPreferredTaskWorkGroupInvocations;
+        o->max_preferred_mesh_work_group_invocations = properties->mesh_shader.maxPreferredMeshWorkGroupInvocations;
+        o->prefers_local_invocation_vertex_output = properties->mesh_shader.prefersLocalInvocationVertexOutput;
+        o->prefers_local_invocation_primitive_output = properties->mesh_shader.prefersLocalInvocationPrimitiveOutput;
+    }
+    write->work_graph_properties.has_value = (implicit & xaku_implicit_feature_work_graph) ? VK_TRUE : VK_FALSE;
+    if (write->work_graph_properties.has_value) {
+        struct xaku_work_graph_properties *o = &write->work_graph_properties.value;
+
+        o->work_graph_dispatch_address_alignment = properties->shader_enqueue.executionGraphDispatchAddressAlignment;
+        o->max_work_graph_depth = properties->shader_enqueue.maxExecutionGraphDepth;
+        o->max_work_graph_shader_output_nodes = properties->shader_enqueue.maxExecutionGraphShaderOutputNodes;
+        o->max_work_graph_shader_payload_size = properties->shader_enqueue.maxExecutionGraphShaderPayloadSize;
+        o->max_work_graph_shader_payload_count = properties->shader_enqueue.maxExecutionGraphShaderPayloadCount;
+        for (u32 i = 0; i < 3; i++) o->max_work_graph_workgroup_count[i] = properties->shader_enqueue.maxExecutionGraphWorkgroupCount[i];
+        o->max_work_graph_workgroups = properties->shader_enqueue.maxExecutionGraphWorkgroups;
+    }
+    write->total_score = xaku_device_calculate_score(write);
 }
 
 struct physical_device_query_work {
-    u64                             missing_features;
-    u32                             index;
     const char                     *encore_name;
     const struct riven_context     *riven;
     const struct xaku_encore       *xaku;
@@ -1210,23 +2102,22 @@ static void LAKECALL physical_device_query(struct physical_device_query_work *wo
     /* u32 video_encode_format_count; */
     u32 queue_family_count;
 
-    work->missing_features = UINT64_MAX;
-    xaku->vkGetPhysicalDeviceProperties(write->vk_physical_device, &write->properties2.properties);
+    xaku->vkGetPhysicalDeviceProperties(write->vk_physical_device, &write->properties.properties2.properties);
     xaku->vkGetPhysicalDeviceQueueFamilyProperties2(write->vk_physical_device, &queue_family_count, NULL);
     VERIFY_VK(xaku->vkEnumerateDeviceExtensionProperties(write->vk_physical_device, NULL, &extension_count, NULL));
-    device_name = write->properties2.properties.deviceName;
-    vk_api_version = write->properties2.properties.apiVersion;
+    device_name = write->properties.properties2.properties.deviceName;
+    vk_api_version = write->properties.properties2.properties.apiVersion;
 
     /* early checks to invalidate faulty or old physical devices */
     if (vk_api_version < VK_API_VERSION_1_2) {
-        bedrock_log_debug("'%s' physical device '%s' has too old drivers - found API version %u.%u.%u, we target atleast 1.2.X.",
+        bedrock_log_debug("DISMISS '%s' physical device '%s' has too old drivers - found API version %u.%u.%u, we target atleast 1.2.X.",
                 work->encore_name, device_name, (vk_api_version >> 22u), (vk_api_version >> 12u) & 0x3ffu, vk_api_version & 0xfffu);
         return;
     } else if (queue_family_count == 0) {
-        bedrock_log_debug("'%s' physical device '%s' has no queue families.", work->encore_name, device_name);
+        bedrock_log_debug("DISMISS '%s' physical device '%s' has no queue families.", work->encore_name, device_name);
         return;
     } else if (extension_count == 0) {
-        bedrock_log_debug("'%s' physical device '%s' has zero Vulkan extensions.", work->encore_name, device_name);
+        bedrock_log_debug("DISMISS '%s' physical device '%s' has zero Vulkan extensions.", work->encore_name, device_name);
         return;
     }
     { /* get scratch memory */
@@ -1272,212 +2163,22 @@ static void LAKECALL physical_device_query(struct physical_device_query_work *wo
         if (query_extension(extension_properties, extension_count, g_device_extension_names[i]))
             write->vk_extension_bits |= (1ull << i);
 
-    void *feature_chain = NULL;
-    void *property_chain = NULL;
+    /* fill Vulkan info */
+    physical_device_query_fill_properties(&write->properties, write->vk_extension_bits);
+    physical_device_query_fill_features(&write->features, write->vk_extension_bits);
 
-    write->timeline_semaphore_features.pNext = feature_chain;
-    write->timeline_semaphore_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES;
-    feature_chain = (void *)&write->timeline_semaphore_features;
-    write->timeline_semaphore_properties.pNext = property_chain;
-    write->timeline_semaphore_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_PROPERTIES;
-    property_chain = (void *)&write->timeline_semaphore_properties;
+    xaku->vkGetPhysicalDeviceFeatures2(write->vk_physical_device, &write->features.features2);
+    xaku->vkGetPhysicalDeviceProperties2(write->vk_physical_device, &write->properties.properties2);
+    xaku->vkGetPhysicalDeviceMemoryProperties2(write->vk_physical_device, &write->properties.memory_properties2);
+    /* TODO video */
 
-    write->subgroup_size_control_features.pNext = feature_chain;
-    write->subgroup_size_control_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_FEATURES;
-    feature_chain = (void *)&write->subgroup_size_control_features;
-    write->subgroup_size_control_properties.pNext = property_chain;
-    write->subgroup_size_control_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_PROPERTIES;
-    property_chain = (void *)&write->subgroup_size_control_properties;
-
-    write->dynamic_rendering_features.pNext = feature_chain;
-    write->dynamic_rendering_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
-    feature_chain = (void *)&write->dynamic_rendering_features;
-
-    write->dynamic_rendering_local_read_features.pNext = feature_chain;
-    write->dynamic_rendering_local_read_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_LOCAL_READ_FEATURES;
-    feature_chain = (void *)&write->dynamic_rendering_local_read_features;
-
-    if (write->vk_extension_bits & device_extension_ext_dynamic_rendering_unused_attachments)
-    {
-        write->dynamic_rendering_unused_attachments_features.pNext = feature_chain;
-        write->dynamic_rendering_unused_attachments_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_UNUSED_ATTACHMENTS_FEATURES_EXT;
-        feature_chain = (void *)&write->dynamic_rendering_unused_attachments_features;
-    }
-
-    write->descriptor_indexing_properties.pNext = property_chain;
-    write->descriptor_indexing_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_PROPERTIES;
-    property_chain = (void *)&write->descriptor_indexing_properties;
-    write->descriptor_indexing_features.pNext = feature_chain;
-    write->descriptor_indexing_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_PROPERTIES;
-    feature_chain = (void *)&write->descriptor_indexing_features;
-
-    write->synchronization2_features.pNext = feature_chain;
-    write->synchronization2_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
-    feature_chain = (void *)&write->synchronization2_features;
-
-    write->vulkan_memory_model_features.pNext = feature_chain;
-    write->vulkan_memory_model_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_MEMORY_MODEL_FEATURES;
-    feature_chain = (void *)&write->vulkan_memory_model_features;
-
-    if (write->vk_extension_bits & device_extension_ext_extended_dynamic_state3)
-    {
-        write->extended_dynamic_state3_features.pNext = feature_chain;
-        write->extended_dynamic_state3_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_3_FEATURES_EXT;
-        feature_chain = (void *)&write->extended_dynamic_state3_features;
-    }
-
-    if (write->vk_extension_bits & device_extension_ext_shader_image_atomic_int64)
-    {
-        write->shader_image_atomic_int64_features.pNext = feature_chain;
-        write->shader_image_atomic_int64_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_IMAGE_ATOMIC_INT64_FEATURES_EXT;
-        feature_chain = (void *)&write->shader_image_atomic_int64_features;
-    }
-
-    if (write->vk_extension_bits & device_extension_ext_shader_atomic_float)
-    {
-        write->shader_atomic_float_features.pNext = feature_chain;
-        write->shader_atomic_float_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_FEATURES_EXT;
-        feature_chain = (void *)&write->shader_atomic_float_features;
-    }
-
-    write->shader_atomic_int64_features.pNext = feature_chain;
-    write->shader_atomic_int64_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES;
-    feature_chain = (void *)&write->shader_atomic_int64_features;
-
-    write->shader_float16_int8_features.pNext = feature_chain;
-    write->shader_float16_int8_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES;
-    feature_chain = (void *)&write->shader_float16_int8_features;
-
-    write->bit16_storage_features.pNext = feature_chain;
-    write->bit16_storage_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES;
-    feature_chain = (void *)&write->bit16_storage_features;
-
-    write->bit8_storage_features.pNext = feature_chain;
-    write->bit8_storage_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES;
-    feature_chain = (void *)&write->bit8_storage_features;
-
-    if (write->vk_extension_bits & device_extension_ext_robustness2) 
-    {
-        write->robustness2_features.pNext = feature_chain;
-        write->robustness2_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT;
-        feature_chain = (void *)&write->robustness2_features;
-        write->robustness2_properties.pNext = property_chain;
-        write->robustness2_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_PROPERTIES_EXT;
-        property_chain = (void *)&write->robustness2_properties;
-    }
-
-    write->buffer_device_address_features.pNext = feature_chain;
-    write->buffer_device_address_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
-    feature_chain = (void *)&write->buffer_device_address_features;
-
-    write->scalar_block_layout_features.pNext = feature_chain;
-    write->scalar_block_layout_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES;
-    feature_chain = (void *)&write->scalar_block_layout_features;
-
-    write->variable_pointer_features.pNext = feature_chain;
-    write->variable_pointer_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VARIABLE_POINTER_FEATURES;
-    feature_chain = (void *)&write->variable_pointer_features;
-
-    write->host_query_reset_features.pNext = feature_chain;
-    write->host_query_reset_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES;
-    feature_chain = (void *)&write->host_query_reset_features;
-
-    if (write->vk_extension_bits & device_extension_ext_mesh_shader) 
-    {
-        write->mesh_shader_features.pNext = feature_chain;
-        write->mesh_shader_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
-        feature_chain = (void *)&write->mesh_shader_features;
-        write->mesh_shader_properties.pNext = property_chain;
-        write->mesh_shader_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_PROPERTIES_EXT;
-        property_chain = (void *)&write->mesh_shader_properties;
-    }
-
-    if (write->vk_extension_bits & device_extension_khr_fragment_shading_rate) 
-    {
-        write->fragment_shading_rate_features.pNext = feature_chain;
-        write->fragment_shading_rate_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_FEATURES_KHR;
-        feature_chain = (void *)&write->fragment_shading_rate_features;
-        write->fragment_shading_rate_properties.pNext = property_chain;
-        write->fragment_shading_rate_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_PROPERTIES_KHR;
-        property_chain = (void *)&write->fragment_shading_rate_properties;
-    }
-
-    if (write->vk_extension_bits & device_extension_khr_acceleration_structure)  
-    {
-        write->acceleration_structure_features.pNext = feature_chain;
-        write->acceleration_structure_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
-        feature_chain = (void *)&write->acceleration_structure_features;
-        write->acceleration_structure_properties.pNext = property_chain;
-        write->acceleration_structure_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR;
-        property_chain = (void *)&write->acceleration_structure_properties;
-    }
-
-    if (write->vk_extension_bits & device_extension_nv_ray_tracing_invocation_reorder)
-    {
-        write->ray_tracing_invocation_reorder_features.pNext = feature_chain;
-        write->ray_tracing_invocation_reorder_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_INVOCATION_REORDER_FEATURES_NV;
-        feature_chain = (void *)&write->ray_tracing_invocation_reorder_features;
-        write->ray_tracing_invocation_reorder_properties.pNext = property_chain;
-        write->ray_tracing_invocation_reorder_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_INVOCATION_REORDER_PROPERTIES_NV;
-        property_chain = (void *)&write->ray_tracing_invocation_reorder_properties;
-    }
-
-    if (write->vk_extension_bits & device_extension_khr_ray_tracing_position_fetch)
-    {
-        write->ray_tracing_position_fetch_features.pNext = feature_chain;
-        write->ray_tracing_position_fetch_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_POSITION_FETCH_FEATURES_KHR;
-        feature_chain = (void *)&write->ray_tracing_position_fetch_features;
-    }
-
-    if (write->vk_extension_bits & device_extension_khr_ray_tracing_pipeline)
-    {
-        write->ray_tracing_pipeline_features.pNext = feature_chain;
-        write->ray_tracing_pipeline_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
-        feature_chain = (void *)&write->ray_tracing_pipeline_features;
-        write->ray_tracing_pipeline_properties.pNext = property_chain;
-        write->ray_tracing_pipeline_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
-        property_chain = (void *)&write->ray_tracing_pipeline_properties;
-    }
-
-    if (write->vk_extension_bits & device_extension_khr_ray_query)
-    {
-        write->ray_query_features.pNext = feature_chain;
-        write->ray_query_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
-        feature_chain = (void *)&write->ray_query_features;
-    }
-
-    write->properties2.pNext = property_chain;
-    write->properties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-
-    write->features2.pNext = feature_chain;
-    write->features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-
-    if (write->vk_extension_bits & device_extension_ext_memory_budget) {
-        write->memory_properties2.pNext = &write->memory_budget;
-        write->memory_budget.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_BUDGET_PROPERTIES_EXT;
-        write->memory_budget.pNext = NULL;
-    }
-    write->memory_properties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2;
-
-    xaku->vkGetPhysicalDeviceFeatures2(write->vk_physical_device, &write->features2);
-    xaku->vkGetPhysicalDeviceProperties2(write->vk_physical_device, &write->properties2);
-    xaku->vkGetPhysicalDeviceMemoryProperties2(write->vk_physical_device, &write->memory_properties2);
-
-    write->has_conservative_rasterization = write->vk_extension_bits & device_extension_ext_conservative_rasterization;
-    write->has_swapchain = write->vk_extension_bits & device_extension_khr_swapchain;
-
-    /* check for missing required features */
-    /* TODO */
-
-    /* calculate the score */
-    /* TODO */
-
-    bedrock_log_info("Physical device '%s' accepted at index %u with a total score of %lu points.", device_name, work->index, write->xaku_properties.total_score);
-    work->missing_features = 0llu;
+    /* we accept this device */
+    physical_device_query_write_xaku_properties(&write->xaku_properties, write);
 }
 
 FN_XAKU_LIST_DEVICES_PROPERTIES(vulkan)
 {
+    bedrock_assert_debug(property_count);
     if (properties) {
         bedrock_assert_debug(*property_count >= xaku->physical_device_count);
 
@@ -1745,8 +2446,6 @@ FN_RIVEN_ENCORE(xaku, vulkan)
 
     /* execute the physical device query as a job per physical device */
     for (u32 i = 0; i < xaku->physical_device_count; i++) {
-        physical_device_query_work[i].missing_features = UINT64_MAX;
-        physical_device_query_work[i].index = i;
         physical_device_query_work[i].riven = context;
         physical_device_query_work[i].xaku = xaku;
         physical_device_query_work[i].encore_name = name;
@@ -1760,7 +2459,7 @@ FN_RIVEN_ENCORE(xaku, vulkan)
     o = 0;
     /* collect indices of accepted physical devices */
     for (u32 i = 0; i < xaku->physical_device_count; i++)
-        if (physical_device_query_work[i].missing_features == 0llu)
+        if (physical_device_query_work[i].write.xaku_properties.total_score > 0)
             physical_device_indices[o++] = i;
     if (o == 0) {
         bedrock_log_debug("'%s' physical device query invalidated all available physical devices (%u), can't continue.", name, xaku->physical_device_count);
@@ -1778,11 +2477,15 @@ FN_RIVEN_ENCORE(xaku, vulkan)
             }
         lake_xorswap(&physical_device_indices[max_idx], &physical_device_indices[i]);
     }
-    /* copy the accepted physical devices */
     struct vulkan_physical_device *accepted_devices = (struct vulkan_physical_device *)
         riven_thalloc(context->self, tag, lake_sizeof(struct vulkan_physical_device) * o, lake_alignof(struct vulkan_physical_device));
-    for (u32 i = 0; i < o; i++)
-        bedrock_memcpy(&accepted_devices[i], &physical_device_query_work[physical_device_indices[i]].write, lake_sizeof(struct vulkan_physical_device));
+    for (u32 i = 0; i < o; i++) {
+        struct vulkan_physical_device *pd = &accepted_devices[i];
+        /* copy the physical device data */
+        bedrock_memcpy(pd, &physical_device_query_work[physical_device_indices[i]].write, lake_sizeof(struct vulkan_physical_device));
+        bedrock_log_info("Vulkan device '%s' of type '%s' accepted at index %u with a total score of %lu points.", 
+            pd->xaku_properties.device_name, xaku_device_type_string(pd->xaku_properties.device_type), i, pd->xaku_properties.total_score);
+    }
     xaku->physical_devices = accepted_devices;
     xaku->physical_device_count = o;
 
@@ -1810,6 +2513,8 @@ FN_RIVEN_ENCORE(xaku, vulkan)
     xaku->interface.raster_pipeline_disassembly = _xaku_vulkan_raster_pipeline_disassembly;
     xaku->interface.ray_tracing_pipeline_assembly = _xaku_vulkan_ray_tracing_pipeline_assembly;
     xaku->interface.ray_tracing_pipeline_disassembly = _xaku_vulkan_ray_tracing_pipeline_disassembly;
+    xaku->interface.work_graph_pipeline_assembly = _xaku_vulkan_work_graph_pipeline_assembly;
+    xaku->interface.work_graph_pipeline_disassembly = _xaku_vulkan_work_graph_pipeline_disassembly;
     xaku->interface.command_recorder_assembly = _xaku_vulkan_command_recorder_assembly;
     xaku->interface.command_recorder_disassembly = _xaku_vulkan_command_recorder_disassembly;
     xaku->interface.create_buffer = _xaku_vulkan_create_buffer;
@@ -1854,6 +2559,7 @@ FN_RIVEN_ENCORE(xaku, vulkan)
     xaku->interface.cmd_set_compute_pipeline = _xaku_vulkan_cmd_set_compute_pipeline;
     xaku->interface.cmd_set_raster_pipeline = _xaku_vulkan_cmd_set_raster_pipeline;
     xaku->interface.cmd_set_ray_tracing_pipeline = _xaku_vulkan_cmd_set_ray_tracing_pipeline;
+    xaku->interface.cmd_set_work_graph_pipeline = _xaku_vulkan_cmd_set_work_graph_pipeline;
     xaku->interface.cmd_set_viewport = _xaku_vulkan_cmd_set_viewport;
     xaku->interface.cmd_set_scissor = _xaku_vulkan_cmd_set_scissor;
     xaku->interface.cmd_set_depth_bias = _xaku_vulkan_cmd_set_depth_bias;
@@ -1862,13 +2568,16 @@ FN_RIVEN_ENCORE(xaku, vulkan)
     xaku->interface.cmd_end_rendering = _xaku_vulkan_cmd_end_rendering;
     xaku->interface.cmd_dispatch = _xaku_vulkan_cmd_dispatch;
     xaku->interface.cmd_dispatch_indirect = _xaku_vulkan_cmd_dispatch_indirect;
+    xaku->interface.cmd_dispatch_graph = _xaku_vulkan_cmd_dispatch_graph;
+    xaku->interface.cmd_dispatch_graph_indirect = _xaku_vulkan_cmd_dispatch_graph_indirect;
+    xaku->interface.cmd_dispatch_graph_indirect_count = _xaku_vulkan_cmd_dispatch_graph_indirect_count;
     xaku->interface.cmd_draw = _xaku_vulkan_cmd_draw;
     xaku->interface.cmd_draw_indexed = _xaku_vulkan_cmd_draw_indexed;
     xaku->interface.cmd_draw_indirect = _xaku_vulkan_cmd_draw_indirect;
     xaku->interface.cmd_draw_indirect_count = _xaku_vulkan_cmd_draw_indirect_count;
-    xaku->interface.cmd_mesh_tasks = _xaku_vulkan_cmd_mesh_tasks;
-    xaku->interface.cmd_mesh_tasks_indirect = _xaku_vulkan_cmd_mesh_tasks_indirect;
-    xaku->interface.cmd_mesh_tasks_indirect_count = _xaku_vulkan_cmd_mesh_tasks_indirect_count;
+    xaku->interface.cmd_draw_mesh_tasks = _xaku_vulkan_cmd_draw_mesh_tasks;
+    xaku->interface.cmd_draw_mesh_tasks_indirect = _xaku_vulkan_cmd_draw_mesh_tasks_indirect;
+    xaku->interface.cmd_draw_mesh_tasks_indirect_count = _xaku_vulkan_cmd_draw_mesh_tasks_indirect_count;
     xaku->interface.cmd_trace_rays = _xaku_vulkan_cmd_trace_rays;
     xaku->interface.cmd_trace_rays_indirect = _xaku_vulkan_cmd_trace_rays_indirect;
     xaku->interface.cmd_write_timestamps = _xaku_vulkan_cmd_write_timestamps;

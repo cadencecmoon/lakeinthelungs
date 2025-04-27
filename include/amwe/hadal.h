@@ -628,14 +628,14 @@ typedef lake_nodiscard enum lake_result (LAKECALL *PFN_hadal_vulkan_surface_crea
 union hadal_monitor_view {
     struct {HADAL_INTERFACE_MONITOR_HEADER}    *header;
     struct hadal_monitor                       *monitor; 
-    union hadal_encore_view                    *encore_view;
+    union hadal_display                        *hadal;
 };
 
 /** A view into a window. */
 union hadal_window_view {
     struct {HADAL_INTERFACE_WINDOW_HEADER}     *header;
     struct hadal_window                        *window; 
-    union hadal_encore_view                    *encore_view;
+    union hadal_display                        *hadal;
 };
 
 /** A public interface of the display engine, implemented by a backend 'hadal_encore'. */

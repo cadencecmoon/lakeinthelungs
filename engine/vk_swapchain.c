@@ -5,6 +5,7 @@ FN_XAKU_SWAPCHAIN_ASSEMBLY(vulkan)
 {
     (void)device;
     (void)assembly;
+    (void)allocation;
     (void)out_swapchain;
     return lake_result_max_enum;
 }

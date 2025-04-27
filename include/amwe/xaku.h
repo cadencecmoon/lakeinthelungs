@@ -29,6 +29,8 @@ struct xaku_compute_pipeline;
 struct xaku_raster_pipeline;
 /** Defines the configuration of a pipeline for accelerated ray tracing. */
 struct xaku_ray_tracing_pipeline;
+/** Defines the configuration of a pipeline for GPU-driven shader scheduling with a work graph. */
+struct xaku_work_graph_pipeline;
 /** The context in which GPU commands are recorded for submission, externally synchronized. */
 struct xaku_command_recorder;
 /** A list of recorded GPU commands that can be submited for work. */
@@ -110,25 +112,56 @@ struct xaku_queue {
 };
 
 struct xaku_device_limits {
-    u32 max_image_dimension1d;
-    u32 max_image_dimension2d;
-    u32 max_image_dimension3d;
-    u32 max_image_dimension_cube;
-    u32 max_image_array_layers;
-    u32 max_texel_buffer_elements;
+    u32 max_texture_dimension1d;
+    u32 max_texture_dimension2d;
+    u32 max_texture_dimension3d;
+    u32 max_texture_dimension_cube;
+    u32 max_texture_array_layers;
     u32 max_uniform_buffer_range;
     u32 max_storage_buffer_range;
-    u32 max_push_constants_size;
+    u32 max_texel_buffer_elements;
+    u32 max_vertex_input_attributes;
+    u32 max_vertex_input_bindings;
+    u32 max_vertex_input_attribute_offset;
+    u32 max_vertex_input_binding_stride;
+    u32 max_vertex_output_components;
+    u32 max_fragment_input_components;
+    u32 max_fragment_output_attachments;
+    u32 max_fragment_dual_src_attachments;
+    u32 max_fragment_combined_output_resources;
+    u32 max_color_attachments;
+    u32 max_compute_shared_memory_size;
+    u32 max_compute_work_group_count[3];
+    u32 max_compute_work_group_invocations;
+    u32 max_compute_work_group_size[3];
+    u32 max_viewports;
+    u32 max_viewport_dimensions[2];
+    f32 viewport_bounds_range[2];
+    u32 viewport_sub_pixel_bits;
+    f32 point_size_range[2];
+    f32 timestamp_period;
+    u32 timestamp_compute_and_graphics;
+    u32 max_framebuffer_width;
+    u32 max_framebuffer_height;
+    u32 max_framebuffer_layers;
+    u32 framebuffer_color_sample_counts;
+    u32 framebuffer_depth_sample_counts;
+    u32 framebuffer_stencil_sample_counts;
+    u32 framebuffer_no_attachments_sample_counts;
+    u32 sampled_texture_color_sample_counts;
+    u32 sampled_texture_integer_sample_counts;
+    u32 sampled_texture_depth_sample_counts;
+    u32 sampled_texture_stencil_sample_counts;
+    u32 storage_texture_sample_counts;
+    usize min_memory_map_alignment;
     u32 max_memory_allocation_count;
-    u32 max_sampler_allocation_count;
-    u64 buffer_image_granularity;
-    u64 sparse_address_space_size;
     u32 max_bound_descriptor_sets;
+    u32 max_push_constants_size;
     u32 max_per_stage_descriptor_samplers;
     u32 max_per_stage_descriptor_uniform_buffers;
     u32 max_per_stage_descriptor_storage_buffers;
-    u32 max_per_stage_descriptor_sampled_images;
-    u32 max_per_stage_descriptor_storage_images;
+    u32 max_per_stage_descriptor_sampled_textures;
+    u32 max_per_stage_descriptor_storage_textures;
     u32 max_per_stage_descriptor_input_attachments;
     u32 max_per_stage_resources;
     u32 max_descriptor_set_samplers;
@@ -136,14 +169,24 @@ struct xaku_device_limits {
     u32 max_descriptor_set_uniform_buffers_dynamic;
     u32 max_descriptor_set_storage_buffers;
     u32 max_descriptor_set_storage_buffers_dynamic;
-    u32 max_descriptor_set_sampled_images;
-    u32 max_descriptor_set_storage_images;
+    u32 max_descriptor_set_sampled_textures;
+    u32 max_descriptor_set_storage_textures;
     u32 max_descriptor_set_input_attachments;
-    u32 max_vertex_input_attributes;
-    u32 max_vertex_input_bindings;
-    u32 max_vertex_input_attribute_offset;
-    u32 max_vertex_input_binding_stride;
-    u32 max_vertex_output_components;
+    u32 max_draw_indexed_index_value;
+    u32 max_draw_indirect_count;
+    u32 max_sampler_allocation_count;
+    f32 max_sampler_lod_bias;
+    f32 max_sampler_anisotropy;
+    u32 max_sample_mask_words;
+    s32 min_texel_offset;
+    u32 max_texel_offset;
+    s32 min_texel_gather_offset;
+    u32 max_texel_gather_offset;
+    u64 min_texel_buffer_offset_alignment;
+    u32 sub_texel_precision_bits;
+    u32 sub_pixel_precision_bits;
+    u32 sub_pixel_interpolation_offset_bits;
+    u32 mipmap_precision_bits;
     u32 max_tessellation_generation_level;
     u32 max_tessellation_patch_size;
     u32 max_tessellation_control_per_vertex_input_components;
@@ -157,81 +200,44 @@ struct xaku_device_limits {
     u32 max_geometry_output_components;
     u32 max_geometry_output_vertices;
     u32 max_geometry_total_output_components;
-    u32 max_fragment_input_components;
-    u32 max_fragment_output_attachments;
-    u32 max_fragment_dual_src_attachments;
-    u32 max_fragment_combined_output_resources;
-    u32 max_compute_shared_memory_size;
-    u32 max_compute_work_group_count[3];
-    u32 max_compute_work_group_invocations;
-    u32 max_compute_work_group_size[3];
-    u32 sub_pixel_precision_bits;
-    u32 sub_texel_precision_bits;
-    u32 mipmap_precision_bits;
-    u32 max_draw_indexed_index_value;
-    u32 max_draw_indirect_count;
-    f32 max_sampler_lod_bias;
-    f32 max_sampler_anisotropy;
-    u32 max_viewports;
-    u32 max_viewport_dimensions[2];
-    f32 viewport_bounds_range[2];
-    u32 viewport_sub_pixel_bits;
-    usize min_memory_map_alignment;
-    u64 min_texel_buffer_offset_alignment;
-    u64 min_uniform_buffer_offset_alignment;
-    u64 min_storage_buffer_offset_alignment;
-    s32 min_texel_offset;
-    u32 max_texel_offset;
-    s32 min_texel_gather_offset;
-    u32 max_texel_gather_offset;
-    f32 min_interpolation_offset;
-    f32 max_interpolation_offset;
-    u32 sub_pixel_interpolation_offset_bits;
-    u32 max_framebuffer_width;
-    u32 max_framebuffer_height;
-    u32 max_framebuffer_layers;
-    u32 framebuffer_color_sample_counts;
-    u32 framebuffer_depth_sample_counts;
-    u32 framebuffer_stencil_sample_counts;
-    u32 framebuffer_no_attachments_sample_counts;
-    u32 max_color_attachments;
-    u32 sampled_image_color_sample_counts;
-    u32 sampled_image_integer_sample_counts;
-    u32 sampled_image_depth_sample_counts;
-    u32 sampled_image_stencil_sample_counts;
-    u32 storage_image_sample_counts;
-    u32 max_sample_mask_words;
-    u32 timestamp_compute_and_graphics;
-    f32 timestamp_period;
     u32 max_clip_distances;
     u32 max_cull_distances;
     u32 max_combined_clip_and_cull_distances;
+    u64 min_uniform_buffer_offset_alignment;
+    u64 min_storage_buffer_offset_alignment;
+    f32 min_interpolation_offset;
+    f32 max_interpolation_offset;
+    u64 sparse_address_space_size;
     u32 discrete_queue_priorities;
-    f32 point_size_range[2];
-    f32 line_width_range[2];
+    u64 buffer_texture_granularity;
     f32 point_size_granularity;
     f32 line_width_granularity;
+    f32 line_width_range[2];
     u32 strict_lines;
     u32 standard_sample_locations;
     u64 optimal_buffer_copy_offset_alignment;
     u64 optimal_buffer_copy_row_pitch_alignment;
     u64 non_coherent_atom_size;
+    u64 total_device_local_memory_bytes;
+    u64 total_host_visible_memory_bytes;
+};
+
+enum xaku_ray_tracing_invocation_reorder_mode {
+    xaku_ray_tracing_invocation_reorder_mode_none = 0,
+    xaku_ray_tracing_invocation_reorder_mode_reorder,
 };
 
 struct xaku_ray_tracing_pipeline_properties {
     u32 shader_group_handle_size;
-    u32 max_ray_recursion_depth;
-    u32 max_shader_group_stride;
-    u32 shader_group_base_alignment;
     u32 shader_group_handle_capture_replay_size;
-    u32 max_ray_dispatch_invocation_count;
     u32 shader_group_handle_alignment;
+    u32 shader_group_base_alignment;
+    u32 max_shader_group_stride;
+    u32 max_ray_recursion_depth;
+    u32 max_ray_dispatch_invocation_count;
     u32 max_ray_hit_attribute_size;
+    enum xaku_ray_tracing_invocation_reorder_mode invocation_reorder_mode;
 };
-
-struct xaku_ray_tracing_invocation_reorder_properties {
-    u32 invocation_reorder_mode;
-}; 
 
 struct xaku_acceleration_structure_properties {
     u64 max_geometry_count;
@@ -245,28 +251,28 @@ struct xaku_acceleration_structure_properties {
 };
 
 struct xaku_mesh_shader_properties {
+    u32 mesh_output_per_vertex_granularity;
+    u32 mesh_output_per_primitive_granularity;
     u32 max_task_work_group_total_count;
     u32 max_task_work_group_count[3];
     u32 max_task_work_group_invocations;
     u32 max_task_work_group_size[3];
     u32 max_task_payload_size;
-    u32 max_task_shared_memory_size;
     u32 max_task_payload_and_shared_memory_size;
+    u32 max_task_shared_memory_size;
     u32 max_mesh_work_group_total_count;
     u32 max_mesh_work_group_count[3];
     u32 max_mesh_work_group_invocations;
     u32 max_mesh_work_group_size[3];
-    u32 max_mesh_shared_memory_size;
     u32 max_mesh_payload_and_shared_memory_size;
-    u32 max_mesh_output_memory_size;
     u32 max_mesh_payload_and_output_memory_size;
+    u32 max_mesh_shared_memory_size;
+    u32 max_mesh_output_memory_size;
     u32 max_mesh_output_components;
     u32 max_mesh_output_vertices;
     u32 max_mesh_output_primitives;
     u32 max_mesh_output_layers;
     u32 max_mesh_multiview_view_count;
-    u32 mesh_output_per_vertex_granularity;
-    u32 mesh_output_per_primitive_granularity;
     u32 max_preferred_task_work_group_invocations;
     u32 max_preferred_mesh_work_group_invocations;
     bool prefers_local_invocation_vertex_output;
@@ -275,58 +281,102 @@ struct xaku_mesh_shader_properties {
     bool prefers_compact_primitive_output;
 };
 
-enum xaku_explicit_feature_bits {
-    xaku_explicit_feature_none                                                          = 0u,
-    xaku_explicit_feature_buffer_device_address_capture_replay                          = (1u << 0),
-    xaku_explicit_feature_acceleration_structure_capture_replay                         = (1u << 1),
-    xaku_explicit_feature_vulkan_memory_model                                           = (1u << 2),
-    xaku_explicit_feature_robustness2                                                   = (1u << 3),
-    xaku_explicit_feature_video_decode_av1                                              = (1u << 4),
-    xaku_explicit_feature_video_decode_h264                                             = (1u << 5),
+struct xaku_work_graph_properties {
+    u32 work_graph_dispatch_address_alignment;
+    u32 max_work_graph_depth;
+    u32 max_work_graph_shader_output_nodes;
+    u32 max_work_graph_shader_payload_size;
+    u32 max_work_graph_shader_payload_count;
+    u32 max_work_graph_workgroup_count[3];
+    u32 max_work_graph_workgroups;
 };
-typedef u32 xaku_explicit_features;
+
+enum xaku_missing_required_feature_bits {
+    xaku_missing_required_feature_none                                  = 0u,
+    xaku_missing_required_feature_descriptor_indexing                   = (1u << 0), /* update after bind, runtime descriptor array */
+    xaku_missing_required_feature_buffer_device_address                 = (1u << 1), /* capture replay, multi device */
+    xaku_missing_required_feature_multi_draw_indirect                   = (1u << 2),
+    xaku_missing_required_feature_tessellation_shader                   = (1u << 3),
+    xaku_missing_required_feature_depth_clamp                           = (1u << 4),
+    xaku_missing_required_feature_sampler_anisotropy                    = (1u << 5),
+    xaku_missing_required_feature_framebuffer_local_dependencies        = (1u << 6), /* dynamic rendering, local read */
+    xaku_missing_required_feature_timeline_semaphore                    = (1u << 7),
+    xaku_missing_required_feature_fragment_stores_and_atomics           = (1u << 8),
+    xaku_missing_required_feature_texture_cube_array                    = (1u << 9),
+    xaku_missing_required_feature_shader_storage_texture                = (1u << 10), /* multisample, read/write without format */
+    xaku_missing_required_feature_shader_int64                          = (1u << 11),
+    xaku_missing_required_feature_fill_mode_wireframe                   = (1u << 12),
+    xaku_missing_required_feature_resolve_host_query_data               = (1u << 13),
+    xaku_missing_required_feature_subgroup_size_control                 = (1u << 14),
+    xaku_missing_required_feature_scalar_block_layout                   = (1u << 15),
+    xaku_missing_required_feature_independent_blend                     = (1u << 16),
+    xaku_missing_required_feature_variable_pointers                     = (1u << 17),
+};
+typedef u32 xaku_missing_required_features;
 
 enum xaku_implicit_feature_bits {
-    xaku_implicit_feature_none                                                          = 0u,
-    xaku_implicit_feature_mesh_shader                                                   = (1u << 0),
-    xaku_implicit_feature_basic_ray_tracing                                             = (1u << 1),
-    xaku_implicit_feature_ray_tracing_pipeline                                          = (1u << 2),
-    xaku_implicit_feature_ray_tracing_invocation_reorder                                = (1u << 3),
-    xaku_implicit_feature_ray_tracing_position_fetch                                    = (1u << 4),
-    xaku_implicit_feature_conservative_rasterization                                    = (1u << 5),
-    xaku_implicit_feature_image_atomic64                                                = (1u << 6),
-    xaku_implicit_feature_shader_atomic_float                                           = (1u << 7),
-    xaku_implicit_feature_shader_atomic_int64                                           = (1u << 8),
-    xaku_implicit_feature_shader_float16                                                = (1u << 9),
-    xaku_implicit_feature_shader_int16                                                  = (1u << 10),
-    xaku_implicit_feature_shader_int8                                                   = (1u << 11),
-    xaku_implicit_feature_swapchain                                                     = (1u << 12),
-    xaku_implicit_feature_khr_dynamic_state3                                            = (1u << 13),
+    xaku_implicit_feature_none                                          = 0u,
+    xaku_implicit_feature_mesh_shader                                   = (1u << 0),
+    xaku_implicit_feature_basic_ray_tracing                             = (1u << 1),
+    xaku_implicit_feature_ray_tracing_pipeline                          = (1u << 2),
+    xaku_implicit_feature_ray_tracing_invocation_reorder                = (1u << 3),
+    xaku_implicit_feature_ray_tracing_position_fetch                    = (1u << 4),
+    xaku_implicit_feature_conservative_rasterization                    = (1u << 5),
+    xaku_implicit_feature_work_graph                                    = (1u << 6),
+    xaku_implicit_feature_image_atomic64                                = (1u << 7),
+    xaku_implicit_feature_shader_atomic_float                           = (1u << 8),
+    xaku_implicit_feature_shader_atomic_int64                           = (1u << 9),
+    xaku_implicit_feature_shader_float16                                = (1u << 10),
+    xaku_implicit_feature_shader_int16                                  = (1u << 11),
+    xaku_implicit_feature_shader_int8                                   = (1u << 12),
+    xaku_implicit_feature_dynamic_state                                 = (1u << 13),
+    xaku_implicit_feature_sparse_binding                                = (1u << 14),
+    xaku_implicit_feature_swapchain                                     = (1u << 15),
 };
 typedef u32 xaku_implicit_features;
 
+enum xaku_explicit_feature_bits {
+    xaku_explicit_feature_none                                          = 0u,
+    xaku_explicit_feature_buffer_device_address_capture_replay          = (1u << 0),
+    xaku_explicit_feature_acceleration_structure_capture_replay         = (1u << 1),
+    xaku_explicit_feature_vulkan_memory_model                           = (1u << 2),
+    xaku_explicit_feature_robust_access                                 = (1u << 3),
+    xaku_explicit_feature_video_decode_queue                            = (1u << 4),
+    xaku_explicit_feature_video_encode_queue                            = (1u << 5),
+    xaku_explicit_feature_multi_viewport                                = (1u << 6),
+    xaku_explicit_feature_multiview_vr                                  = (1u << 7),
+};
+typedef u32 xaku_explicit_features;
+
+enum xaku_video_feature_bits {
+    xaku_video_feature_none                                             = 0u,
+    xaku_video_feature_av1_decode                                       = (1u << 0),
+    xaku_video_feature_av1_encode                                       = (1u << 1),
+    xaku_video_feature_h264_decode                                      = (1u << 2),
+    xaku_video_feature_h264_encode                                      = (1u << 3),
+};
+typedef u32 xaku_video_features;
+
 struct xaku_device_properties {
-    u32                                                     api_version;
-    u32                                                     driver_version;
-    u32                                                     vendor_id;
-    u32                                                     device_id;
-    enum xaku_device_type                                   device_type;
-    char                                                    device_name[256u];
-    char                                                    pipeline_cache_uuid[16u];
-    bool                                                    has_mesh_shader_properties;
-    bool                                                    has_ray_tracing_pipeline_properties;
-    bool                                                    has_ray_tracing_invocation_reoder_properties;
-    bool                                                    has_acceleration_structure_properties;
-    struct xaku_mesh_shader_properties                      mesh_shader_properties;
-    struct xaku_ray_tracing_pipeline_properties             ray_tracing_pipeline_properties;
-    struct xaku_ray_tracing_invocation_reorder_properties   ray_tracing_invocation_reorder_properties;
-    struct xaku_acceleration_structure_properties           acceleration_structure_properties;
-    struct xaku_device_limits                               limits;
-    u32                                                     compute_queue_count;
-    u32                                                     transfer_queue_count;
-    xaku_implicit_features                                  implicit_features;
-    xaku_explicit_features                                  explicit_features;
-    u64                                                     total_score;
+    u32                                                                     api_version;
+    u32                                                                     driver_version;
+    u32                                                                     vendor_id;
+    u32                                                                     device_id;
+    enum xaku_device_type                                                   device_type;
+    char                                                                    device_name[256u];
+    char                                                                    pipeline_cache_uuid[16u];
+    lake_optional(struct xaku_ray_tracing_pipeline_properties)              ray_tracing_pipeline_properties;
+    lake_optional(struct xaku_acceleration_structure_properties)            acceleration_structure_properties;
+    lake_optional(struct xaku_mesh_shader_properties)                       mesh_shader_properties;
+    lake_optional(struct xaku_work_graph_properties)                        work_graph_properties;
+    struct xaku_device_limits                                               limits;
+    u32                                                                     compute_queue_count;
+    u32                                                                     transfer_queue_count;
+    xaku_missing_required_features                                          missing_required_features;
+    xaku_implicit_features                                                  implicit_features;
+    xaku_explicit_features                                                  explicit_features;
+    xaku_video_features                                                     video_features;
+    u64                                                                     total_score;
 }; 
 
 struct xaku_device_assembly {
@@ -334,22 +384,25 @@ struct xaku_device_assembly {
     u32                                                     physical_device_index;
     /** Explicit features must be manually enabled. */
     xaku_explicit_features                                  explicit_features;
+    /** Device limits, a physical device may be discarded if it doesn't meet these requirements. */
     u32                                                     max_allowed_textures;
     u32                                                     max_allowed_buffers;
     u32                                                     max_allowed_samplers;
     u32                                                     max_allowed_acceleration_structures;
-    struct lake_allocation                                  host_allocation;
     lake_small_string                                       name;
 };
 #define XAKU_DEVICE_ASSEMBLY_INIT { \
     .physical_device_index = ~0u, \
     .explicit_features = xaku_explicit_feature_buffer_device_address_capture_replay, \
+    .video_features = xaku_video_feature_none, \
     .max_allowed_textures = 10000, \
     .max_allowed_buffers = 10000, \
     .max_allowed_samplers = 400, \
     .max_allowed_acceleration_structures = 10000, \
     .name = LAKE_ZERO_INIT, \
 }
+
+typedef u64 xaku_device_address;
 
 enum xaku_memory_flag_bits {
     xaku_memory_flag_none                           = 0,
@@ -704,6 +757,11 @@ enum xaku_access {
     xaku_access_end_write,                                                                /**< Write access end, access types count. */
 };
 
+union xaku_device_or_host_address {
+    xaku_device_address device_address;
+    const void         *host_address;
+};
+
 struct xaku_memory_barrier {
     enum xaku_access                            src_access;
     enum xaku_access                            dst_access;
@@ -1045,7 +1103,7 @@ struct xaku_blas_triangle_geometry {
 }
 
 struct xaku_blas_aabb_geometry {
-    u64                                         data;   /**< device address */
+    xaku_device_address                         data;
     u64                                         stride;
     u32                                         count;
     xaku_geometry_flags                         geometry_flags;
@@ -1073,7 +1131,7 @@ union xaku_blas_geometry_span {
 };
 
 struct xaku_tlas_instance {
-    u64                                         data;   /**< device address */
+    xaku_device_address                         data;
     u32                                         count;
     xaku_geometry_flags                         geometry_flags;
 };
@@ -1105,7 +1163,7 @@ struct xaku_tlas_assembly {
     xaku_tlas_id                                dst_tlas;
     const struct xaku_tlas_instance            *instances;
     u32                                         instance_count;
-    u64                                         scratch_data; /**< device address */
+    xaku_device_address                         scratch_data;
 };
 #define XAKU_TLAS_ASSEMBLY_INIT { \
     .flags = xaku_acceleration_structure_assembly_flag_prefer_fast_trace, \
@@ -1130,7 +1188,7 @@ struct xaku_blas_assembly {
     xaku_blas_id                                src_blas;
     xaku_blas_id                                dst_blas;
     union xaku_blas_geometry_span               geometries;
-    u64                                         scratch_data; /**< device address */
+    xaku_device_address                         scratch_data;
 };
 #define XAKU_BLAS_ASSEMBLY_INIT { \
     .flags = xaku_acceleration_structure_assembly_flag_prefer_fast_trace, \
@@ -1474,6 +1532,52 @@ struct xaku_ray_tracing_pipeline_compile_assembly {
     .name = LAKE_ZERO_INIT, \
 }
 
+enum xaku_work_graph_node_shader_type {
+    xaku_work_graph_shader_node_compute = 0,
+    xaku_work_graph_shader_node_mesh,
+};
+
+struct xaku_work_graph_node_params {
+    enum xaku_work_graph_node_shader_type                           shader_type;
+    union {
+        const struct xaku_compute_pipeline                         *compute;
+        const struct xaku_raster_pipeline                          *mesh;
+    } library;
+};
+
+struct xaku_work_graph_pipeline_assembly {
+    lake_span_to_const(struct xaku_shader_params)                   shaders; /* compute */
+    lake_span_to_const(struct xaku_work_graph_node_params)          nodes; /* mesh or compute pipelines */
+    u32                                                             push_constant_size;
+    lake_small_string                                               name;
+};
+#define XAKU_WORK_GRAPH_PIPELINE_ASSEMBLY_INIT { \
+    .shaders = LAKE_ZERO_INIT, \
+    .nodes = LAKE_ZERO_INIT, \
+    .push_constant_size = XAKU_MAX_PUSH_CONSTANT_BYTE_SIZE, \
+    .name = LAKE_ZERO_INIT, \
+}
+
+struct xaku_work_graph_pipeline_compile_assembly {
+    lake_span_to_const(struct xaku_shader_compile_params)           shaders; /* compute */
+    lake_span_to_const(struct xaku_work_graph_node_params)          nodes; /* mesh or compute pipelines */
+    u32                                                             push_constant_size;
+    lake_small_string                                               name;
+};
+#define XAKU_WORK_GRAPH_PIPELINE_ASSEMBLY_INIT { \
+    .shaders = LAKE_ZERO_INIT, \
+    .nodes = LAKE_ZERO_INIT, \
+    .push_constant_size = XAKU_MAX_PUSH_CONSTANT_BYTE_SIZE, \
+    .name = LAKE_ZERO_INIT, \
+}
+
+struct xaku_work_graph_node {
+    u32                                 node_index;
+    u32                                 payload_count;
+    union xaku_device_or_host_address   payloads;
+    u64                                 payload_stride;
+};
+
 struct xaku_command_recorder_assembly {
     enum xaku_queue_type            queue_family;
     lake_small_string               name;
@@ -1619,7 +1723,7 @@ struct xaku_index_buffer_params {
 struct xaku_render_attachment_resolve_params {
     xaku_texture_view_id        texture_view;
     enum xaku_texture_layout    layout;
-    u32                         mode; /**< enum xaku_resolve_mode_bits */
+    xaku_resolve_modes          mode;
 };
 #define XAKU_RENDER_ATTACHMENT_RESOLVE_PARAMS_INIT { \
     .texture_view = LAKE_ZERO_INIT, \
@@ -1628,13 +1732,12 @@ struct xaku_render_attachment_resolve_params {
 }
 
 struct xaku_render_attachment_params {
-    xaku_texture_view_id                            texture_view;
-    enum xaku_texture_layout                        layout;
-    enum xaku_load_op                               load_op;
-    enum xaku_store_op                              store_op;
-    union xaku_clear_value                          clear_value;
-    u8                                              has_resolve;
-    struct xaku_render_attachment_resolve_params   *resolve; /* optional */
+    xaku_texture_view_id                                        texture_view;
+    enum xaku_texture_layout                                    layout;
+    enum xaku_load_op                                           load_op;
+    enum xaku_store_op                                          store_op;
+    union xaku_clear_value                                      clear_value;
+    lake_optional(struct xaku_render_attachment_resolve_params) resolve;
 };
 #define XAKU_RENDER_ATTACHMENT_PARAMS_INIT { \
     .texture_view = LAKE_ZERO_INIT, \
@@ -1667,6 +1770,25 @@ struct xaku_dispatch_indirect_params {
     u64            indirect_buffer_offset;
 };
 #define XAKU_DISPATCH_INDIRECT_PARAMS_INIT LAKE_ZERO_INIT
+
+/** PFN_xaku_cmd_dispatch_graph, at indirect nodes payloads are treated as device address. */
+struct xaku_dispatch_graph_indirect_params {
+    xaku_device_address                 scratch;
+    u64                                 scratch_size;
+    u32                                 count;
+    /* device or host address of a flat array of 'struct xaku_work_graph_node' structures. */
+    union xaku_device_or_host_address   nodes;
+    u64                                 stride;
+};
+#define XAKU_DISPATCH_GRAPH_INDIRECT_PARAMS_INIT LAKE_ZERO_INIT
+
+/** PFN_xaku_cmd_dispatch_graph_indirect_count */
+struct xaku_dispatch_graph_indirect_count_params {
+    xaku_device_address                 scratch;
+    u64                                 scratch_size;
+    xaku_device_address                 nodes;
+};
+#define XAKU_DISPATCH_GRAPH_INDIRECT_COUNT_PARAMS_INIT LAKE_ZERO_INIT
 
 /** PFN_xaku_cmd_draw */
 struct xaku_draw_params {
@@ -1735,13 +1857,13 @@ struct xaku_draw_indirect_count_params {
 }
 
 /** PFN_xaku_cmd_mesh_tasks_indirect */
-struct xaku_mesh_tasks_indirect_params {
+struct xaku_draw_mesh_tasks_indirect_params {
     xaku_buffer_id indirect_buffer;
     u64            offset;
     u32            draw_count;
     u32            stride;
 };
-#define XAKU_MESH_TASKS_INDIRECT_PARAMS_INIT { \
+#define XAKU_DRAW_MESH_TASKS_INDIRECT_PARAMS_INIT { \
     .indirect_buffer = LAKE_ZERO_INIT, \
     .offset = 0, \
     .draw_count = 1, \
@@ -1749,7 +1871,7 @@ struct xaku_mesh_tasks_indirect_params {
 }
 
 /** PFN_xaku_cmd_mesh_tasks_indirect_count */
-struct xaku_mesh_tasks_indirect_count_params {
+struct xaku_draw_mesh_tasks_indirect_count_params {
     xaku_buffer_id indirect_buffer;
     u64            indirect_buffer_offset;
     xaku_buffer_id count_buffer;
@@ -1757,7 +1879,7 @@ struct xaku_mesh_tasks_indirect_count_params {
     u32            max_count;
     u32            stride;
 };
-#define XAKU_MESH_TASKS_INDIRECT_COUNT_PARAMS_INIT { \
+#define XAKU_DRAW_MESH_TASKS_INDIRECT_COUNT_PARAMS_INIT { \
     .indirect_buffer = LAKE_ZERO_INIT, \
     .indirect_buffer_offset = 0, \
     .count_buffer = LAKE_ZERO_INIT, \
@@ -1793,7 +1915,7 @@ struct xaku_trace_rays_indirect_params {
 /** PFN_xaku_cmd_write_timestamps */
 struct xaku_write_timestamp_params {
     struct xaku_query_pool             *query_pool;
-    u32                                 shader_stage; /**< enum xaku_shader_stage_bits */
+    u32                                 shader_stage; /**< enum xaku_shader_stage_bits TODO */
     u32                                 query_index;
 };
 #define XAKU_WRITE_TIMESTAMP_PARAMS_INIT LAKE_ZERO_INIT
@@ -1846,6 +1968,7 @@ struct xaku_command_label_params {
 #define XAKU_INTERFACE_COMPUTE_PIPELINE_HEADER      _XAKU_INTERFACE_DEVICE_OBJECT_HEADER(compute_pipeline)
 #define XAKU_INTERFACE_RASTER_PIPELINE_HEADER       _XAKU_INTERFACE_DEVICE_OBJECT_HEADER(raster_pipeline)
 #define XAKU_INTERFACE_RAY_TRACING_PIPELINE_HEADER  _XAKU_INTERFACE_DEVICE_OBJECT_HEADER(ray_tracing_pipeline)
+#define XAKU_INTERFACE_WORK_GRAPH_PIPELINE_HEADER   _XAKU_INTERFACE_DEVICE_OBJECT_HEADER(work_graph_pipeline)
 #define XAKU_INTERFACE_COMMAND_RECORDER_HEADER      _XAKU_INTERFACE_DEVICE_OBJECT_HEADER(command_recorder)
     
 /** Must be implemented as the first member by the following internal structures are accessed via a render handle. */
@@ -1865,9 +1988,9 @@ typedef void (LAKECALL *PFN_xaku_list_devices_properties)(struct xaku_encore *xa
     void LAKECALL _xaku_##ENCORE##_list_devices_properties(struct xaku_encore *xaku, u32 *property_count, const struct xaku_device_properties **properties)
 
 /** Create a rendering device from given assembly details. */
-typedef lake_nodiscard enum lake_result (LAKECALL *PFN_xaku_device_assembly)(struct xaku_encore *xaku, struct xaku_device_assembly *assembly, struct xaku_device **out_device);
+typedef lake_nodiscard enum lake_result (LAKECALL *PFN_xaku_device_assembly)(struct xaku_encore *xaku, const struct xaku_device_assembly *assembly, struct riven_allocation *allocation, struct xaku_device **out_device);
 #define FN_XAKU_DEVICE_ASSEMBLY(ENCORE) \
-    lake_nodiscard enum lake_result LAKECALL _xaku_##ENCORE##_device_assembly(struct xaku_encore *xaku, struct xaku_device_assembly *assembly, struct xaku_device **out_device)
+    lake_nodiscard enum lake_result LAKECALL _xaku_##ENCORE##_device_assembly(struct xaku_encore *xaku, const struct xaku_device_assembly *assembly, struct riven_allocation *allocation, struct xaku_device **out_device)
 
 /** Destroy a rendering device, zero ref callback. */
 typedef void (LAKECALL *PFN_xaku_device_disassembly)(struct xaku_device *device);
@@ -1908,9 +2031,9 @@ typedef lake_nodiscard enum lake_result (LAKECALL *PFN_xaku_deferred_resource_di
 
 /** Used to assemble an object that uses an internal reference counter: devices, swapchains, pipelines, etc. */
 #define _PFN_XAKU_OBJECT_ASSEMBLY(T) \
-    typedef lake_nodiscard enum lake_result (LAKECALL *PFN_xaku_##T##_assembly)(struct xaku_device *device, struct xaku_##T##_assembly *assembly, struct xaku_##T **out_##T);
+    typedef lake_nodiscard enum lake_result (LAKECALL *PFN_xaku_##T##_assembly)(struct xaku_device *device, const struct xaku_##T##_assembly *assembly, struct riven_allocation *allocation, struct xaku_##T **out_##T);
 #define _FN_XAKU_OBJECT_ASSEMBLY(ENCORE, T) \
-    lake_nodiscard enum lake_result LAKECALL _xaku_##ENCORE##_##T##_assembly(struct xaku_device *device, struct xaku_##T##_assembly *assembly, struct xaku_##T **out_##T)
+    lake_nodiscard enum lake_result LAKECALL _xaku_##ENCORE##_##T##_assembly(struct xaku_device *device, const struct xaku_##T##_assembly *assembly, struct riven_allocation *allocation, struct xaku_##T **out_##T)
 /** Used as a callback for zero reference count, or to explicitly destroy an object.
  *  Can be run as a job with Riven, cast into PFN_riven_work. */
 #define _PFN_XAKU_OBJECT_DISASSEMBLY(T) \
@@ -1957,6 +2080,11 @@ _PFN_XAKU_OBJECT_ASSEMBLY(ray_tracing_pipeline);
 _PFN_XAKU_OBJECT_DISASSEMBLY(ray_tracing_pipeline);
 #define FN_XAKU_RAY_TRACING_PIPELINE_ASSEMBLY(ENCORE)       _FN_XAKU_OBJECT_ASSEMBLY(ENCORE, ray_tracing_pipeline)
 #define FN_XAKU_RAY_TRACING_PIPELINE_DISASSEMBLY(ENCORE)    _FN_XAKU_OBJECT_DISASSEMBLY(ENCORE, ray_tracing_pipeline)
+
+_PFN_XAKU_OBJECT_ASSEMBLY(work_graph_pipeline);
+_PFN_XAKU_OBJECT_DISASSEMBLY(work_graph_pipeline);
+#define FN_XAKU_WORK_GRAPH_PIPELINE_ASSEMBLY(ENCORE)        _FN_XAKU_OBJECT_ASSEMBLY(ENCORE, work_graph_pipeline)
+#define FN_XAKU_WORK_GRAPH_PIPELINE_DISASSEMBLY(ENCORE)     _FN_XAKU_OBJECT_DISASSEMBLY(ENCORE, work_graph_pipeline)
 
 _PFN_XAKU_OBJECT_ASSEMBLY(command_recorder);
 _PFN_XAKU_OBJECT_DISASSEMBLY(command_recorder);
@@ -2118,6 +2246,11 @@ typedef lake_nodiscard enum lake_result (LAKECALL *PFN_xaku_cmd_set_ray_tracing_
 #define FN_XAKU_CMD_SET_RAY_TRACING_PIPELINE(ENCORE) \
     lake_nodiscard enum lake_result LAKECALL _xaku_##ENCORE##_cmd_set_ray_tracing_pipeline(struct xaku_command_recorder *cmd, struct xaku_ray_tracing_pipeline *pipeline)
 
+/** Bind work graph pipeline for dispatch graph commands. */
+typedef lake_nodiscard enum lake_result (LAKECALL *PFN_xaku_cmd_set_work_graph_pipeline)(struct xaku_command_recorder *cmd, struct xaku_work_graph_pipeline *pipeline);
+#define FN_XAKU_CMD_SET_WORK_GRAPH_PIPELINE(ENCORE) \
+    lake_nodiscard enum lake_result LAKECALL _xaku_##ENCORE##_cmd_set_work_graph_pipeline(struct xaku_command_recorder *cmd, struct xaku_work_graph_pipeline *pipeline)
+
 /** Configure viewport transformation dimensions. */
 typedef void (LAKECALL *PFN_xaku_cmd_set_viewport)(struct xaku_command_recorder *cmd, const struct lake_viewport *viewport);
 #define FN_XAKU_CMD_SET_VIEWPORT(ENCORE) \
@@ -2158,6 +2291,21 @@ typedef lake_nodiscard enum lake_result (LAKECALL *PFN_xaku_cmd_dispatch_indirec
 #define FN_XAKU_CMD_DISPATCH_INDIRECT(ENCORE) \
     lake_nodiscard enum lake_result LAKECALL _xaku_##ENCORE##_cmd_dispatch_indirect(struct xaku_command_recorder *cmd, const struct xaku_dispatch_indirect_params *params)
 
+/** Execute work group nodes with host addresses. */
+typedef lake_nodiscard enum lake_result (LAKECALL *PFN_xaku_cmd_dispatch_graph)(struct xaku_command_recorder *cmd, const struct xaku_dispatch_graph_indirect_params *params);
+#define FN_XAKU_CMD_DISPATCH_GRAPH(ENCORE) \
+    lake_nodiscard enum lake_result LAKECALL _xaku_##ENCORE##_cmd_dispatch_graph(struct xaku_command_recorder *cmd, const struct xaku_dispatch_graph_indirect_params *params)
+
+/** Execute work group nodes with indirect device addresses. */
+typedef lake_nodiscard enum lake_result (LAKECALL *PFN_xaku_cmd_dispatch_graph_indirect)(struct xaku_command_recorder *cmd, const struct xaku_dispatch_graph_indirect_params *params);
+#define FN_XAKU_CMD_DISPATCH_GRAPH_INDIRECT(ENCORE) \
+    lake_nodiscard enum lake_result LAKECALL _xaku_##ENCORE##_cmd_dispatch_graph_indirect(struct xaku_command_recorder *cmd, const struct xaku_dispatch_graph_indirect_params *params)
+
+/** Execute work group nodes with all parameters read on device. */
+typedef lake_nodiscard enum lake_result (LAKECALL *PFN_xaku_cmd_dispatch_graph_indirect_count)(struct xaku_command_recorder *cmd, const struct xaku_dispatch_graph_indirect_count_params *params);
+#define FN_XAKU_CMD_DISPATCH_GRAPH_INDIRECT_COUNT(ENCORE) \
+    lake_nodiscard enum lake_result LAKECALL _xaku_##ENCORE##_cmd_dispatch_graph_indirect_count(struct xaku_command_recorder *cmd, const struct xaku_dispatch_graph_indirect_count_params *params)
+
 /** Draw non-indexed primitives with vertex count. */
 typedef void (LAKECALL *PFN_xaku_cmd_draw)(struct xaku_command_recorder *cmd, const struct xaku_draw_params *params);
 #define FN_XAKU_CMD_DRAW(ENCORE) \
@@ -2179,19 +2327,19 @@ typedef lake_nodiscard enum lake_result (LAKECALL *PFN_xaku_cmd_draw_indirect_co
     lake_nodiscard enum lake_result LAKECALL _xaku_##ENCORE##_cmd_draw_indirect_count(struct xaku_command_recorder *cmd, const struct xaku_draw_indirect_count_params *params)
 
 /** Execute mesh shader workgroups directly. */
-typedef void (LAKECALL *PFN_xaku_cmd_mesh_tasks)(struct xaku_command_recorder *cmd, u32 x, u32 y, u32 z);
-#define FN_XAKU_CMD_MESH_TASKS(ENCORE) \
-    void LAKECALL _xaku_##ENCORE##_cmd_mesh_tasks(struct xaku_command_recorder *cmd, u32 x, u32 y, u32 z)
+typedef void (LAKECALL *PFN_xaku_cmd_draw_mesh_tasks)(struct xaku_command_recorder *cmd, u32 x, u32 y, u32 z);
+#define FN_XAKU_CMD_DRAW_MESH_TASKS(ENCORE) \
+    void LAKECALL _xaku_##ENCORE##_cmd_draw_mesh_tasks(struct xaku_command_recorder *cmd, u32 x, u32 y, u32 z)
 
 /** Execute mesh shader workgroups using indirect parameters buffer. */
-typedef lake_nodiscard enum lake_result (LAKECALL *PFN_xaku_cmd_mesh_tasks_indirect)(struct xaku_command_recorder *cmd, const struct xaku_mesh_tasks_indirect_params *params);
-#define FN_XAKU_CMD_MESH_TASKS_INDIRECT(ENCORE) \
-    lake_nodiscard enum lake_result LAKECALL _xaku_##ENCORE##_cmd_mesh_tasks_indirect(struct xaku_command_recorder *cmd, const struct xaku_mesh_tasks_indirect_params *params)
+typedef lake_nodiscard enum lake_result (LAKECALL *PFN_xaku_cmd_draw_mesh_tasks_indirect)(struct xaku_command_recorder *cmd, const struct xaku_draw_mesh_tasks_indirect_params *params);
+#define FN_XAKU_CMD_DRAW_MESH_TASKS_INDIRECT(ENCORE) \
+    lake_nodiscard enum lake_result LAKECALL _xaku_##ENCORE##_cmd_draw_mesh_tasks_indirect(struct xaku_command_recorder *cmd, const struct xaku_draw_mesh_tasks_indirect_params *params)
 
 /** Execute mesh shader workgroups using indirect parameters buffer with deferred count argument. */
-typedef lake_nodiscard enum lake_result (LAKECALL *PFN_xaku_cmd_mesh_tasks_indirect_count)(struct xaku_command_recorder *cmd, const struct xaku_mesh_tasks_indirect_count_params *params);
-#define FN_XAKU_CMD_MESH_TASKS_INDIRECT_COUNT(ENCORE) \
-    lake_nodiscard enum lake_result LAKECALL _xaku_##ENCORE##_cmd_mesh_tasks_indirect_count(struct xaku_command_recorder *cmd, const struct xaku_mesh_tasks_indirect_count_params *params)
+typedef lake_nodiscard enum lake_result (LAKECALL *PFN_xaku_cmd_draw_mesh_tasks_indirect_count)(struct xaku_command_recorder *cmd, const struct xaku_draw_mesh_tasks_indirect_count_params *params);
+#define FN_XAKU_CMD_DRAW_MESH_TASKS_INDIRECT_COUNT(ENCORE) \
+    lake_nodiscard enum lake_result LAKECALL _xaku_##ENCORE##_cmd_draw_mesh_tasks_indirect_count(struct xaku_command_recorder *cmd, const struct xaku_draw_mesh_tasks_indirect_count_params *params)
 
 /** Execute ray tracing workload directly. */
 typedef lake_nodiscard enum lake_result (LAKECALL *PFN_xaku_cmd_trace_rays)(struct xaku_command_recorder *cmd, const struct xaku_trace_rays_params *params);
@@ -2279,7 +2427,7 @@ enum xaku_rendering_strategy {
 union xaku_device_view { 
     struct {XAKU_INTERFACE_DEVICE_HEADER}  *header; 
     struct xaku_device                     *device; 
-    union xaku_encore_view                 *encore_view; 
+    union xaku_renderer                    *xaku; 
 };
 
 /** Views onto opaque device objects. */
@@ -2287,7 +2435,7 @@ union xaku_device_view {
     union xaku_##T##_view { \
         struct {_XAKU_INTERFACE_DEVICE_OBJECT_HEADER(T)} *header; \
         struct xaku_##T                                  *T; \
-        union xaku_device_view                           *device_view; \
+        union xaku_device_view                           *device; \
     };
 /** A view into 'struct xaku_memory'. */
 _XAKU_INTERFACE_OPAQUE_OBJECT_VIEW(memory)
@@ -2301,6 +2449,8 @@ _XAKU_INTERFACE_OPAQUE_OBJECT_VIEW(compute_pipeline)
 _XAKU_INTERFACE_OPAQUE_OBJECT_VIEW(raster_pipeline)
 /** A view into 'struct xaku_ray_tracing_pipeline'. */
 _XAKU_INTERFACE_OPAQUE_OBJECT_VIEW(ray_tracing_pipeline)
+/** A view into 'struct xaku_work_graph_pipeline'. */
+_XAKU_INTERFACE_OPAQUE_OBJECT_VIEW(work_graph_pipeline)
 /** A view into 'struct xaku_command_recorder'. */
 _XAKU_INTERFACE_OPAQUE_OBJECT_VIEW(command_recorder)
 
@@ -2321,29 +2471,25 @@ struct xaku_interface {
     PFN_xaku_device_wait_idle                       device_wait_idle;
     PFN_xaku_device_submit                          device_submit;
     PFN_xaku_device_present                         device_present;
-    /** Should be called at some point, to destroy any zombified resources (memory, query pools, swapchains, pipelines, etc.). */
+    /** Should be called at some point, to destroy any zombified device objects (memory, query pools, swapchains, pipelines, etc.). */
     PFN_xaku_deferred_resource_disassembly          deferred_resource_disassembly;
 
     PFN_xaku_memory_assembly                        memory_assembly;
     PFN_xaku_memory_disassembly                     memory_disassembly;
     PFN_xaku_memory_buffer_requirements             memory_buffer_requirements;
     PFN_xaku_memory_texture_requirements            memory_texture_requirements;
-
     PFN_xaku_query_pool_assembly                    query_pool_assembly;
     PFN_xaku_query_pool_disassembly                 query_pool_disassembly;
-
     PFN_xaku_swapchain_assembly                     swapchain_assembly;
     PFN_xaku_swapchain_disassembly                  swapchain_disassembly;
-
     PFN_xaku_compute_pipeline_assembly              compute_pipeline_assembly;
     PFN_xaku_compute_pipeline_disassembly           compute_pipeline_disassembly;
-
     PFN_xaku_raster_pipeline_assembly               raster_pipeline_assembly;
     PFN_xaku_raster_pipeline_disassembly            raster_pipeline_disassembly;
-
     PFN_xaku_ray_tracing_pipeline_assembly          ray_tracing_pipeline_assembly;
     PFN_xaku_ray_tracing_pipeline_disassembly       ray_tracing_pipeline_disassembly;
-
+    PFN_xaku_work_graph_pipeline_assembly           work_graph_pipeline_assembly;
+    PFN_xaku_work_graph_pipeline_disassembly        work_graph_pipeline_disassembly;
     PFN_xaku_command_recorder_assembly              command_recorder_assembly;
     PFN_xaku_command_recorder_disassembly           command_recorder_disassembly;
 
@@ -2392,6 +2538,7 @@ struct xaku_interface {
     PFN_xaku_cmd_set_compute_pipeline               cmd_set_compute_pipeline;
     PFN_xaku_cmd_set_raster_pipeline                cmd_set_raster_pipeline;
     PFN_xaku_cmd_set_ray_tracing_pipeline           cmd_set_ray_tracing_pipeline;
+    PFN_xaku_cmd_set_work_graph_pipeline            cmd_set_work_graph_pipeline;
     PFN_xaku_cmd_set_viewport                       cmd_set_viewport;
     PFN_xaku_cmd_set_scissor                        cmd_set_scissor;
     PFN_xaku_cmd_set_depth_bias                     cmd_set_depth_bias;
@@ -2400,13 +2547,16 @@ struct xaku_interface {
     PFN_xaku_cmd_end_rendering                      cmd_end_rendering;
     PFN_xaku_cmd_dispatch                           cmd_dispatch;
     PFN_xaku_cmd_dispatch_indirect                  cmd_dispatch_indirect;
+    PFN_xaku_cmd_dispatch_graph                     cmd_dispatch_graph;
+    PFN_xaku_cmd_dispatch_graph_indirect            cmd_dispatch_graph_indirect;
+    PFN_xaku_cmd_dispatch_graph_indirect_count      cmd_dispatch_graph_indirect_count;
     PFN_xaku_cmd_draw                               cmd_draw;
     PFN_xaku_cmd_draw_indexed                       cmd_draw_indexed;
     PFN_xaku_cmd_draw_indirect                      cmd_draw_indirect;
     PFN_xaku_cmd_draw_indirect_count                cmd_draw_indirect_count;
-    PFN_xaku_cmd_mesh_tasks                         cmd_mesh_tasks;
-    PFN_xaku_cmd_mesh_tasks_indirect                cmd_mesh_tasks_indirect;
-    PFN_xaku_cmd_mesh_tasks_indirect_count          cmd_mesh_tasks_indirect_count;
+    PFN_xaku_cmd_draw_mesh_tasks                    cmd_draw_mesh_tasks;
+    PFN_xaku_cmd_draw_mesh_tasks_indirect           cmd_draw_mesh_tasks_indirect;
+    PFN_xaku_cmd_draw_mesh_tasks_indirect_count     cmd_draw_mesh_tasks_indirect_count;
     PFN_xaku_cmd_trace_rays                         cmd_trace_rays;
     PFN_xaku_cmd_trace_rays_indirect                cmd_trace_rays_indirect;
     PFN_xaku_cmd_write_timestamps                   cmd_write_timestamps;
@@ -2441,6 +2591,12 @@ LAKEAPI FN_RIVEN_ENCORE(xaku, null);
 /** Returns an array of native encores, with a predefined priority. */
 LAKEAPI lake_nonnull(2) const PFN_riven_encore *LAKECALL 
 xaku_native_encores(bool null_fallback, u32 *out_encore_count);
+
+LAKEAPI lake_const const char *LAKECALL 
+xaku_device_type_string(enum xaku_device_type type);
+
+LAKEAPI lake_nonnull(1) lake_pure u64 LAKECALL
+xaku_device_calculate_score(const struct xaku_device_properties *properties);
 
 #ifdef __cplusplus
 }

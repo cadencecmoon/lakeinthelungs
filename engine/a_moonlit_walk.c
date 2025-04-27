@@ -65,12 +65,12 @@ extern FN_RIVEN_INTERFACE_VALIDATION(soma);
 
 static s32 engine_init(struct a_moonlit_walk_engine *amwe)
 {
-    s32 result = 0;
+    s32 result = lake_result_success;
     struct riven_work begins[ENCORE_COUNT];
     struct riven_encore_assembly_work encore_assembly_work[ENCORE_COUNT]; 
-    bedrock_zeroa(encore_assembly_work);
     bedrock_log_verbose("- - - engine initialize - - -");
 
+    bedrock_zeroa(encore_assembly_work);
     for (u32 i = 0; i < ENCORE_COUNT; i++) {
         encore_assembly_work[i].riven = &amwe->riven;
         /* for now don't own the tag */
@@ -97,8 +97,8 @@ static s32 engine_init(struct a_moonlit_walk_engine *amwe)
 
     /* check results and exit on errors */
     for (u32 i = 0; i < ENCORE_COUNT; i++)
-        if (*encore_assembly_work[i].out_interface == NULL) result = -1;
-    if (result != 0) return result;
+        if (*encore_assembly_work[i].out_interface == NULL) result = lake_result_error_initialization_failed;
+    if (result != lake_result_success) return result;
 
     /* TODO continue */
 
@@ -193,6 +193,8 @@ s32 a_moonlit_walk(
                 ? amwe_hint_pipeline_setting_parallel
                 : amwe_hint_pipeline_setting_sequential;
         }
+        /* reset deferred scratch thread-local heaps */
+        riven_thfree(riven, riven_tag_deferred);
 
         /* XXX debug, delete later */
         s32 close_counter = DEBUG_CLOSE_COUNTER;
@@ -215,7 +217,6 @@ s32 a_moonlit_walk(
             pipeline_work[RENDERING_WORK_INDEX].name = stage_names[RENDERING_WORK_INDEX];
             pipeline_work[GPUEXEC_WORK_INDEX].procedure = (PFN_riven_work)a_moonlit_walk_gpuexec;
             pipeline_work[GPUEXEC_WORK_INDEX].name = stage_names[GPUEXEC_WORK_INDEX];
-            bool continue_gameloop = true;
 
             bedrock_log_verbose("- - - gameloop entry - - - parallel - - -");
             while (simulation || rendering || gpuexec || cleanup) {
@@ -265,22 +266,17 @@ s32 a_moonlit_walk(
                     pipeline_work[SIMULATION_WORK_INDEX].argument = simulation;
                     riven_split_work(riven, &pipeline_work[SIMULATION_WORK_INDEX], 1, &simulation->chain);
                 }
-                continue_gameloop &= stage_result == amwe_pipeline_stage_result_continue;
 
                 /* XXX debug, delete later */
-                close_counter--;
-                if (close_counter <= 0)
-                    continue_gameloop = false;
+                if (--close_counter <= 0) stage_result = amwe_pipeline_stage_result_save_and_exit;
 
                 cleanup = gpuexec;
                 gpuexec = rendering;
                 rendering = simulation;
-                simulation = continue_gameloop ? &frames[(++frame_index) & PIPELINE_WORK_MASK] : NULL;
+                simulation = stage_result == amwe_pipeline_stage_result_continue 
+                    ? &frames[(++frame_index) & PIPELINE_WORK_MASK] : NULL;
+                riven_rotate_deferred(riven);
             }
-            /* wait for all work to finish before leaving the gameloop */
-            for (u32 i = 0; i < PIPELINE_WORK_COUNT; i++)
-                riven_unchain(riven, frames[i].chain);
-
         } else {
             /** Runs the pipeline one frame at a time. This setting will lesser synchronization overhead and 
              *  decrease input latency, at potential cost of performance or CPU bottleneck on multicore CPUs. */
@@ -308,15 +304,13 @@ s32 a_moonlit_walk(
                     if (frame->stage_result != amwe_pipeline_stage_result_continue)
                         stage_result = frame->stage_result;
                 }
+
                 /* XXX debug, delete later */
-                close_counter--;
-                if (close_counter <= 0) {
-                    frame = NULL;
-                    continue;
-                }
+                if (--close_counter <= 0) stage_result = amwe_pipeline_stage_result_save_and_exit;
 
                 frame = stage_result == amwe_pipeline_stage_result_continue 
                     ? &frames[(++frame_index) & PIPELINE_WORK_MASK] : NULL;
+                riven_rotate_deferred(riven);
             }
         } /* LEAVE GAMELOOP */
         bedrock_log_verbose("- - - gameloop leave - - - at frame %lu - - -", frame_index);
@@ -338,7 +332,7 @@ s32 a_moonlit_walk(
 
     engine_fini(&amwe);
     if (stage_result == amwe_pipeline_stage_result_restart_application)
-        exitcode = INT32_MAX;
+        exitcode = lake_result_retry;
     return exitcode;
 }
 
@@ -411,7 +405,7 @@ s32 a_moonlit_walk_entry_point__(
         }
         res = riven_moonlit_walk(&riven_hints, framework, &riven_app);
         riven_app.engine = NULL;
-    } while (res == INT32_MAX);
+    } while (res == lake_result_retry);
 
     return res;
 }

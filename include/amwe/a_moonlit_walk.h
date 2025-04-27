@@ -22,11 +22,8 @@ extern "C" {
 #define AMWE_CSTR_NAME "A Moonlit Walk Engine"
 
 /** Implemented by the application. The pointer 'engine' inside 'struct riven_app' can be safely cast 
- *  into 'struct a_moonlit_walk_engine *'. When the framework calls a lake encore, it is assumed that 
- *  all other core systems (e.g. display, renderer, audio engine, etc.) are initialized.
- *
- *  XXX maybe i can implement an additional init/fini inside the lake interface, to decouple the 
- *  core systems dependency from setting up an application instance. */
+ *  into 'struct a_moonlit_walk_engine *' from within the encore. When the framework calls a lake encore, 
+ *  it is assumed that other systems encores (e.g. display, renderer, audio engine, etc.) are not yet created. */
 struct lake_encore;
 
 /** Interface of the application. */
@@ -42,7 +39,7 @@ union lake_app {
 };
 
 enum amwe_hint_pipeline_setting {
-    amwe_hint_pipeline_setting_auto = 0,
+    amwe_hint_pipeline_setting_auto = 0u,
     amwe_hint_pipeline_setting_parallel,
     amwe_hint_pipeline_setting_sequential,
     amwe_hint_pipeline_setting_max_enum,
