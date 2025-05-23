@@ -196,6 +196,8 @@ typedef struct {
     u8 size; 
 } lake_small_string;
 
+#define lake_span_t(T) struct { T *span; usize count; }
+
 /** Result codes for error checking. */
 typedef enum : s32 {
     LAKE_SUCCESS                                                     = 0,

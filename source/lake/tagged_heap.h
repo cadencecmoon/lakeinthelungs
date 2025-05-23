@@ -86,7 +86,7 @@ typedef struct {
     lake_heap_tag tag;
     /** Allows a custom allocator to hook this memory range for detailed profiling. */
     u32           id;
-} lake_heap_memory;
+} lake_heap;
 
 /** Allocates a block (or range of blocks) of memory under this tag. The requested 
  *  size will be aligned to `LAKE_HEAP_BLOCK_SIZE`. Requests of size 0 are ignored. 
@@ -98,10 +98,10 @@ typedef struct {
 LAKE_NODISCARD LAKE_NONNULL_ALL LAKE_HOT_FN
 LAKEAPI lake_result LAKECALL 
 lake_theap_alloc(
-    lake_heap_tag     tag, 
-    lake_heap_attr    attr,
-    usize             request, 
-    lake_heap_memory *out_memory);
+    lake_heap_tag   tag, 
+    lake_heap_attr  attr,
+    usize           request, 
+    lake_heap      *out_heap);
 
 /** Releases all resources that were requested under this tag, so the memory heaps 
  *  can be reused with new requests.

@@ -103,15 +103,15 @@ LAKE_FORCE_INLINE u32 lake_dec_refcnt(lake_interface_header *header)
 }
 
 /** Implements an interface. Must be defined by an unique backend. */
-typedef LAKE_NODISCARD void *(LAKECALL *PFN_lake_assembly)(void *userdata, lake_heap_tag tag, s32 log_level);
-/** Defines a function of signature `PFN_lake_assembly`. */
-#define FN_LAKE_ASSEMBLY(fn, T, Tout) \
-    LAKE_NODISCARD Tout *LAKECALL fn(T, lake_heap_tag tag, s32 log_level)
+typedef LAKE_NODISCARD void *(LAKECALL *PFN_lake_interface_assembly)(void *assembly, lake_heap_tag tag, s32 log_level);
+/** Defines a function of signature `PFN_lake_interface_assembly`. */
+#define FN_LAKE_INTERFACE_ASSEMBLY(fn, T, Tout) \
+    LAKE_NODISCARD Tout *LAKECALL fn(T *assembly, lake_heap_tag tag, s32 log_level)
 
-/** Validates an interface implementation, accepts expected data output of `PFN_lake_assembly`. */
-typedef LAKE_NODISCARD bool (LAKECALL *PFN_lake_validation)(void *assembly, s32 log_level);
-/** Defines a function of signature `PFN_lake_validation`. */
-#define FN_LAKE_VALIDATION(fn, T) \
+/** Validates an interface implementation, accepts expected data output of `PFN_lake_interface_assembly`. */
+typedef LAKE_NODISCARD bool (LAKECALL *PFN_lake_interface_validation)(void *interface, s32 log_level);
+/** Defines a function of signature `PFN_lake_interface_validation`. */
+#define FN_LAKE_INTERFACE_VALIDATION(fn, T) \
     LAKE_NODISCARD bool LAKECALL fn(T, s32 log_level)
 
 /** Work argument for `lake_assembly` to run them in parallel. A list of implementations 
@@ -122,23 +122,23 @@ typedef LAKE_NODISCARD bool (LAKECALL *PFN_lake_validation)(void *assembly, s32 
  *  the address pointer by `output`. If no assembly succeeds, nullptr is written instead. */
 typedef struct {
     /** A name of the requested interface, for tracing. */
-    const char         *name;
+    char const                     *name;
     /** Optional argument for the assembly functions. */
-    void               *userdata;
+    void                           *argument;
     /** The expected lifetime of the interface. */
-    lake_heap_tag       tag;
+    lake_heap_tag                   tag;
     /** Will be used for tracing log messages. */
-    s32                 log_level;
+    s32                             log_level;
     /** If a non-negative value, it will be used as the first target in `assembly`. */
-    s32                 preferred_idx;
+    s32                             preferred_idx;
     /** How many implementations are available for this interface. */
-    u32                 assembly_count;
+    u32                             assembly_count;
     /** An array of acceptable implementations. */
-    PFN_lake_assembly  *assembly;
+    PFN_lake_interface_assembly    *assembly;
     /** Optional procedure to possibly discard an assembly that returned successfull. */
-    PFN_lake_validation validation;
+    PFN_lake_interface_validation   validation;
     /** Where the interface (or implementation handle) should be written. */
-    void              **output;
+    void                          **output;
 } lake_assembly_work;
 
 /** Assembles an interface from possible implementations. */
