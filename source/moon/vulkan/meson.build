@@ -7,7 +7,7 @@ moon_sources += files(
     'vk_timeline.c',
 )
 
-if not cc.has_header('vulkan.h')
+if not cc.has_header('vulkan/vulkan.h')
     vulkan_headers = subproject('vulkan-headers')
     moon_deps += vulkan_headers.get_variable('vulkan_headers_dep')
 endif

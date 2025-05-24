@@ -94,6 +94,10 @@ lake_sources = []
 lake_deps = []
 subdir('lake')
 
+hadal_sources = []
+hadal_deps = []
+subdir('hadal')
+
 moon_sources = []
 moon_deps = []
 subdir('moon')
@@ -104,8 +108,16 @@ add_project_arguments(cpp_args, language: ['cpp'])
 
 # engine library
 a_moonlit_walk = library(
-    'amwe', [ lake_sources, moon_sources ],
-    dependencies: [ lake_deps, moon_deps ],
+    'amwe', [ 
+        lake_sources, 
+        hadal_sources, 
+        moon_sources,
+    ],
+    dependencies: [ 
+        lake_deps, 
+        hadal_deps, 
+        moon_deps,
+    ],
     include_directories: include_dir,
     install: true)
 amwe_dep = declare_dependency(

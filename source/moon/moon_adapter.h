@@ -1,7 +1,7 @@
 #pragma once
 
 /** @file moon/moon_adapter.h
- *  @brief Rendering backend access points and core defines.
+ *  @brief Rendering backend.
  *
  *  Rendering resources (buffers, textures, texture views, samplers, acceleration structures) 
  *  are represented as IDs and accessed via a bindless API. One ID can be shared between
