@@ -4,18 +4,17 @@
  *  @brief Shader pipeline objects.
  *
  *  Following interface procedures are defined:
- *      PFN_moon_compute_pipeline_assembly
+ *      PFN_moon_compute_pipelines_assembly
  *      PFN_moon_compute_pipeline_zero_refcnt
- *      PFN_moon_raster_pipeline_assembly
+ *      PFN_moon_raster_pipelines_assembly
  *      PFN_moon_raster_pipeline_zero_refcnt
- *      PFN_moon_ray_tracing_pipeline_assembly
+ *      PFN_moon_ray_tracing_pipelines_assembly
  *      PFN_moon_ray_tracing_pipeline_zero_refcnt
- *      PFN_moon_work_graph_pipeline_assembly
+ *      PFN_moon_work_graph_pipelines_assembly
  *      PFN_moon_work_graph_pipeline_zero_refcnt
  */
 #include "moon_adapter.h"
 #include "moon_timeline.h"
-//#include "../lake/data_structures/darray.h"
 
 #define MOON_MAX_COLOR_ATTACHMENTS 8
 #define MOON_MAX_PUSH_CONSTANT_WORD_SIZE (32u)
@@ -126,15 +125,15 @@ typedef enum : moon_face_cull {
 } moon_face_cull_bits;
 
 typedef enum : s8 {
-    moon_conservative_raster_mode_disabled = 0,
-    moon_conservative_raster_mode_overestimate,
-    moon_conservative_raster_mode_underestimate,
-} moon_conservative_raster_mode;
+    moon_conservative_rasterizer_mode_disabled = 0,
+    moon_conservative_rasterizer_mode_overestimate,
+    moon_conservative_rasterizer_mode_underestimate,
+} moon_conservative_rasterizer_mode;
 
 typedef struct {
-    moon_conservative_raster_mode   mode;
-    f32                             size;
-} moon_conservative_raster;
+    moon_conservative_rasterizer_mode   mode;
+    f32                                 size;
+} moon_conservative_rasterizer;
 
 typedef struct {
     moon_primitive_topology         primitive_topology;
@@ -149,13 +148,13 @@ typedef struct {
     f32                             depth_bias_clamp;
     f32                             depth_bias_slope_factor;
     f32                             line_width;
-    moon_conservative_raster        conservative_raster;
-    bool                            has_conservative_raster;
+    moon_conservative_rasterizer    conservative_rasterizer;
+    bool                            has_conservative_rasterizer;
     u8                          pad0[1];
     moon_sample_count               static_state_sample_count;
     bool                            has_static_state_sample_count;
-} moon_raster;
-static constexpr moon_raster MOON_RASTER_INIT = {
+} moon_rasterizer;
+static constexpr moon_rasterizer MOON_RASTERIZER_INIT = {
     .primitive_topology = moon_primitive_topology_triangle_list,
     .polygon_mode = moon_polygon_mode_fill,
     .face_culling = moon_face_cull_none,
@@ -168,8 +167,8 @@ static constexpr moon_raster MOON_RASTER_INIT = {
     .depth_bias_clamp = 0.0f,
     .depth_bias_slope_factor = 0.0f,
     .line_width = 1.0f,
-    .conservative_raster = { .mode = moon_conservative_raster_mode_disabled, .size = 0 },
-    .has_conservative_raster = false,
+    .conservative_rasterizer = { .mode = moon_conservative_rasterizer_mode_disabled, .size = 0 },
+    .has_conservative_rasterizer = false,
     .static_state_sample_count = moon_sample_count_1,
     .has_static_state_sample_count = true,
 };
@@ -282,7 +281,7 @@ typedef struct {
     moon_stencil_test       stencil_test;
     moon_depth_test         depth_test;
     moon_tesselation        tesselation;
-    moon_raster             raster;
+    moon_rasterizer         rasterizer;
     u8                  pad1[4];
     u32                     push_constant_size;
     lake_small_string       name;
@@ -319,7 +318,7 @@ static constexpr moon_raster_pipeline_assembly MOON_RASTER_PIPELINE_ASSEMBLY_INI
     .stencil_test = MOON_STENCIL_TEST_INIT,
     .depth_test = MOON_DEPTH_TEST_INIT,
     .tesselation = MOON_TESSELATION_INIT,
-    .raster = MOON_RASTER_INIT,
+    .rasterizer = MOON_RASTERIZER_INIT,
     .push_constant_size = MOON_MAX_PUSH_CONSTANT_BYTE_SIZE,
     .name = {0},
 };
@@ -398,21 +397,25 @@ static constexpr moon_work_graph_pipeline_assembly MOON_WORK_GRAPH_PIPELINE_ASSE
     .name = {0},
 };
 
-PFN_MOON_ASSEMBLY(compute_pipeline, compute_pipeline_assembly, device);
-#define FN_MOON_COMPUTE_PIPELINE_ASSEMBLY(backend) \
-    FN_MOON_ASSEMBLY(backend, compute_pipeline, compute_pipeline_assembly, device);
+/** Assemble an array of compute pipelines. */
+typedef LAKE_NODISCARD lake_result (LAKECALL *PFN_moon_compute_pipelines_assembly)(moon_device device, u32 count, moon_compute_pipeline_assembly const *assembly, moon_compute_pipeline *out_pipelines);
+#define FN_MOON_COMPUTE_PIPELINES_ASSEMBLY(backend) \
+    LAKE_NODISCARD lake_result LAKECALL _moon_##backend##_compute_pipelines_assembly(moon_device device, u32 count, moon_compute_pipeline_assembly const *assembly, moon_compute_pipeline *out_pipelines)
 
-PFN_MOON_ASSEMBLY(raster_pipeline, raster_pipeline_assembly, device);
-#define FN_MOON_RASTER_PIPELINE_ASSEMBLY(backend) \
-    FN_MOON_ASSEMBLY(backend, raster_pipeline, raster_pipeline_assembly, device);
+/** Assemble an array of raster pipelines. */
+typedef LAKE_NODISCARD lake_result (LAKECALL *PFN_moon_raster_pipelines_assembly)(moon_device device, u32 count, moon_raster_pipeline_assembly const *assembly, moon_raster_pipeline *out_pipelines);
+#define FN_MOON_RASTER_PIPELINES_ASSEMBLY(backend) \
+    LAKE_NODISCARD lake_result LAKECALL _moon_##backend##_raster_pipelines_assembly(moon_device device, u32 count, moon_raster_pipeline_assembly const *assembly, moon_raster_pipeline *out_pipelines)
 
-PFN_MOON_ASSEMBLY(ray_tracing_pipeline, ray_tracing_pipeline_assembly, device);
-#define FN_MOON_RAY_TRACING_PIPELINE_ASSEMBLY(backend) \
-    FN_MOON_ASSEMBLY(backend, ray_tracing_pipeline, ray_tracing_pipeline_assembly, device);
+/** Assemble an array of ray tracing pipelines. */
+typedef LAKE_NODISCARD lake_result (LAKECALL *PFN_moon_ray_tracing_pipelines_assembly)(moon_device device, u32 count, moon_ray_tracing_pipeline_assembly const *assembly, moon_ray_tracing_pipeline *out_pipelines);
+#define FN_MOON_RAY_TRACING_PIPELINES_ASSEMBLY(backend) \
+    LAKE_NODISCARD lake_result LAKECALL _moon_##backend##_ray_tracing_pipelines_assembly(moon_device device, u32 count, moon_ray_tracing_pipeline_assembly const *assembly, moon_ray_tracing_pipeline *out_pipelines)
 
-PFN_MOON_ASSEMBLY(work_graph_pipeline, work_graph_pipeline_assembly, device);
-#define FN_MOON_WORK_GRAPH_PIPELINE_ASSEMBLY(backend) \
-    FN_MOON_ASSEMBLY(backend, work_graph_pipeline, work_graph_pipeline_assembly, device);
+/** Assemble an array of work graph pipelines. */
+typedef LAKE_NODISCARD lake_result (LAKECALL *PFN_moon_work_graph_pipelines_assembly)(moon_device device, u32 count, moon_work_graph_pipeline_assembly const *assembly, moon_work_graph_pipeline *out_pipelines);
+#define FN_MOON_WORK_GRAPH_PIPELINES_ASSEMBLY(backend) \
+    LAKE_NODISCARD lake_result LAKECALL _moon_##backend##_work_graph_pipelines_assembly(moon_device device, u32 count, moon_work_graph_pipeline_assembly const *assembly, moon_work_graph_pipeline *out_pipelines)
 
 PFN_MOON_ZERO_REFCNT(compute_pipeline);
 #define FN_MOON_COMPUTE_PIPELINE_ZERO_REFCNT(backend) \

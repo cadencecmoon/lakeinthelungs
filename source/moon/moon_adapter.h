@@ -25,9 +25,6 @@ LAKE_DECL_HANDLE(moon_timeline_query_pool);
 LAKE_DECL_HANDLE(moon_timeline_semaphore);
 /** Represents a binary synchronization primitive where signals and waits must always happen on 1:1 pairs. */
 LAKE_DECL_HANDLE(moon_binary_semaphore);
-/** The swapchain is a way to present rendered images into a window surface, 
- *  that is owned by the display backend. */
-LAKE_DECL_HANDLE(moon_swapchain);
 /** Represents pipelines that dispatch compute shaders. */
 LAKE_DECL_HANDLE(moon_compute_pipeline);
 /** Represents a traditional shader pipeline, may include mesh shaders on hardware support. */
@@ -37,8 +34,12 @@ LAKE_DECL_HANDLE(moon_raster_pipeline);
 LAKE_DECL_HANDLE(moon_ray_tracing_pipeline);
 /** Work graphs enable shaders to create and schedule GPU work. Experimental hardware feature. */
 LAKE_DECL_HANDLE(moon_work_graph_pipeline);
-/** An executable command buffer that can be submited into a device queue. Has no public interface. */
-LAKE_DECL_HANDLE(moon_executable_commands);
+/** A context to record GPU work, later compiled into staged command lists. */
+LAKE_DECL_HANDLE(moon_command_recorder);
+/** An executable command buffer that can be submited to a device queue. */
+LAKE_DECL_HANDLE(moon_staged_command_list);
+/** The swapchain is a way to present rendered images into a window surface, that is owned by the display backend. */
+LAKE_DECL_HANDLE(moon_swapchain);
 
 typedef struct { u64 handle; } moon_buffer_id;
 typedef struct { u64 handle; } moon_texture_id;
@@ -84,18 +85,16 @@ typedef union {
 #define MOON_QUEUE_VIDEO_ENCODE_BEGIN_INDEX     (MOON_QUEUE_VIDEO_DECODE_BEGIN_INDEX + MOON_MAX_VIDEO_DECODE_QUEUE_COUNT)
 #define MOON_QUEUE_INDEX_COUNT                  (MOON_QUEUE_VIDEO_ENCODE_BEGIN_INDEX + MOON_MAX_VIDEO_ENCODE_QUEUE_COUNT)
 
+/** Queue types used for scheduling different type of GPU work. */
 typedef enum : s8  {
     moon_queue_type_none            = 0,
     moon_queue_type_main            = (1 << 0),
     moon_queue_type_compute         = (1 << 1),
     moon_queue_type_transfer        = (1 << 2),
-    moon_queue_type_any             = moon_queue_type_main | moon_queue_type_compute | moon_queue_type_transfer,
     moon_queue_type_sparse_binding  = (1 << 3),
     moon_queue_type_video_decode    = (1 << 4),
     moon_queue_type_video_encode    = (1 << 5),
     moon_queue_type_count           = 6,
-    moon_queue_type_true_any        = moon_queue_type_any | moon_queue_type_sparse_binding | 
-                                      moon_queue_type_video_decode | moon_queue_type_video_encode,
 } moon_queue_type;
 
 /** Used to access a specific command queue. */
@@ -155,7 +154,8 @@ moon_assembly_list_of_native_adapters(
 }
 #endif /* __cplusplus */
 
-/** Helper to declare interface procedures related to object assembly. TODO allocator. */
+/* TODO Allocator. When allocators are added to the assembly calls, the pipelines assembly should be updated too. */
+/** Helper to declare interface procedures related to object assembly. */
 #define PFN_MOON_ASSEMBLY(T, Tasm, parent) \
     typedef LAKE_NODISCARD lake_result (LAKECALL *PFN_moon_##Tasm)( \
         moon_##parent parent, moon_##Tasm const *assembly, moon_##T *out_##T)

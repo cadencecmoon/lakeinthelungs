@@ -23,7 +23,7 @@
 #include "version.h"
 
 #include "data_structures/allocator.h"
-#include "data_structures/arena.h"
+#include "data_structures/arena_allocator.h"
 #include "data_structures/bitset.h"
 #include "data_structures/block_allocator.h"
 #include "data_structures/darray.h"
@@ -31,8 +31,9 @@
 #include "data_structures/hashmap.h"
 #include "data_structures/map.h"
 #include "data_structures/mpmc_ring.h"
+#include "data_structures/slab_allocator.h"
 #include "data_structures/sparse.h"
-#include "data_structures/stack.h"
+#include "data_structures/stack_allocator.h"
 #include "data_structures/switch_list.h"
 #include "data_structures/tree_allocator.h"
 

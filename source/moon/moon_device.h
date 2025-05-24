@@ -18,8 +18,8 @@
  *      PFN_moon_device_memory_report
  */
 #include "moon_adapter.h"
-#include "moon_memory_heap.h"
 #include "moon_gpu_resources.h"
+#include "moon_pipelines.h"
 #include "moon_timeline.h"
 
 typedef enum : s16 {
@@ -37,7 +37,7 @@ typedef struct {
     u32 max_texture_array_layers;
     u32 max_uniform_buffer_range;
     u32 max_storage_buffer_range;
-    u32 max_push_constant_size;
+    u32 max_root_constant_size;
     u32 max_sampled_textures;
     u32 max_storage_textures;
     u32 max_samplers;
@@ -260,8 +260,8 @@ PFN_LAKE_WORK(PFN_moon_device_wait_idle, moon_device device);
 typedef struct {
     moon_queue                      queue;
     moon_pipeline_stages            wait_stages;
-    moon_executable_commands const *exec_cmds;
-    usize                           exec_cmd_count;
+    moon_staged_command_list const *staged_command_lists;
+    usize                           staged_command_list_count;
     moon_binary_semaphore const    *wait_binary_semaphores;
     usize                           wait_binary_semaphore_count;
     moon_binary_semaphore const    *signal_binary_semaphores;
